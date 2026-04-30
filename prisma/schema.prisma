@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://neondb_owner:npg_jBHmp0hl3JrT@ep-empty-tree-angbicxg-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique
+  password      String
+  name          String
+  role          String    // admin, manager, agent
+  initials      String
+  empId         String    @unique
+  managerId     Int?
+  manager       User?     @relation("UserManager", fields: [managerId], references: [id])
+  subordinates  User[]    @relation("UserManager")
+  dob           String?
+  doj           String?
+  email         String?
+  address       String?
+  contact       String?
+  active        Boolean   @default(true)
+  deactReason   String?
+  
+  assignedLeads Customer[] @relation("AssignedAgent")
+  payments      Payment[]  @relation("PaymentAgent")
+  ptps          PTP[]      @relation("PTPAgent")
+  disputes      Dispute[]  @relation("DisputeAgent")
+  
+  portfoliosManaged Portfolio[] @relation("PortfolioManagers")
+  portfoliosAgent   Portfolio[] @relation("PortfolioAgents")
+}
+
+model Customer {
+  id            Int       @id @default(autoincrement())
+  account_no    String    @unique
+  name          String
+  mobile        String
+  alt_mobile    String?
+  email         String?
+  pan           String?
+  product       String?
+  bank          String?
+  outstanding   Float     @default(0)
+  dpd           Int       @default(0)
+  status        String    @default("active")
+  city          String?
+  state         String?
+  dob           String?
+  gender        String?
+  address       String?
+  employer      String?
+  salary        Float?
+  
+  assignedAgentId Int?
+  assignedAgent   User?    @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  
+  portfolioId   String?
+  portfolio     Portfolio? @relation(fields: [portfolioId], references: [id])
+  
+  payments      Payment[]
+  ptps          PTP[]
+  disputes      Dispute[]
+}
+
+model Payment {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  amount          Float
+  mode            String
+  ref             String?
+  date            String
+  agentId         Int
+  agent           User      @relation("PaymentAgent", fields: [agentId], references: [id])
+  status          String    @default("pending_approval") // pending_approval, cleared, rejected
+  remarks         String?
+  flag            String?   // flagged, approved, rejected, needs_info, escalated
+  flagBy          Int?
+  flagComment     String?
+  rejectionReason String?
+}
+
+model PTP {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  amount          Float
+  date            String
+  status          String    @default("pending")
+  agentId         Int
+  agent           User      @relation("PTPAgent", fields: [agentId], references: [id])
+  voc             String?
+  remarks         String?
+  flag            String?
+  flagComment     String?
+  rejectionReason String?
+  created         String
+}
+
+model Dispute {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  type            String
+  raisedDate      String
+  status          String    @default("open")
+  agentId         Int
+  agent           User      @relation("DisputeAgent", fields: [agentId], references: [id])
+  description     String?
+  resolution      String?
+  flag            String?
+  flagComment     String?
+  escalated       Boolean   @default(false)
+}
+
+model Portfolio {
+  id          String   @id
+  name        String
+  agents      User[]   @relation("PortfolioAgents")
+  managers    User[]   @relation("PortfolioManagers")
+  customers   Customer[]
+}
