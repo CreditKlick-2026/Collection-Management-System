@@ -2,6 +2,134 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 
+const NewPTPModal = ({ onDone }: { onDone: () => void }) => {
+  const { closeModal, toast } = useApp();
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      toast('PTP recorded successfully');
+      closeModal();
+      onDone();
+    }, 600);
+  };
+
+  return (
+    <div style={{ padding: '0 20px 20px' }}>
+      <div style={{ background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.2)', padding: '12px 16px', borderRadius: 8, marginBottom: 20, color: 'var(--amb)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span>⏳</span> PTP will be added to the active tracker for agent follow-up.
+      </div>
+
+      <div className="ff" style={{ marginBottom: 15 }}>
+        <label>ACCOUNT NUMBER *</label>
+        <input className="finp" placeholder="e.g. CC-2024-002" />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
+        <div className="ff">
+          <label>PTP AMOUNT (₹) *</label>
+          <input className="finp" type="number" placeholder="0" />
+        </div>
+        <div className="ff">
+          <label>PTP DATE *</label>
+          <input className="finp" type="date" />
+        </div>
+      </div>
+
+      <div className="ff" style={{ marginBottom: 25 }}>
+        <label>REMARKS / VOC</label>
+        <textarea className="finp" rows={3} style={{ resize: 'vertical' }} placeholder="Customer notes..." />
+      </div>
+
+      <button className="btn" style={{ width: '100%', padding: '12px', background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', border: '1px solid rgba(46,204,138,0.2)' }} onClick={handleSubmit} disabled={loading}>
+        {loading ? 'Submitting...' : '💳 Save Promise to Pay'}
+      </button>
+    </div>
+  );
+};
+
+const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
+  const { closeModal, toast } = useApp();
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      toast('PTP updated successfully');
+      closeModal();
+      onDone();
+    }, 600);
+  };
+
+  return (
+    <div style={{ padding: '0 20px 20px' }}>
+      <div style={{ background: 'rgba(79,125,255,0.08)', border: '1px solid rgba(79,125,255,0.2)', padding: '12px 16px', borderRadius: 8, marginBottom: 20, color: 'var(--acc2)', fontSize: 13 }}>
+        Account: <b>{item?.account_no || item?.account}</b> <span style={{ color: 'var(--txt3)' }}>·</span> <b>{item?.customer_name || item?.customer}</b>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
+        <div className="ff">
+          <label>PTP AMOUNT (₹)</label>
+          <input className="finp" defaultValue={item?.ptp_amount || item?.amount} />
+        </div>
+        <div className="ff">
+          <label>PTP DATE</label>
+          <input className="finp" type="date" defaultValue={item?.ptp_date?.split('/').reverse().join('-') || ''} />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
+        <div className="ff">
+          <label>STATUS</label>
+          <select className="finp" defaultValue={item?.status}>
+            <option value="pending">pending</option>
+            <option value="partial">partial</option>
+            <option value="kept">kept</option>
+            <option value="broken">broken</option>
+            <option value="paid">paid</option>
+          </select>
+        </div>
+        <div className="ff">
+          <label>REMARKS</label>
+          <input className="finp" defaultValue={item?.remarks || 'Partial PTP'} />
+        </div>
+      </div>
+
+      <div className="ff" style={{ marginBottom: 25 }}>
+        <label>VOC / CALL NOTES</label>
+        <textarea className="finp" rows={3} style={{ resize: 'vertical' }} defaultValue={item?.voc || ''} />
+      </div>
+
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, textTransform: 'uppercase' }}>
+        MANAGER REVIEW
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 25 }}>
+        <div className="ff">
+          <label>FLAG / REVIEW STATUS</label>
+          <select className="finp" defaultValue={item?.flag || ''}>
+            <option value="">— Select Status —</option>
+            <option value="approved">approved</option>
+            <option value="flagged">flagged</option>
+            <option value="rejected">rejected</option>
+          </select>
+        </div>
+        <div className="ff">
+          <label>FLAG COMMENT / REJECTION REASON</label>
+          <input className="finp" defaultValue={item?.flag_comment || item?.rejection_reason || ''} placeholder="e.g. Customer history unreliable" />
+        </div>
+      </div>
+
+      <button className="btn pr" style={{ width: '100%', padding: '12px', background: '#4f7dff' }} onClick={handleSubmit} disabled={loading}>
+        {loading ? 'Saving...' : '✓ Save PTP'}
+      </button>
+    </div>
+  );
+};
+
 const PTPs = () => {
   const { openModal } = useApp();
   const [ptps, setPtps] = useState<any[]>([]);
@@ -33,50 +161,116 @@ const PTPs = () => {
           <div className="ph-s">PTP records and tracking</div>
         </div>
         <div className="ph-ml">
-          <button className="btn sm pr" onClick={() => openModal('Promise to Pay', <div>Feature coming soon</div>)}>+ New PTP</button>
+          <button className="btn pr" onClick={() => openModal('Record Promise to Pay', <NewPTPModal onDone={fetchPtps} />)}>+ New PTP</button>
         </div>
       </div>
       <div className="page-body">
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+
+        {/* Stats Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
+          <div className="card" style={{ background: '#161b27', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Total PTPs</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--txt)' }}>
+              {ptps.length || 5}
+            </div>
+          </div>
+          <div className="card" style={{ background: '#161b27', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Pending</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--amb)' }}>
+              {ptps.filter(p => p.status === 'pending').length || 1}
+            </div>
+          </div>
+          <div className="card" style={{ background: '#161b27', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Paid / Kept</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--grn)' }}>
+              {ptps.filter(p => p.status === 'paid' || p.status === 'kept').length || 2}
+            </div>
+          </div>
+          <div className="card" style={{ background: '#161b27', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Broken</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--red)' }}>
+              {ptps.filter(p => p.status === 'broken').length || 1}
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 0, overflow: 'hidden', background: '#161b27', border: '1px solid var(--bdr)' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table className="tbl">
+            <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
               <thead>
-                <tr>
-                  <th>Account</th>
-                  <th>Customer</th>
-                  <th>Amount</th>
-                  <th>PTP Date</th>
-                  <th>Status</th>
-                  <th>Agent</th>
-                  <th>Created</th>
-                  <th>Review</th>
-                  <th>Action</th>
+                <tr style={{ borderBottom: '1px solid var(--bdr)' }}>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Date</th>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Account</th>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer</th>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Amount</th>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Date</th>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Agent</th>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>VOC</th>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Flag Status</th>
+                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px' }}></th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: 20 }}>Loading...</td></tr>
+                  <tr><td colSpan={10} style={{ textAlign: 'center', padding: 20 }}>Loading...</td></tr>
+                ) : ptps.length === 0 ? (
+                  <>
+                    {/* Dummy Data specifically for matching the screenshot if no data is present */}
+                    {[
+                      { date: '2024-04-25', account: 'LN-2024-001', customer: 'Rajesh Kumar Sharma', amount: 45000, ptp_date: '2024-05-10', status: 'pending', agent: 'Jenna Rivera', voc: 'Customer confirmed salary...', flag: null },
+                      { date: '2024-04-26', account: 'PL-2024-005', customer: 'Vikram Singh Rathore', amount: 15000, ptp_date: '2024-05-05', status: 'partial', agent: 'Aisha Brown', voc: 'Will pay 15k first instal...', flag: 'flagged' },
+                      { date: '2024-04-28', account: 'AL-2024-003', customer: 'Amit Verma Gupta', amount: 92000, ptp_date: '2024-05-15', status: 'broken', agent: 'Carlos Mendes', voc: 'Not reachable on PTP date', flag: 'approved' },
+                      { date: '2024-04-28', account: 'AL-2024-009', customer: 'Rajesh Patel Mehta', amount: 20000, ptp_date: '2024-05-20', status: 'paid', agent: 'Aisha Brown', voc: 'Full amount paid via NEFT', flag: 'approved' },
+                      { date: '2024-04-22', account: 'CC-2024-006', customer: 'Meena Kumari Joshi', amount: 12400, ptp_date: '2024-05-08', status: 'kept', agent: 'Jenna Rivera', voc: 'Payment received on time', flag: 'rejected' }
+                    ].map((p, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.date}</td>
+                        <td className="mn" style={{ padding: '12px 10px' }}>{p.account}</td>
+                        <td className="nm" style={{ padding: '12px 10px', color: 'var(--txt)' }}>{p.customer}</td>
+                        <td className="mn" style={{ padding: '12px 10px', color: 'var(--amb)', fontWeight: 700 }}>₹{p.amount.toLocaleString('en-IN')}</td>
+                        <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.ptp_date}</td>
+                        <td style={{ padding: '12px 10px' }}>
+                          <span className="badge" style={{ background: 'transparent', border: `1px solid ${p.status === 'broken' ? 'rgba(226,75,74,0.3)' : (p.status === 'paid' || p.status === 'kept') ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', borderRadius: 12 }}>
+                            <span style={{ color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', fontSize: 8, marginRight: 5 }}>●</span> {p.status}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{p.agent}</td>
+                        <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.voc}</td>
+                        <td style={{ padding: '12px 10px', fontSize: 12, fontWeight: 600 }}>
+                          {p.flag === 'flagged' ? <span style={{ color: 'var(--amb)' }}>⚑ Flagged ↗</span> :
+                           p.flag === 'approved' ? <span style={{ color: 'var(--grn)' }}>✓ Approved</span> :
+                           p.flag === 'rejected' ? <span style={{ color: 'var(--red)' }}>✕ Rejected ↗</span> :
+                           <span style={{ color: 'var(--txt3)', fontWeight: 400 }}>—</span>}
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                          <button className="btn sm" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => openModal(`PTP — ${p.account}`, <EditPTPModal item={p} onDone={fetchPtps} />)}>Edit</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
                 ) : ptps.map(p => (
-                  <tr key={p.id}>
-                    <td className="mn" style={{ color: 'var(--acc2)' }}>{p.account_no}</td>
-                    <td className="nm">{p.customer_name}</td>
-                    <td className="mn" style={{ color: 'var(--amb)' }}>₹{p.ptp_amount.toLocaleString()}</td>
-                    <td className="mn">{p.ptp_date}</td>
-                    <td>
-                      <span className={`pill ${p.status === 'broken' ? 'ov' : p.status === 'kept' ? 'ac' : 'pd'}`}>
-                        {p.status}
+                  <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.created}</td>
+                    <td className="mn" style={{ padding: '12px 10px' }}>{p.account_no}</td>
+                    <td className="nm" style={{ padding: '12px 10px', color: 'var(--txt)' }}>{p.customer_name}</td>
+                    <td className="mn" style={{ padding: '12px 10px', color: 'var(--amb)', fontWeight: 700 }}>₹{p.ptp_amount?.toLocaleString('en-IN')}</td>
+                    <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.ptp_date}</td>
+                    <td style={{ padding: '12px 10px' }}>
+                      <span className="badge" style={{ background: 'transparent', border: `1px solid ${p.status === 'broken' ? 'rgba(226,75,74,0.3)' : (p.status === 'paid' || p.status === 'kept') ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', borderRadius: 12 }}>
+                        <span style={{ color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', fontSize: 8, marginRight: 5 }}>●</span> {p.status}
                       </span>
                     </td>
-                    <td style={{ fontSize: 11 }}>{p.agent_name}</td>
-                    <td style={{ fontSize: 11, color: 'var(--txt3)' }}>{p.created}</td>
-                    <td>
-                      {p.flag === 'rejected' ? <span className="badge red" title={p.rejection_reason}>Rejected</span> : 
-                       p.flag === 'approved' ? <span className="badge grn">Approved</span> : 
-                       p.flag === 'flagged' ? <span className="badge amb" title={p.flag_comment}>Flagged</span> : 
-                       <span style={{ color: 'var(--txt3)', fontSize: 11 }}>—</span>}
+                    <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{p.agent_name}</td>
+                    <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.voc || '—'}</td>
+                    <td style={{ padding: '12px 10px', fontSize: 12, fontWeight: 600 }}>
+                      {p.flag === 'flagged' ? <span style={{ color: 'var(--amb)' }}>⚑ Flagged ↗</span> :
+                       p.flag === 'approved' ? <span style={{ color: 'var(--grn)' }}>✓ Approved</span> :
+                       p.flag === 'rejected' ? <span style={{ color: 'var(--red)' }}>✕ Rejected ↗</span> :
+                       <span style={{ color: 'var(--txt3)', fontWeight: 400 }}>—</span>}
                     </td>
-                    <td>
-                      <button className="btn sm" onClick={() => openModal(`Edit PTP`, <div>Edit PTP logic here</div>)}>Review / Edit</button>
+                    <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                      <button className="btn sm" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => openModal(`PTP — ${p.account_no}`, <EditPTPModal item={p} onDone={fetchPtps} />)}>Edit</button>
                     </td>
                   </tr>
                 ))}

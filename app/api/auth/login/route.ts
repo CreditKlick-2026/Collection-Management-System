@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
   try {
     const { username, password } = await req.json();
+
+    if (!username || !password) {
+      return NextResponse.json({ message: 'Username and password required' }, { status: 400 });
+    }
 
     const user = await prisma.user.findUnique({
       where: { username }
@@ -14,11 +18,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (!user.active) {
-      return NextResponse.json({ message: 'Account is deactivated' }, { status: 403 });
+      return NextResponse.json({ message: 'Account is deactivated. Contact admin.' }, { status: 403 });
     }
 
-    return NextResponse.json({ user });
+    // Return safe user object (no password)
+    const { password: _, ...safeUser } = user;
+    return NextResponse.json({ user: safeUser });
+
   } catch (error: any) {
-    return NextResponse.json({ message: 'Server error' }, { status: 500 });
+    console.error('[LOGIN ERROR]', error?.message || error);
+    return NextResponse.json({ message: 'Database connection error. Please try again.' }, { status: 500 });
   }
 }
