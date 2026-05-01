@@ -542,6 +542,7 @@ const Leads = () => {
     } catch (error) {
       console.error('Error fetching leads:', error);
       setLeads([]);
+      setSelectedLead(null);
     } finally {
       setLoading(false);
     }
@@ -563,90 +564,96 @@ const Leads = () => {
         {/* CUSTOMER DASHBOARD HEADER */}
         {!isTableMaximized && (
           <div id="custDash" className="cust-dash filled" style={{ padding: '20px', background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 15, marginBottom: 15 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--grn)', padding: '6px 12px' }} disabled={!selectedLead}>💳 Payment</button>
+                <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }} 
+                  disabled={!selectedLead}
+                  onClick={() => selectedLead && openModal(`📞 Call Logs — ${selectedLead.name}`, <CallLogsModal lead={selectedLead} />, 1100)}
+                >
+                  📞 Call Logs
+                </button>
+                <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(79,125,255,0.1)', border: '1px solid rgba(79,125,255,0.3)', color: 'var(--acc2)', padding: '6px 12px' }}
+                  disabled={!selectedLead}
+                  onClick={() => selectedLead && openModal('Edit Lead Disposition', <EditLeadModal lead={selectedLead} onDone={fetchLeads} />)}
+                >
+                  ✎ VOC UPDATE
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', borderLeft: '1px solid var(--bdr)', paddingLeft: 15 }}>
+                <select 
+                  className="finp" 
+                  style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }} 
+                  value={filterMonth} 
+                  onChange={e => setFilterMonth(e.target.value)}
+                >
+                  {Array.from({ length: 12 }).map((_, i) => <option key={i + 1} value={i + 1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'short' })}</option>)}
+                </select>
+                <select 
+                  className="finp" 
+                  style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }} 
+                  value={filterYear} 
+                  onChange={e => setFilterYear(e.target.value)}
+                >
+                  {[0, 1, 2, 3, 4].map(y => {
+                    const yr = new Date().getFullYear() - y;
+                    return <option key={yr} value={yr}>{yr}</option>
+                  })}
+                </select>
+              </div>
+            </div>
+
             {loading ? (
-              /* ── Skeleton: same structure as filled state ── */
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-                  <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                    {/* Avatar skeleton */}
-                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--faint)', flexShrink: 0 }} className="skel" />
-                    <div>
-                      <div className="skel" style={{ width: 180, height: 16, marginBottom: 8 }} />
-                      <div className="skel" style={{ width: 260, height: 11 }} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <div className="skel" style={{ width: 70, height: 24, borderRadius: 12 }} />
-                    <div className="skel" style={{ width: 90, height: 24, borderRadius: 12 }} />
-                    <div className="skel" style={{ width: 90, height: 28, borderRadius: 6 }} />
-                    <div className="skel" style={{ width: 70, height: 28, borderRadius: 6 }} />
+            /* ── Skeleton: same structure as filled state ── */
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                  {/* Avatar skeleton */}
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--faint)', flexShrink: 0 }} className="skel" />
+                  <div>
+                    <div className="skel" style={{ width: 180, height: 16, marginBottom: 8 }} />
+                    <div className="skel" style={{ width: 260, height: 11 }} />
                   </div>
                 </div>
-                {/* Info boxes skeleton — same grid as real data */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} style={{ background: 'var(--bg3)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--faint)' }}>
-                      <div className="skel" style={{ width: '60%', height: 9, marginBottom: 4 }} />
-                      <div className="skel" style={{ width: '80%', height: 13 }} />
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div className="skel" style={{ width: 90, height: 28, borderRadius: 6 }} />
+                  <div className="skel" style={{ width: 70, height: 28, borderRadius: 6 }} />
                 </div>
               </div>
-            ) : !selectedLead ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--txt3)' }}>
-                <div style={{ fontSize: '20px', opacity: 0.5 }}>◉</div>
-                <div>Search and select a customer below to view details</div>
-              </div>
-            ) : (
-              <div>
-                {/* Top Row: Avatar, Name, Buttons */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-                  <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                    <div className="av" style={{ width: 48, height: 48, fontSize: 18, background: 'var(--faint)', color: 'var(--acc2)', border: '1px solid var(--bdr)', borderRadius: '50%' }}>
-                      {selectedLead.name?.split(' ').map((n: any) => n[0]).join('').substring(0, 2)}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--txt)', marginBottom: 4 }}>{selectedLead.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--txt3)' }}>
-                        {selectedLead.account_no} - {selectedLead.product || 'Personal Loan'} - {selectedLead.bank || 'HDFC Bank'}
-                      </div>
-                    </div>
+              {/* Info boxes skeleton — same grid as real data */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} style={{ background: 'var(--bg3)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--faint)' }}>
+                    <div className="skel" style={{ width: '60%', height: 9, marginBottom: 4 }} />
+                    <div className="skel" style={{ width: '80%', height: 13 }} />
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginRight: 10 }}>
-                      <select
-                        className="finp"
-                        style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }}
-                        value={filterMonth}
-                        onChange={e => setFilterMonth(e.target.value)}
-                      >
-                        {Array.from({ length: 12 }).map((_, i) => <option key={i + 1} value={i + 1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'short' })}</option>)}
-                      </select>
-                      <select
-                        className="finp"
-                        style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }}
-                        value={filterYear}
-                        onChange={e => setFilterYear(e.target.value)}
-                      >
-                        {[0, 1, 2, 3, 4].map(y => {
-                          const yr = new Date().getFullYear() - y;
-                          return <option key={yr} value={yr}>{yr}</option>
-                        })}
-                      </select>
+                ))}
+              </div>
+            </div>
+          ) : !selectedLead ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--txt3)', padding: '20px 0' }}>
+              <div style={{ fontSize: '20px', opacity: 0.5 }}>◉</div>
+              <div>Search and select a customer below to view details</div>
+            </div>
+          ) : (
+            <div>
+              {/* Top Row: Avatar, Name, Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                  <div className="av" style={{ width: 48, height: 48, fontSize: 18, background: 'var(--faint)', color: 'var(--acc2)', border: '1px solid var(--bdr)', borderRadius: '50%' }}>
+                    {selectedLead.name?.split(' ').map((n: any) => n[0]).join('').substring(0, 2)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--txt)', marginBottom: 4 }}>{selectedLead.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--txt3)' }}>
+                      {selectedLead.account_no} - {selectedLead.product || 'Personal Loan'} - {selectedLead.bank || 'HDFC Bank'}
                     </div>
-                    <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--grn)', padding: '6px 12px' }}>💳 Payment</button>
-                    <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }}
-                      onClick={() => openModal(`📞 Call Logs — ${selectedLead.name}`, <CallLogsModal lead={selectedLead} />, 1100)}
-                    >📞 Call Logs</button>
-                    <button
-                      className="btn sm"
-                      style={{ background: 'rgba(79,125,255,0.1)', border: '1px solid rgba(79,125,255,0.3)', color: 'var(--acc2)', padding: '6px 12px' }}
-                      onClick={() => openModal('Edit Lead Disposition', <EditLeadModal lead={selectedLead} onDone={fetchLeads} />)}
-                    >
-                      ✎ VOC UPDATE
-                    </button>
                   </div>
                 </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                </div>
+              </div>
 
                 {/* Grid Info Boxes */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
