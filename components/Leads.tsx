@@ -81,6 +81,10 @@ const CallLogsModal = ({ lead }: { lead: any }) => {
   const [expanded, setExpanded] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!lead) {
+      setLoading(false);
+      return;
+    }
     const fetchLogs = async () => {
       setLoading(true);
       try {
@@ -107,7 +111,7 @@ const CallLogsModal = ({ lead }: { lead: any }) => {
       finally { setLoading(false); }
     };
     fetchLogs();
-  }, [lead.id, page, filterCS, search]); // Re-fetch on page or filter change
+  }, [lead?.id, page, filterCS, search]); // Re-fetch on page or filter change
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -122,9 +126,9 @@ const CallLogsModal = ({ lead }: { lead: any }) => {
           { label: 'PTP', val: stats.ptpCount, color: '#f59e0b', bg: 'rgba(245,158,11,0.06)' },
           { label: 'Not Connected', val: stats.ncCount, color: '#6b7280', bg: 'rgba(107,114,128,0.06)' },
         ].map(s => (
-          <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.color}20`, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.val}</div>
-            <div style={{ fontSize: 9, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 }}>{s.label}</div>
+          <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.color}20`, borderRadius: 6, padding: '4px 8px', textAlign: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: s.color }}>{s.val}</div>
+            <div style={{ fontSize: 8, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -567,9 +571,8 @@ const Leads = () => {
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 15, marginBottom: 15 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--grn)', padding: '6px 12px' }} disabled={!selectedLead}>💳 Payment</button>
-                <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }} 
-                  disabled={!selectedLead}
-                  onClick={() => selectedLead && openModal(`📞 Call Logs — ${selectedLead.name}`, <CallLogsModal lead={selectedLead} />, 1100)}
+                <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }} 
+                  onClick={() => openModal(`📞 Call Logs ${selectedLead ? `— ${selectedLead.name}` : ''}`, <CallLogsModal lead={selectedLead} />, 1100)}
                 >
                   📞 Call Logs
                 </button>

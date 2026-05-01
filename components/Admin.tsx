@@ -40,6 +40,17 @@ const Admin = () => {
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
 
+  // Master Lists State
+  const [masterLists, setMasterLists] = useState<any[]>([]);
+  const [newListItem, setNewListItem] = useState({ type: '', value: '' });
+
+  const DEFAULT_LISTS: Record<string, string[]> = {
+    PAYMENT_MODE: ['Cash', 'NEFT', 'IMPS', 'UPI', 'Cheque', 'DD'],
+    PTP_STATUS: ['Promised to Pay', 'Partial Amount', 'Full Outstanding', 'Minimum Amount'],
+    DISPUTE_STATUS: ['Card Not Received', 'Charges Related Issue', 'Fraud', 'False Commitment'],
+    FLAG_OPTION: ['approved', 'rejected', 'flagged', 'escalated']
+  };
+
   useEffect(() => {
     fetchData();
   }, [activeTab]);
@@ -61,6 +72,11 @@ const Admin = () => {
     if (activeTab === 'audit') {
       const res = await fetch('/api/admin/audit-logs');
       setAuditLogs(await res.json());
+    }
+    if (activeTab === 'lists') {
+      const res = await fetch('/api/admin/master-lists');
+      const data = await res.json();
+      setMasterLists(Array.isArray(data) ? data : []);
     }
     setLoading(false);
   };
@@ -161,28 +177,78 @@ const Admin = () => {
   };
 
   const handleSave = async () => {
-    const res = await fetch(`/api/admin/users/${editUser.id}`, {
-      method: 'PUT',
+    const isEditing = !!editUser.id;
+    const url = isEditing ? `/api/admin/users/${editUser.id}` : '/api/admin/users';
+    const method = isEditing ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editUser)
     });
     if (res.ok) {
       setIsEditModalOpen(false);
       fetchData();
+      toast(isEditing ? 'User updated!' : 'User created!');
+    } else {
+      toast('Failed to save user');
     }
   };
 
-  const confirmDeactivate = async () => {
-    const res = await fetch(`/api/admin/users/${deactivatingUser.id}`, {
+  const toggleUserStatus = async (user: any) => {
+    const newStatus = !user.active;
+    const res = await fetch(`/api/admin/users/${user.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...deactivatingUser, active: false })
+      body: JSON.stringify({ ...user, active: newStatus })
     });
     if (res.ok) {
       setIsDeactivateModalOpen(false);
       fetchData();
-      alert('User deactivated!');
+      toast(`User ${newStatus ? 'activated' : 'deactivated'} successfully`);
+    } else {
+      toast('Failed to update user status');
     }
+  };
+
+  const handleDeleteUser = async (user: any) => {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY DELETE user "${user.name}"? This action cannot be undone.`)) return;
+    
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        toast('User deleted successfully');
+        fetchData();
+      } else {
+        const data = await res.json();
+        toast(data.message || 'Failed to delete user');
+      }
+    } catch (e) {
+      console.error(e);
+      toast('Error deleting user');
+    }
+  };
+
+  const handleAddListItem = async (type: string) => {
+    const val = (newListItem as any)[type];
+    if (!val) return;
+    const res = await fetch('/api/admin/master-lists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, value: val })
+    });
+    if (res.ok) {
+      setNewListItem(prev => ({ ...prev, [type]: '' }));
+      fetchData();
+    }
+  };
+
+  const handleDeleteListItem = async (id: number) => {
+    if (!confirm('Are you sure?')) return;
+    const res = await fetch(`/api/admin/master-lists?id=${id}`, { method: 'DELETE' });
+    if (res.ok) fetchData();
   };
 
   const handleFileSelect = (file: File | null) => {
@@ -324,8 +390,21 @@ const Admin = () => {
       <div className="page-body" style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
 
         {activeTab === 'users' && (
-          <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: 'none' }}>
-            <table className="tbl" style={{ borderCollapse: 'separate', borderSpacing: '0 8px' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 15 }}>
+              <button 
+                className="btn pr" 
+                style={{ borderRadius: 6, padding: '7px 15px', fontSize: 11 }}
+                onClick={() => {
+                  setEditUser({ name: '', username: '', role: 'agent', empId: '', email: '', initials: '', active: true });
+                  setIsEditModalOpen(true);
+                }}
+              >
+                + Add User
+              </button>
+            </div>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: 'none' }}>
+              <table className="tbl" style={{ borderCollapse: 'separate', borderSpacing: '0 8px' }}>
               <thead>
                 <tr style={{ background: 'transparent' }}>
                   <th style={{ background: 'transparent', border: 'none' }}>NAME</th>
@@ -363,8 +442,13 @@ const Admin = () => {
                     <td style={{ borderRadius: '0 8px 8px 0' }}>
                       <div style={{ display: 'flex', gap: 5 }}>
                         <button className="btn sm" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => handleEditClick(u)}>Edit</button>
-                        <button className="btn sm" style={{ background: 'rgba(245,166,35,0.1)', color: 'var(--amb)', border: '1px solid rgba(245,166,35,0.2)' }}>🔑</button>
-                        <button className="btn sm" style={{ fontSize: 10, background: 'rgba(226,75,74,0.1)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.2)' }} onClick={() => handleDeactivateClick(u)}>{u.active ? 'Deactivate' : 'Activate'}</button>
+                        <button className="btn sm" style={{ background: 'rgba(245,166,35,0.1)', color: 'var(--amb)', border: '1px solid rgba(245,166,35,0.2)' }} title="Reset Password">🔑</button>
+                        <button className="btn sm" style={{ fontSize: 10, background: u.active ? 'rgba(226,75,74,0.1)' : 'rgba(46,204,138,0.1)', color: u.active ? 'var(--red)' : 'var(--grn)', border: `1px solid ${u.active ? 'rgba(226,75,74,0.2)' : 'rgba(46,204,138,0.2)'}`, minWidth: 80 }} onClick={() => handleDeactivateClick(u)}>
+                          {u.active ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button className="btn sm" style={{ background: 'rgba(226,75,74,0.05)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.1)', padding: '4px 8px' }} onClick={() => handleDeleteUser(u)}>
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -372,6 +456,7 @@ const Admin = () => {
               </tbody>
             </table>
           </div>
+        </div>
         )}
 
         {activeTab === 'portfolios' && (
@@ -719,6 +804,160 @@ const Admin = () => {
 
           )
         )}
+        {activeTab === 'lists' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div className="info-box" style={{ background: 'rgba(79,125,255,0.05)', border: '1px solid var(--acc2)40', color: 'var(--acc2)', padding: '12px 16px', fontSize: 12, borderRadius: 8 }}>
+              Admin can add or delete payment modes, PTP statuses, dispute statuses, and flag options. Changes apply system-wide immediately.
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              {[
+                { title: 'Payment Modes', type: 'PAYMENT_MODE', placeholder: 'New payment modes item...' },
+                { title: 'PTP Statuses', type: 'PTP_STATUS', placeholder: 'New ptp statuses item...' },
+                { title: 'Dispute Statuses', type: 'DISPUTE_STATUS', placeholder: 'New dispute statuses item...' },
+                { title: 'Flag Options', type: 'FLAG_OPTION', placeholder: 'New flag options item...' },
+              ].map(section => (
+                <div key={section.type} className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 15, color: 'var(--txt)' }}>{section.title}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {/* Default Items */}
+                    {DEFAULT_LISTS[section.type].map(val => (
+                      <div key={`def-${val}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.01)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--bdr)', opacity: 0.7 }}>
+                        <span style={{ fontSize: 13, color: 'var(--txt3)' }}>{val} <span style={{ fontSize: 9, opacity: 0.6, marginLeft: 5 }}>(Default)</span></span>
+                        <div style={{ width: 30 }} /> {/* Spacer */}
+                      </div>
+                    ))}
+                    
+                    {/* Database Items */}
+                    {masterLists.filter(l => l.type === section.type).map(item => (
+                      <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--acc2)40' }}>
+                        <span style={{ fontSize: 13, color: section.type === 'FLAG_OPTION' ? (item.value === 'approved' ? 'var(--grn)' : item.value === 'rejected' ? 'var(--red)' : 'var(--txt2)') : 'var(--txt2)' }}>
+                          {item.value}
+                        </span>
+                        <button onClick={() => handleDeleteListItem(item.id)} style={{ background: 'rgba(226,75,74,0.1)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.2)', padding: '4px 8px', borderRadius: 6, fontSize: 12 }}>✕</button>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 5 }}>
+                      <input 
+                        className="finp" 
+                        placeholder={section.placeholder} 
+                        value={(newListItem as any)[section.type] || ''} 
+                        onChange={e => setNewListItem(prev => ({ ...prev, [section.type]: e.target.value }))}
+                        onKeyDown={e => e.key === 'Enter' && handleAddListItem(section.type)}
+                      />
+                      <button className="btn pr" onClick={() => handleAddListItem(section.type)}>+ Add</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {activeTab === 'role' && (
+          <div style={{ width: '100%' }}>
+            <div style={{ background: 'rgba(79,125,255,0.05)', border: '1px solid rgba(79,125,255,0.2)', padding: '12px 20px', borderRadius: 10, color: 'var(--acc2)', fontSize: 12, marginBottom: 20 }}>
+              🛡 <b>Role-based access matrix.</b> This view is read-only and shows which features are available to each role.
+            </div>
+
+            <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 12 }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)' }}>
+                      <th style={{ padding: '16px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left', width: '40%' }}>Feature</th>
+                      <th style={{ padding: '16px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Admin</th>
+                      <th style={{ padding: '16px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Manager</th>
+                      <th style={{ padding: '16px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Agent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { f: 'View Dashboard', a: true, m: true, g: true },
+                      { f: 'View All Leads', a: true, m: true, g: true },
+                      { f: 'Edit Customer', a: true, m: true, g: true },
+                      { f: 'Log Calls', a: true, m: true, g: true },
+                      { f: 'Create PTP', a: true, m: true, g: true },
+                      { f: 'Record Payment (Pending Approval)', a: true, m: true, g: true },
+                      { f: 'Approve/Reject Payments', a: true, m: true, g: false },
+                      { f: 'Bulk Upload', a: true, m: true, g: false },
+                      { f: 'Column Config', a: true, m: false, g: false },
+                      { f: 'Admin Panel', a: true, m: false, g: false },
+                      { f: 'Manager Panel', a: true, m: true, g: false },
+                      { f: 'Portfolio Assignment', a: true, m: false, g: false },
+                      { f: 'Lists Config (Modes/Statuses)', a: true, m: false, g: false },
+                      { f: 'Audit Logs', a: true, m: false, g: false },
+                    ].map((row, i) => (
+                      <tr key={row.f} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                        <td style={{ padding: '14px 20px', fontSize: 13, color: 'var(--txt2)' }}>{row.f}</td>
+                        <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                          {row.a ? <span style={{ color: 'var(--grn)', fontSize: 16 }}>✓</span> : <span style={{ color: 'var(--red)', fontSize: 14, opacity: 0.5 }}>✕</span>}
+                        </td>
+                        <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                          {row.m ? <span style={{ color: 'var(--grn)', fontSize: 16 }}>✓</span> : <span style={{ color: 'var(--red)', fontSize: 14, opacity: 0.5 }}>✕</span>}
+                        </td>
+                        <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                          {row.g ? <span style={{ color: 'var(--grn)', fontSize: 16 }}>✓</span> : <span style={{ color: 'var(--red)', fontSize: 14, opacity: 0.5 }}>✕</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+        {activeTab === 'report' && (
+          <div style={{ width: '100%' }}>
+            <div style={{ background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.2)', padding: '12px 20px', borderRadius: 10, color: 'var(--amb)', fontSize: 12, marginBottom: 20 }}>
+              📊 <b>Admin controls which reports each role can access.</b> Changes will be applied to all users in that role.
+            </div>
+
+            <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 12 }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)' }}>
+                      <th style={{ padding: '16px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left', width: '30%' }}>Report</th>
+                      <th style={{ padding: '16px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left', width: '30%' }}>Description</th>
+                      <th style={{ padding: '16px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Admin</th>
+                      <th style={{ padding: '16px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Manager</th>
+                      <th style={{ padding: '16px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Agent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { r: 'Call Summary', d: 'Call activity', a: true, m: true, g: true },
+                      { r: 'PTP Summary', d: 'PTP tracking', a: true, m: true, g: true },
+                      { r: 'Payment Summary', d: 'Collections', a: true, m: true, g: false },
+                      { r: 'Team Performance', d: 'Agent metrics', a: true, m: true, g: false },
+                      { r: 'Portfolio Aging', d: 'DPD analysis', a: true, m: false, g: false },
+                      { r: 'Dispute Summary', d: 'Dispute tracking', a: true, m: false, g: false },
+                      { r: 'Audit Logs', d: 'Full trail', a: true, m: false, g: false },
+                      { r: 'System Reports', d: 'Upload history', a: true, m: false, g: false },
+                    ].map((row, i) => (
+                      <tr key={row.r} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                        <td style={{ padding: '14px 20px', fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{row.r}</td>
+                        <td style={{ padding: '14px 20px', fontSize: 11, color: 'var(--txt3)' }}>{row.d}</td>
+                        <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                          <input type="checkbox" checked={row.a} disabled style={{ accentColor: 'var(--acc)' }} />
+                        </td>
+                        <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                          <input type="checkbox" defaultChecked={row.m} style={{ accentColor: 'var(--acc)' }} />
+                        </td>
+                        <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                          <input type="checkbox" defaultChecked={row.g} style={{ accentColor: 'var(--acc)' }} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <button className="btn pr" style={{ padding: '10px 24px', fontSize: 13, borderRadius: 8 }} onClick={() => toast('Report access settings saved ✓')}>✓ Save Settings</button>
+            </div>
+          </div>
+        )}
 
         {activeTab === 'audit' && (
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -772,12 +1011,73 @@ const Admin = () => {
           </div>
         )}
 
+        {activeTab === 'system' && (
+          <div style={{ width: '100%' }}>
+            {/* Top Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 15, marginBottom: 25 }}>
+              <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' }}>STATUS</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--grn)' }}>Online</div>
+              </div>
+              <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' }}>DATABASE</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--txt)' }}>PostgreSQL 15.0</div>
+              </div>
+              <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' }}>LAST BACKUP</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--txt)' }}>2h ago</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20 }}>
+              {/* General Settings */}
+              <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '24px' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)', marginBottom: 20 }}>General Settings</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  <div className="ff">
+                    <label style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--txt3)' }}>COMPANY NAME</label>
+                    <input className="finp" defaultValue="DebtRecover Solutions Pvt. Ltd." />
+                  </div>
+                  <div className="ff">
+                    <label style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--txt3)' }}>TIMEZONE</label>
+                    <select className="finp">
+                      <option>Asia/Kolkata (IST)</option>
+                      <option>UTC (Coordinated Universal Time)</option>
+                      <option>America/New_York (EST)</option>
+                    </select>
+                  </div>
+                  <div className="ff">
+                    <label style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--txt3)' }}>SESSION TIMEOUT (HOURS)</label>
+                    <input className="finp" type="number" defaultValue="8" />
+                  </div>
+                  <button className="btn pr" style={{ width: '100%', padding: '12px', marginTop: 10 }} onClick={() => toast('System settings updated ✓')}>✓ Save Settings</button>
+                </div>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '24px' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--red)', marginBottom: 20 }}>Danger Zone</div>
+                <div style={{ background: 'rgba(226,75,74,0.04)', border: '1px solid rgba(226,75,74,0.15)', borderRadius: 10, padding: '20px', display: 'flex', flexDirection: 'column', gap: 15 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 8 }}>⚠ Flush All Data</div>
+                    <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 5, lineHeight: 1.5 }}>This will permanently delete all records including leads, payments, and logs. This action cannot be undone.</div>
+                  </div>
+                  <button className="btn" style={{ background: 'rgba(226,75,74,0.1)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.2)', padding: '10px', fontSize: 12, fontWeight: 600 }} onClick={() => {
+                    const confirm = window.confirm("Are you ABSOLUTELY sure? All data will be lost.");
+                    if(confirm) toast("Critical action triggered. Check backend logs.");
+                  }}>Delete All Data</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {isEditModalOpen && editUser && (
           <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div className="modal-content" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 12, width: '100%', maxWidth: '750px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--bdr)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>Edit User — {editUser.name}</div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{editUser.id ? 'Edit User' : 'Add New User'} {editUser.name && `— ${editUser.name}`}</div>
                 <button style={{ background: 'transparent', border: 'none', color: 'var(--txt3)', fontSize: 20, cursor: 'pointer' }} onClick={() => setIsEditModalOpen(false)}>✕</button>
               </div>
 
@@ -818,12 +1118,12 @@ const Admin = () => {
           <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div className="modal-content" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 12, width: '100%', maxWidth: '500px', padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>Deactivate User — {deactivatingUser.name}</div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{deactivatingUser.active ? 'Deactivate' : 'Activate'} User — {deactivatingUser.name}</div>
                 <button style={{ background: 'transparent', border: 'none', color: 'var(--txt3)', fontSize: 20, cursor: 'pointer' }} onClick={() => setIsDeactivateModalOpen(false)}>✕</button>
               </div>
 
-              <div style={{ background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.2)', padding: '12px 16px', borderRadius: 8, marginBottom: 20, color: 'var(--amb)', fontSize: 12 }}>
-                Deactivating: <b>{deactivatingUser.name} ({deactivatingUser.empId})</b>
+              <div style={{ background: deactivatingUser.active ? 'rgba(245,166,35,0.08)' : 'rgba(46,204,138,0.08)', border: `1px solid ${deactivatingUser.active ? 'rgba(245,166,35,0.2)' : 'rgba(46,204,138,0.2)'}`, padding: '12px 16px', borderRadius: 8, marginBottom: 20, color: deactivatingUser.active ? 'var(--amb)' : 'var(--grn)', fontSize: 12 }}>
+                {deactivatingUser.active ? 'Deactivating' : 'Activating'}: <b>{deactivatingUser.name} ({deactivatingUser.empId})</b>
               </div>
 
               <div className="ff" style={{ marginBottom: 25 }}>
@@ -838,7 +1138,9 @@ const Admin = () => {
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn" style={{ flex: 4, padding: 12, fontSize: 13, background: 'rgba(255,77,77,0.1)', color: '#ff4d4d', border: '1px solid rgba(255,77,77,0.2)' }} onClick={confirmDeactivate}>Deactivate</button>
+                <button className="btn" style={{ flex: 4, padding: 12, fontSize: 13, background: deactivatingUser.active ? 'rgba(255,77,77,0.1)' : 'rgba(46,204,138,0.1)', color: deactivatingUser.active ? '#ff4d4d' : 'var(--grn)', border: `1px solid ${deactivatingUser.active ? 'rgba(255,77,77,0.2)' : 'rgba(46,204,138,0.2)'}` }} onClick={() => toggleUserStatus(deactivatingUser)}>
+                  {deactivatingUser.active ? 'Deactivate' : 'Activate'}
+                </button>
                 <button className="btn" style={{ flex: 1, padding: 12, fontSize: 13, background: 'transparent', color: 'var(--txt3)', border: '1px solid var(--bdr)' }} onClick={() => setIsDeactivateModalOpen(false)}>Cancel</button>
               </div>
             </div>

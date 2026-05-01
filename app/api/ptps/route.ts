@@ -8,11 +8,15 @@ export async function GET(req: NextRequest) {
   const date = searchParams.get('date');
   const agent = searchParams.get('agent');
   const account = searchParams.get('account');
+  const status = searchParams.get('status');
+  const flag = searchParams.get('flag');
 
   try {
     const ptps = await prisma.pTP.findMany({
       where: {
         date: date || undefined,
+        status: status || undefined,
+        flag: flag === 'null' ? null : (flag || undefined),
         agent: agent
           ? {
               name: { contains: agent, mode: 'insensitive' },
@@ -81,6 +85,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(newPtp);
   } catch (error: any) {
     console.error('POST /api/ptps error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const data = await req.json();
+    const { id, amount, date, status, voc, remarks, flag, flag_comment, rejection_reason } = data;
+
+    if (!id) return NextResponse.json({ message: 'ID is required' }, { status: 400 });
+
+    const updated = await prisma.pTP.update({
+      where: { id: Number(id) },
+      data: {
+        amount: amount ? parseFloat(amount) : undefined,
+        date: date || undefined,
+        status: status || undefined,
+        voc: voc || undefined,
+        remarks: remarks || undefined,
+        flag: flag || undefined,
+        flagComment: flag_comment || undefined,
+        rejectionReason: rejection_reason || undefined
+      }
+    });
+
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    console.error('PUT /api/ptps error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -162,3 +162,8 @@ model AuditLog {
   details     Json?    // Stores the delta or extra context
   timestamp   DateTime @default(now())
 }
+model MasterList {
+  id    Int    @id @default(autoincrement())
+  type  String // PAYMENT_MODE, PTP_STATUS, DISPUTE_STATUS, FLAG_OPTION
+  value String
+}

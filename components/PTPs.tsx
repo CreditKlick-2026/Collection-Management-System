@@ -141,15 +141,35 @@ const NewPTPModal = ({ onDone }: { onDone: () => void }) => {
 const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
   const { closeModal, toast } = useApp();
   const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    amount: item?.ptp_amount || item?.amount,
+    date: item?.ptp_date?.split('/').reverse().join('-') || '',
+    status: item?.status,
+    remarks: item?.remarks || '',
+    voc: item?.voc || '',
+    flag: item?.flag || '',
+    flag_comment: item?.flag_comment || item?.rejection_reason || ''
+  });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast('PTP updated successfully');
-      closeModal();
-      onDone();
-    }, 600);
+    try {
+      const res = await fetch('/api/ptps', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, id: item.id })
+      });
+      if (res.ok) {
+        toast('PTP updated successfully');
+        closeModal();
+        onDone();
+      } else {
+        toast('Failed to update PTP');
+      }
+    } catch (e) {
+      toast('Error saving PTP');
+    }
+    setLoading(false);
   };
 
   return (
@@ -161,18 +181,18 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
         <div className="ff">
           <label>PTP AMOUNT (₹)</label>
-          <input className="finp" defaultValue={item?.ptp_amount || item?.amount} />
+          <input className="finp" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
         </div>
         <div className="ff">
           <label>PTP DATE</label>
-          <input className="finp" type="date" defaultValue={item?.ptp_date?.split('/').reverse().join('-') || ''} />
+          <input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
         <div className="ff">
           <label>STATUS</label>
-          <select className="finp" defaultValue={item?.status}>
+          <select className="finp" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
             <option value="pending">pending</option>
             <option value="partial">partial</option>
             <option value="kept">kept</option>
@@ -182,13 +202,13 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
         </div>
         <div className="ff">
           <label>REMARKS</label>
-          <input className="finp" defaultValue={item?.remarks || 'Partial PTP'} />
+          <input className="finp" value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} />
         </div>
       </div>
 
       <div className="ff" style={{ marginBottom: 25 }}>
         <label>VOC / CALL NOTES</label>
-        <textarea className="finp" rows={3} style={{ resize: 'vertical' }} defaultValue={item?.voc || ''} />
+        <textarea className="finp" rows={3} style={{ resize: 'vertical' }} value={form.voc} onChange={e => setForm({ ...form, voc: e.target.value })} />
       </div>
 
       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, textTransform: 'uppercase' }}>
@@ -198,7 +218,7 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 25 }}>
         <div className="ff">
           <label>FLAG / REVIEW STATUS</label>
-          <select className="finp" defaultValue={item?.flag || ''}>
+          <select className="finp" value={form.flag} onChange={e => setForm({ ...form, flag: e.target.value })}>
             <option value="">— Select Status —</option>
             <option value="approved">approved</option>
             <option value="flagged">flagged</option>
@@ -207,7 +227,7 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
         </div>
         <div className="ff">
           <label>FLAG COMMENT / REJECTION REASON</label>
-          <input className="finp" defaultValue={item?.flag_comment || item?.rejection_reason || ''} placeholder="e.g. Customer history unreliable" />
+          <input className="finp" value={form.flag_comment} onChange={e => setForm({ ...form, flag_comment: e.target.value })} placeholder="e.g. Customer history unreliable" />
         </div>
       </div>
 
@@ -217,6 +237,7 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
     </div>
   );
 };
+
 
 const PTPs = () => {
   const { openModal } = useApp();
@@ -340,11 +361,11 @@ const PTPs = () => {
                   <>
                     {/* Dummy Data specifically for matching the screenshot if no data is present */}
                     {[
-                      { date: '2024-04-25', account: 'LN-2024-001', customer: 'Rajesh Kumar Sharma', amount: 45000, ptp_date: '2024-05-10', status: 'pending', agent: 'Jenna Rivera', voc: 'Customer confirmed salary...', flag: null },
-                      { date: '2024-04-26', account: 'PL-2024-005', customer: 'Vikram Singh Rathore', amount: 15000, ptp_date: '2024-05-05', status: 'partial', agent: 'Aisha Brown', voc: 'Will pay 15k first instal...', flag: 'flagged' },
-                      { date: '2024-04-28', account: 'AL-2024-003', customer: 'Amit Verma Gupta', amount: 92000, ptp_date: '2024-05-15', status: 'broken', agent: 'Carlos Mendes', voc: 'Not reachable on PTP date', flag: 'approved' },
-                      { date: '2024-04-28', account: 'AL-2024-009', customer: 'Rajesh Patel Mehta', amount: 20000, ptp_date: '2024-05-20', status: 'paid', agent: 'Aisha Brown', voc: 'Full amount paid via NEFT', flag: 'approved' },
-                      { date: '2024-04-22', account: 'CC-2024-006', customer: 'Meena Kumari Joshi', amount: 12400, ptp_date: '2024-05-08', status: 'kept', agent: 'Jenna Rivera', voc: 'Payment received on time', flag: 'rejected' }
+                      { id: 1, date: '2024-04-25', account: 'LN-2024-001', customer: 'Rajesh Kumar Sharma', amount: 45000, ptp_date: '2024-05-10', status: 'pending', agent: 'Jenna Rivera', voc: 'Customer confirmed salary...', flag: null },
+                      { id: 2, date: '2024-04-26', account: 'PL-2024-005', customer: 'Vikram Singh Rathore', amount: 15000, ptp_date: '2024-05-05', status: 'partial', agent: 'Aisha Brown', voc: 'Will pay 15k first instal...', flag: 'flagged' },
+                      { id: 3, date: '2024-04-28', account: 'AL-2024-003', customer: 'Amit Verma Gupta', amount: 92000, ptp_date: '2024-05-15', status: 'broken', agent: 'Carlos Mendes', voc: 'Not reachable on PTP date', flag: 'approved' },
+                      { id: 4, date: '2024-04-28', account: 'AL-2024-009', customer: 'Rajesh Patel Mehta', amount: 20000, ptp_date: '2024-05-20', status: 'paid', agent: 'Aisha Brown', voc: 'Full amount paid via NEFT', flag: 'approved' },
+                      { id: 5, date: '2024-04-22', account: 'CC-2024-006', customer: 'Meena Kumari Joshi', amount: 12400, ptp_date: '2024-05-08', status: 'kept', agent: 'Jenna Rivera', voc: 'Payment received on time', flag: 'rejected' }
                     ].map((p, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
                         <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.date}</td>
