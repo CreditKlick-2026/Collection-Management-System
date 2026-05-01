@@ -471,6 +471,136 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
   );
 };
 
+const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
+  const { user, closeModal, toast } = useApp();
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    amount: '',
+    mode: 'NEFT',
+    ref: '',
+    date: new Date().toISOString().split('T')[0],
+    remarks: '',
+    upgradeFlag: '',
+    upgradeType: ''
+  });
+
+  const handleSubmit = async () => {
+    if (!form.amount) { toast('Please enter amount'); return; }
+    setLoading(true);
+    try {
+      // 1. Create Payment
+      const payRes = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: lead.id,
+          amount: form.amount,
+          mode: form.mode,
+          ref: form.ref,
+          date: form.date,
+          remarks: form.remarks,
+          agentId: user?.id
+        })
+      });
+
+      // 2. If Upgraded, update lead via disposition API
+      if (lead.eligible_upgrade === 'Y' && form.upgradeFlag) {
+        await fetch(`/api/leads/${lead.id}/disposition`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user?.id,
+            connectStatus: 'Right Party Connect',
+            disposition: 'Promised to Pay',
+            subDisposition: 'Full Outstanding Amount',
+            remarks: `Payment Recorded: ${form.remarks}`,
+            upgradeFlag: form.upgradeFlag,
+            upgradeType: form.upgradeType
+          })
+        });
+      }
+
+      if (payRes.ok) {
+        toast('Payment recorded successfully ✓');
+        closeModal();
+        onDone();
+      }
+    } catch (e) {
+      toast('Error recording payment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ padding: '0 20px 15px' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+        <div style={{ flex: 1, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', padding: '10px 14px', borderRadius: 8, color: 'var(--grn)', fontSize: 13, fontWeight: 600 }}>
+          Outstanding: ₹{Number(lead.outstanding || 0).toLocaleString('en-IN')}
+        </div>
+        <div style={{ flex: 2, background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.15)', padding: '10px 14px', borderRadius: 8, color: 'var(--amb)', fontSize: 11.5, lineHeight: 1.4, display: 'flex', alignItems: 'center' }}>
+          ⌛ Payment will go to <b style={{ color: 'var(--amb)', marginLeft: 4 }}>Pending Approval</b> queue. Manager approval required.
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div className="ff">
+          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>AMOUNT (₹) *</label>
+          <input className="finp" type="number" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} placeholder="0" />
+        </div>
+        <div className="ff">
+          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT MODE</label>
+          <select className="finp" value={form.mode} onChange={e => setForm({...form, mode: e.target.value})}>
+            {['NEFT', 'IMPS', 'UPI', 'Cash', 'Cheque', 'DD'].map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="ff">
+          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT DATE</label>
+          <input className="finp" type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: lead.eligible_upgrade === 'Y' ? '1.2fr 1fr 1fr' : '1fr', gap: 12, marginBottom: 12 }}>
+        <div className="ff">
+          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REFERENCE NO.</label>
+          <input className="finp" value={form.ref} onChange={e => setForm({...form, ref: e.target.value})} placeholder="UTR / Ref number" />
+        </div>
+        {lead.eligible_upgrade === 'Y' && (
+          <>
+            <div className="ff">
+              <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG</label>
+              <select className="finp" value={form.upgradeFlag} onChange={e => setForm({...form, upgradeFlag: e.target.value, upgradeType: ''})}>
+                <option value="">— Select —</option>
+                <option value="Upgraded">Upgraded</option>
+                <option value="Pending For Upgrade">Pending For Upgrade</option>
+              </select>
+            </div>
+            <div className="ff">
+              <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE</label>
+              <select className="finp" value={form.upgradeType} onChange={e => setForm({...form, upgradeType: e.target.value})} disabled={!form.upgradeFlag}>
+                <option value="">— Select —</option>
+                <option value="System">System</option>
+                <option value="Payment Received">Payment Received</option>
+                <option value="Money Collection">Money Collection</option>
+                <option value="Reversal">Reversal</option>
+              </select>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="ff" style={{ marginBottom: 15 }}>
+        <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REMARKS / NOTES</label>
+        <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({...form, remarks: e.target.value})} placeholder="Payment notes..." />
+      </div>
+
+      <button className="btn pr" style={{ width: '100%', padding: '12px', background: 'rgba(34,197,94,0.1)', color: 'var(--grn)', border: '1px solid rgba(34,197,94,0.2)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }} onClick={handleSubmit} disabled={loading}>
+        {loading ? 'Processing...' : <><span style={{ fontSize: 16 }}>💳</span> Submit for Approval</>}
+      </button>
+    </div>
+  );
+};
+
 const Leads = () => {
   const { openModal, user } = useApp();
   const [leads, setLeads] = useState<any[]>([]);
@@ -570,7 +700,12 @@ const Leads = () => {
           <div id="custDash" className="cust-dash filled" style={{ padding: '20px', background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)' }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 15, marginBottom: 15 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--grn)', padding: '6px 12px' }} disabled={!selectedLead}>💳 Payment</button>
+                <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--grn)', padding: '6px 12px' }} 
+                  disabled={!selectedLead}
+                  onClick={() => selectedLead && openModal(`Record Payment — ${selectedLead.name}`, <RecordLeadPaymentModal lead={selectedLead} onDone={fetchLeads} />, 800)}
+                >
+                  💳 Payment
+                </button>
                 <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }} 
                   onClick={() => openModal(`📞 Call Logs ${selectedLead ? `— ${selectedLead.name}` : ''}`, <CallLogsModal lead={selectedLead} />, 1100)}
                 >

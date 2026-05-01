@@ -41,11 +41,32 @@ export async function POST(
             amount: parsedAmount,
             date: data.date,
             status: 'pending',
-            agentId: parsedUserId || 1, // Fallback to a system user if needed
+            agentId: parsedUserId || 1,
             remarks: data.remarks,
             created: new Date().toISOString().split('T')[0]
           }
         });
+
+        // PTP Notification for Today
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          if (data.date === today) {
+            const customer = await prisma.customer.findUnique({ where: { id }, select: { name: true, account_no: true } });
+            const notification = {
+              id: Date.now(),
+              type: 'PTP',
+              title: 'New PTP Recorded',
+              message: `${customer?.name} promised ₹${parsedAmount} for today`,
+              time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+              account: customer?.account_no
+            };
+            const redisKey = `notifs:ptp:${today}`;
+            await redis.lpush(redisKey, JSON.stringify(notification));
+            await redis.expire(redisKey, 86400); // 24 hours
+          }
+        } catch (err) {
+          console.error('Redis Notification Error:', err);
+        }
       }
     }
 
