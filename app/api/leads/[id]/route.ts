@@ -3,10 +3,11 @@ import { prisma } from '@/lib/prisma';
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
+    const { id: idStr } = await params;
+    const id = parseInt(idStr);
     const data = await request.json();
 
     // Clean data: convert numbers where necessary

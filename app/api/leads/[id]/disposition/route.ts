@@ -4,10 +4,11 @@ import { logAudit } from '@/lib/audit';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
+    const { id: idStr } = await params;
+    const id = parseInt(idStr);
     const data = await request.json();
     const { userId, ...details } = data;
 
