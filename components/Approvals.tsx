@@ -96,17 +96,31 @@ const FlagModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
 
 /* ── Main Approvals Component ─────────────────────────── */
 const Approvals = () => {
-  const { openModal, toast } = useApp();
+  const { openModal, toast, user } = useApp();
   const [pending, setPending] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'payments' | 'ptps'>('payments');
+  const [filters, setFilters] = useState({ date: '', agent: '', account: '' });
 
   useEffect(() => { fetchPending(); }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPending();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [filters]);
 
   const fetchPending = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/payments?status=pending_approval');
+      const q = new URLSearchParams({
+        status: 'pending_approval',
+        date: filters.date,
+        agent: filters.agent,
+        account: filters.account
+      }).toString();
+      const res = await fetch(`/api/payments?${q}`);
       if (res.ok) setPending(await res.json());
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -116,7 +130,7 @@ const Approvals = () => {
     const res = await fetch('/api/payments', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: 'cleared', flag: 'approved' })
+      body: JSON.stringify({ id, status: 'cleared', flag: 'approved', flagBy: user?.id })
     });
     if (res.ok) { toast('Payment approved ✓'); fetchPending(); }
   };
@@ -127,7 +141,7 @@ const Approvals = () => {
     const res = await fetch('/api/payments', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: 'rejected', flag: 'rejected', rejectionReason: reason })
+      body: JSON.stringify({ id, status: 'rejected', flag: 'rejected', rejectionReason: reason, flagBy: user?.id })
     });
     if (res.ok) { toast('Payment rejected'); fetchPending(); }
   };
@@ -144,16 +158,24 @@ const Approvals = () => {
             <span className="badge amb">⏳ {pending.length} Pending</span>
           )}
         </div>
+
+        {/* Filter Row */}
+        <div style={{ marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <input className="finp" type="date" style={{ width: 'auto' }} value={filters.date} onChange={e => setFilters({ ...filters, date: e.target.value })} />
+          <input className="finp" placeholder="Agent name..." style={{ width: 160 }} value={filters.agent} onChange={e => setFilters({ ...filters, agent: e.target.value })} />
+          <input className="finp" placeholder="Account / Customer..." style={{ width: 200 }} value={filters.account} onChange={e => setFilters({ ...filters, account: e.target.value })} />
+          <button className="btn dn" style={{ color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => setFilters({ date: '', agent: '', account: '' })}>Clear</button>
+        </div>
       </div>
 
       <div className="page-body">
         {/* Stats Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-          <div className="card" style={{ background: '#161b27', border: '1px solid var(--bdr)' }}>
+          <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)' }}>
             <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Payments Pending</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--amb)' }}>{pending.length}</div>
           </div>
-          <div className="card" style={{ background: '#161b27', border: '1px solid var(--bdr)' }}>
+          <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)' }}>
             <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Total Pending Amount</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--txt)' }}>
               ₹{pending.reduce((acc, p) => acc + (p.amount || 0), 0).toLocaleString('en-IN')}
@@ -169,7 +191,7 @@ const Approvals = () => {
         </div>
 
         {activeTab === 'payments' && (
-          <div className="card" style={{ padding: 0, overflow: 'hidden', background: '#161b27', border: '1px solid var(--bdr)' }}>
+          <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: '1px solid var(--bdr)' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--bdr)', fontSize: 13, fontWeight: 700 }}>
               Payments Awaiting Approval
             </div>
@@ -189,7 +211,23 @@ const Approvals = () => {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: 'var(--txt3)' }}>Loading...</td></tr>
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '150px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '70px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '50px', height: 18, borderRadius: 12 }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '120px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <div className="skel" style={{ width: '60px', height: 24, borderRadius: 4 }} />
+                            <div className="skel" style={{ width: '60px', height: 24, borderRadius: 4 }} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   ) : pending.length === 0 ? (
                     <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: 'var(--txt3)' }}>
                       <div style={{ fontSize: 20, marginBottom: 6, opacity: 0.3 }}>✓</div>

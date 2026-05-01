@@ -33,6 +33,7 @@ model User {
   
   portfoliosManaged Portfolio[] @relation("PortfolioManagers")
   portfoliosAgent   Portfolio[] @relation("PortfolioAgents")
+  auditLogs         AuditLog[]
 }
 
 model Customer {
@@ -41,12 +42,23 @@ model Customer {
   name          String
   mobile        String
   alt_mobile    String?
+  alt_mobile_2  String?
+  alt_mobile_3  String?
+  alt_mobile_4  String?
   email         String?
   pan           String?
   product       String?
   bank          String?
   outstanding   Float     @default(0)
+  principle_outstanding Float?
+  min_amt_due   Float?
   dpd           Int       @default(0)
+  bkt_2         String?
+  product_npa   String?
+  date_of_npa   String?
+  linkage       String?
+  upgrade_reason String?
+  eligible_upgrade String?
   status        String    @default("active")
   city          String?
   state         String?
@@ -55,6 +67,8 @@ model Customer {
   address       String?
   employer      String?
   salary        Float?
+  metadata      Json?     // Flexible JSON for extra spreadsheet columns
+  createdAt     DateTime  @default(now())
   
   assignedAgentId Int?
   assignedAgent   User?    @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
@@ -65,6 +79,17 @@ model Customer {
   payments      Payment[]
   ptps          PTP[]
   disputes      Dispute[]
+}
+
+model LeadColumn {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  label     String
+  order     Int      @default(0)
+  visible   Boolean  @default(true)
+  showInProfile Boolean @default(true) // Controls visibility in Lead details view
+  type      String   @default("text") // text, amount, date, badge
+  style     Json?    // Optional custom styles
 }
 
 model Payment {
@@ -124,4 +149,15 @@ model Portfolio {
   agents      User[]   @relation("PortfolioAgents")
   managers    User[]   @relation("PortfolioManagers")
   customers   Customer[]
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  action      String   // e.g. "PAYMENT_APPROVED", "STATUS_UPDATED", "CALL_LOGGED"
+  entityType  String   // e.g. "Payment", "Customer", "PTP"
+  entityId    String   // String to support both int IDs and string IDs
+  details     Json?    // Stores the delta or extra context
+  timestamp   DateTime @default(now())
 }

@@ -2,8 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const date = searchParams.get('date');
+  const agent = searchParams.get('agent');
+  const account = searchParams.get('account');
+
   try {
     const disputes = await prisma.dispute.findMany({
+      where: {
+        raisedDate: date || undefined,
+        agent: agent
+          ? {
+              name: { contains: agent, mode: 'insensitive' },
+            }
+          : undefined,
+        OR: account
+          ? [
+              { customer: { account_no: { contains: account, mode: 'insensitive' } } },
+              { customer: { name: { contains: account, mode: 'insensitive' } } },
+            ]
+          : undefined,
+      },
       include: {
         customer: true,
         agent: true

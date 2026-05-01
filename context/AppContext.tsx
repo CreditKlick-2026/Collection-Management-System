@@ -64,3 +64,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useApp = () => useContext(AppContext);
+
+
+
+
+
+
+
+
+
+// Add this button in 
+// import {ButtonGroup, Button} from '@shopify/polaris';
+// import React from 'react';
+
+// function ButtonGroupExample() {
+//   return (
+//     <ButtonGroup variant="segmented">
+//       <Button>Bold</Button>
+//       <Button>Italic</Button>
+//       <Button>Underline</Button>
+//     </ButtonGroup>
+//   );
+// }
+// in header logout 
+
+

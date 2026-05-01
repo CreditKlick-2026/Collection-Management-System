@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, password } = await req.json();
+    const { username, password, role } = await req.json();
 
     if (!username || !password) {
       return NextResponse.json({ message: 'Username and password required' }, { status: 400 });
@@ -15,6 +15,12 @@ export async function POST(req: NextRequest) {
 
     if (!user || user.password !== password) {
       return NextResponse.json({ message: 'Invalid username or password' }, { status: 401 });
+    }
+
+    // Role check (Supervisor maps to manager)
+    const targetRole = role === 'supervisor' ? 'manager' : role;
+    if (user.role !== targetRole) {
+      return NextResponse.json({ message: `Access denied. You are not registered as ${role}.` }, { status: 403 });
     }
 
     if (!user.active) {

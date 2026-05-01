@@ -8,28 +8,43 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user }) => {
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: '▣', section: 'OPERATIONS' },
+    { id: 'leads', label: 'Leads', icon: '◉', section: 'OPERATIONS', hasDot: true },
+    { id: 'payment', label: 'Payments', icon: '◈', section: 'RECOVERY' },
+    { id: 'ptp', label: 'Promise to Pay', icon: '₹', section: 'RECOVERY' },
+    { id: 'disputes', label: 'Disputes', icon: '△', section: 'RECOVERY' },
+    { id: 'approvals', label: 'Approvals', icon: '⏳', section: 'MANAGEMENT', roles: ['admin', 'manager'] },
+    { id: 'manager', label: 'Manager Panel', icon: '📊', section: 'MANAGEMENT', roles: ['admin', 'manager'] },
+    { id: 'admin', label: 'Admin Panel', icon: '⚙', section: 'MANAGEMENT', roles: ['admin'] },
+  ];
+
+  const sections = ['OPERATIONS', 'RECOVERY', 'MANAGEMENT'];
+
   return (
     <div className="sidebar">
-      <div className="ns">Operations</div>
-      <div className={`ni ${activePage === 'dashboard' ? 'on' : ''}`} onClick={() => setActivePage('dashboard')}>▣ Dashboard</div>
-      <div className={`ni ${activePage === 'leads' ? 'on' : ''}`} onClick={() => setActivePage('leads')}>◉ Leads<span className="ni-dot"></span></div>
-      
-      <div className="ns">Recovery</div>
-      <div className={`ni ${activePage === 'payments' ? 'on' : ''}`} onClick={() => setActivePage('payments')}>◈ Payments</div>
-      <div className={`ni ${activePage === 'ptp' ? 'on' : ''}`} onClick={() => setActivePage('ptp')}>₹ Promise to Pay</div>
-      <div className={`ni ${activePage === 'disputes' ? 'on' : ''}`} onClick={() => setActivePage('disputes')}>△ Disputes</div>
-      
-      {(user?.role === 'admin' || user?.role === 'manager') && (
-        <>
-          <div className="ns">Management</div>
-          <div className={`ni ${activePage === 'approvals' ? 'on' : ''}`} onClick={() => setActivePage('approvals')}>⏳ Approvals</div>
-          <div className={`ni ${activePage === 'manager' ? 'on' : ''}`} onClick={() => setActivePage('manager')}>📊 Manager Panel</div>
-        </>
-      )}
-      
-      {user?.role === 'admin' && (
-        <div className={`ni ${activePage === 'admin' ? 'on' : ''}`} onClick={() => setActivePage('admin')}>⚙ Admin Panel</div>
-      )}
+      {sections.map(sec => {
+        const items = navItems.filter(i => i.section === sec && (!i.roles || i.roles.includes(user?.role)));
+        if (items.length === 0) return null;
+
+        return (
+          <React.Fragment key={sec}>
+            <div className="ns">{sec}</div>
+            {items.map(item => (
+              <div 
+                key={item.id} 
+                className={`ni ${activePage === item.id ? 'on' : ''}`} 
+                onClick={() => setActivePage(item.id)}
+              >
+                <span>{item.icon}</span>
+                {item.label}
+                {item.hasDot && <span className="ni-dot"></span>}
+              </div>
+            ))}
+            <div style={{ height: 10 }}></div>
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 };

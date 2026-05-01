@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logAudit } from '@/lib/audit';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -45,21 +46,46 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
+    
+    // Validate required numeric fields
+    const customerId = Number(data.customerId);
+    const agentId = Number(data.agentId);
+    const amount = parseFloat(data.amount);
+
+    if (Number.isNaN(customerId) || Number.isNaN(agentId) || Number.isNaN(amount)) {
+      console.error('Validation failed for payment:', { customerId, agentId, amount });
+      return NextResponse.json({ message: 'Invalid customer, agent, or amount value' }, { status: 400 });
+    }
+
     const payment = await prisma.payment.create({
       data: {
-        customerId: Number(data.customerId),
-        amount: parseFloat(data.amount),
-        mode: data.mode,
-        ref: data.ref,
-        date: data.date,
-        agentId: Number(data.agentId),
+        customerId,
+        amount,
+        mode: data.mode || 'Cash',
+        ref: data.ref || '',
+        date: data.date || new Date().toISOString().split('T')[0],
+        agentId,
         status: 'pending_approval',
-        remarks: data.remarks
+        remarks: data.remarks || ''
       }
     });
+
+    try {
+      await logAudit({
+        userId: agentId,
+        action: 'PAYMENT_CREATED',
+        entityType: 'Payment',
+        entityId: String(payment.id),
+        details: { amount: payment.amount, mode: payment.mode, status: payment.status }
+      });
+    } catch (auditErr) {
+      console.error('Audit log failed but payment was created:', auditErr);
+    }
+
     return NextResponse.json(payment);
-  } catch (error) {
-    return NextResponse.json({ message: 'Error creating payment' }, { status: 500 });
+  } catch (error: any) {
+    console.error('POST /api/payments error:', error);
+    return NextResponse.json({ message: error.message || 'Error creating payment' }, { status: 500 });
   }
 }
 
@@ -78,6 +104,15 @@ export async function PUT(request: Request) {
         remarks,
       }
     });
+
+    await logAudit({
+      userId: Number(flagBy || payment.agentId), // Use flagBy if available, else agent
+      action: status === 'rejected' ? 'PAYMENT_REJECTED' : flag === 'flagged' ? 'PAYMENT_FLAGGED' : 'PAYMENT_UPDATED',
+      entityType: 'Payment',
+      entityId: String(payment.id),
+      details: { status, flag, flagComment, rejectionReason }
+    });
+
     return NextResponse.json(payment);
   } catch (error) {
     console.error('Error updating payment', error);

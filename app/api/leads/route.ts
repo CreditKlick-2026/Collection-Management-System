@@ -11,8 +11,33 @@ export async function GET(request: Request) {
   const dpdMax = searchParams.get('dpdMax');
   const outMin = searchParams.get('outMin');
   const outMax = searchParams.get('outMax');
+  const month = searchParams.get('month');
+  const year = searchParams.get('year');
+  const userId = searchParams.get('userId');
 
   try {
+    let portfolioIds: string[] = [];
+    let isAdmin = false;
+
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: Number(userId) },
+        include: {
+          portfoliosManaged: { select: { id: true } },
+          portfoliosAgent: { select: { id: true } }
+        }
+      });
+      if (user) {
+        isAdmin = user.role === 'admin';
+        if (!isAdmin) {
+          portfolioIds = [
+            ...user.portfoliosManaged.map(p => p.id),
+            ...user.portfoliosAgent.map(p => p.id)
+          ];
+        }
+      }
+    }
+
     const orFilters: any[] = [];
     if (q) {
       if (searchType === 'name') {
@@ -34,18 +59,55 @@ export async function GET(request: Request) {
         );
       }
     }
+
+    let dateFilter: any = {};
+    if (year) {
+      const yearInt = parseInt(year);
+      if (month) {
+        const monthInt = parseInt(month) - 1; // 0-indexed
+        const startDate = new Date(yearInt, monthInt, 1);
+        const endDate = new Date(yearInt, monthInt + 1, 1);
+        dateFilter = { createdAt: { gte: startDate, lt: endDate } };
+      } else {
+        const startDate = new Date(yearInt, 0, 1);
+        const endDate = new Date(yearInt + 1, 0, 1);
+        dateFilter = { createdAt: { gte: startDate, lt: endDate } };
+      }
+    }
+
+    const where: any = {
+      AND: [
+        q ? { OR: orFilters } : {},
+        status ? { status } : {},
+        dpdMin ? { dpd: { gte: Number(dpdMin) } } : {},
+        dpdMax ? { dpd: { lte: Number(dpdMax) } } : {},
+        outMin ? { outstanding: { gte: Number(outMin) } } : {},
+        outMax ? { outstanding: { lte: Number(outMax) } } : {},
+        dateFilter
+      ]
+    };
+
+    // Portfolio access control
+    if (!isAdmin) {
+      if (portfolio) {
+        // If user is filtering by a specific portfolio, check if they have access
+        if (portfolioIds.includes(portfolio)) {
+          where.AND.push({ portfolioId: portfolio });
+        } else {
+          // No access to requested portfolio
+          where.AND.push({ id: -1 }); // Force zero results
+        }
+      } else {
+        // Show all assigned portfolios
+        where.AND.push({ portfolioId: { in: portfolioIds } });
+      }
+    } else if (portfolio) {
+      // Admin filtering by specific portfolio
+      where.AND.push({ portfolioId: portfolio });
+    }
+
     const leads = await prisma.customer.findMany({
-      where: {
-        AND: [
-          q ? { OR: orFilters } : {},
-          status ? { status } : {},
-          portfolio ? { portfolioId: portfolio } : {},
-          dpdMin ? { dpd: { gte: Number(dpdMin) } } : {},
-          dpdMax ? { dpd: { lte: Number(dpdMax) } } : {},
-          outMin ? { outstanding: { gte: Number(outMin) } } : {},
-          outMax ? { outstanding: { lte: Number(outMax) } } : {},
-        ]
-      },
+      where,
       include: {
         assignedAgent: {
           select: { id: true, name: true, empId: true }

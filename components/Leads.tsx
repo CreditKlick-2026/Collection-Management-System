@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
+import SButton from './SButton';
 
 const DISPOSITION_LOGIC: Record<string, Record<string, any[]>> = {
   "Right Party Connect": {
@@ -61,8 +62,9 @@ const DISPOSITION_LOGIC: Record<string, Record<string, any[]>> = {
 };
 
 const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
-  const { closeModal, toast } = useApp();
+  const { user, closeModal, toast } = useApp();
   const [loading, setLoading] = useState(false);
+  // ... rest of state ...
   const [connectStatus, setConnectStatus] = useState('');
   const [disposition, setDisposition] = useState('');
   const [subDisposition, setSubDisposition] = useState('');
@@ -82,15 +84,39 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
   useEffect(() => { setDisposition(''); setSubDisposition(''); }, [connectStatus]);
   useEffect(() => { setSubDisposition(''); }, [disposition]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!connectStatus || !disposition) { toast('Please select Connect Status and Disposition'); return; }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/disposition`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.id,
+          connectStatus,
+          disposition,
+          subDisposition,
+          date,
+          amount,
+          settlement,
+          callDrop,
+          altNumber,
+          remarks
+        })
+      });
+      if (res.ok) {
+        toast('Lead disposition updated successfully');
+        closeModal();
+        onDone();
+      } else {
+        toast('Failed to update disposition');
+      }
+    } catch (e) {
+      console.error(e);
+      toast('Error updating disposition');
+    } finally {
       setLoading(false);
-      toast('Lead disposition updated successfully');
-      closeModal();
-      onDone();
-    }, 600);
+    }
   };
 
   const showAltNumber = ['Right Party Connect', 'Third Party Connect', 'Wrong Party Connect'].includes(connectStatus);
@@ -169,7 +195,7 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
         <textarea className="finp" rows={3} style={{ resize: 'vertical' }} placeholder="Enter detailed interaction notes..." value={remarks} onChange={e => setRemarks(e.target.value)} />
       </div>
 
-      <button className="btn pr" style={{ width: '100%', padding: '12px', background: '#4f7dff' }} onClick={handleSubmit} disabled={loading}>
+      <button className="btn pr" style={{ width: '100%', padding: '12px', background: 'var(--acc)' }} onClick={handleSubmit} disabled={loading}>
         {loading ? 'Saving...' : '✓ Save Disposition'}
       </button>
     </div>
@@ -177,40 +203,123 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
 };
 
 const Leads = () => {
-  const { openModal } = useApp();
+  const { openModal, user } = useApp();
   const [leads, setLeads] = useState<any[]>([]);
+  const [leadColumns, setLeadColumns] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [filterTab, setFilterTab] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [statusOptions, setStatusOptions] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [portfolioOptions, setPortfolioOptions] = useState<any[]>([]);
+  const [portfolioFilter, setPortfolioFilter] = useState('');
+  const [dpdMin, setDpdMin] = useState('');
+  const [dpdMax, setDpdMax] = useState('');
+  const [outMin, setOutMin] = useState('');
+  const [filterMonth, setFilterMonth] = useState(String(new Date().getMonth() + 1));
+  const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
 
   useEffect(() => {
-    fetchLeads();
-  }, [search]);
+    fetchMetadata();
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    const timer = setTimeout(() => {
+      fetchLeads();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, filterTab, statusFilter, portfolioFilter, dpdMin, dpdMax, outMin, filterMonth, filterYear]);
+
+  const fetchMetadata = async () => {
+    try {
+      const res = await fetch('/api/metadata');
+      const data = await res.json();
+      if (data.leadColumns) setLeadColumns(data.leadColumns);
+      if (data.lists?.leadStatuses) setStatusOptions(data.lists.leadStatuses);
+      if (data.portfolios) setPortfolioOptions(data.portfolios);
+    } catch (e) { console.error(e); }
+  };
 
   const fetchLeads = async () => {
     setLoading(true);
-    const res = await fetch(`/api/leads?q=${search}`);
-    const data = await res.json();
-    setLeads(data);
-    if (data.length > 0 && !selectedLead) setSelectedLead(data[0]);
-    setLoading(false);
+    try {
+      const query = new URLSearchParams({ q: search, searchType: filterTab, userId: user?.id || '' });
+      if (statusFilter) query.append('status', statusFilter);
+      if (portfolioFilter) query.append('portfolio', portfolioFilter);
+      if (dpdMin) query.append('dpdMin', dpdMin);
+      if (dpdMax) query.append('dpdMax', dpdMax);
+      if (outMin) query.append('outMin', outMin);
+      if (filterMonth) query.append('month', filterMonth);
+      if (filterYear) query.append('year', filterYear);
+      
+      const res = await fetch(`/api/leads?${query.toString()}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setLeads(data);
+        if (data.length > 0 && !selectedLead) setSelectedLead(data[0]);
+      } else {
+        setLeads([]);
+        console.error('API did not return an array:', data);
+      }
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+      setLeads([]);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const tableCols = leadColumns.filter(c => c.visible !== false);
+  const profileCols = leadColumns.filter(c => c.showInProfile !== false);
 
   return (
     <div id="pg-leads" className="page on">
       <div className="leads-outer">
         {/* CUSTOMER DASHBOARD HEADER */}
-        <div id="custDash" className={`cust-dash ${selectedLead ? 'filled' : 'empty'}`} style={{ padding: '20px', background: '#161b27', borderBottom: '1px solid var(--bdr)' }}>
-          {!selectedLead ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--txt3)' }}><div style={{ fontSize: '20px', opacity: 0.5 }}>◉</div><div>Search and select a customer below to view details</div></div>
+        <div id="custDash" className="cust-dash filled" style={{ padding: '20px', background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)' }}>
+          {loading ? (
+            /* ── Skeleton: same structure as filled state ── */
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                  {/* Avatar skeleton */}
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--faint)', flexShrink: 0 }} className="skel" />
+                  <div>
+                    <div className="skel" style={{ width: 180, height: 16, marginBottom: 8 }} />
+                    <div className="skel" style={{ width: 260, height: 11 }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div className="skel" style={{ width: 70, height: 24, borderRadius: 12 }} />
+                  <div className="skel" style={{ width: 90, height: 24, borderRadius: 12 }} />
+                  <div className="skel" style={{ width: 90, height: 28, borderRadius: 6 }} />
+                  <div className="skel" style={{ width: 70, height: 28, borderRadius: 6 }} />
+                </div>
+              </div>
+              {/* Info boxes skeleton — same grid as real data */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} style={{ background: 'var(--bg3)', padding: '12px 14px', borderRadius: 6, border: '1px solid var(--faint)' }}>
+                    <div className="skel" style={{ width: '60%', height: 9, marginBottom: 8 }} />
+                    <div className="skel" style={{ width: '80%', height: 13 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : !selectedLead ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--txt3)' }}>
+              <div style={{ fontSize: '20px', opacity: 0.5 }}>◉</div>
+              <div>Search and select a customer below to view details</div>
+            </div>
           ) : (
             <div>
               {/* Top Row: Avatar, Name, Buttons */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <div className="av" style={{ width: 48, height: 48, fontSize: 18, background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', border: '1px solid rgba(79,125,255,0.3)', borderRadius: '50%' }}>
+                  <div className="av" style={{ width: 48, height: 48, fontSize: 18, background: 'var(--faint)', color: 'var(--acc2)', border: '1px solid var(--bdr)', borderRadius: '50%' }}>
                     {selectedLead.name?.split(' ').map((n:any)=>n[0]).join('').substring(0,2)}
                   </div>
                   <div>
@@ -221,46 +330,38 @@ const Leads = () => {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span className="badge" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--pur)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 12, padding: '4px 10px' }}><span style={{ fontSize: 8, marginRight: 4 }}>●</span> {selectedLead.status}</span>
-                  <span className="badge" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--pur)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 12, padding: '4px 10px', marginRight: 8 }}>{selectedLead.portfolio?.name || 'Retail'}</span>
-                  <button className="btn sm pr" style={{ background: '#4f7dff', border: 'none', padding: '6px 14px' }} onClick={() => openModal('Edit Disposition', <EditLeadModal lead={selectedLead} onDone={fetchLeads} />)}>✎ Edit</button>
-                  <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--red)', padding: '6px 12px' }}>📞 Call Log</button>
-                  <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }}>₹ PTP</button>
+                  <span className="badge" style={{ background: 'var(--purbg)', color: 'var(--pur)', border: '1px solid var(--purbg)', borderRadius: 12, padding: '4px 10px', marginRight: 8 }}><span style={{ fontSize: 8, marginRight: 4 }}>●</span> {selectedLead.status}</span>
                   <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--grn)', padding: '6px 12px' }}>💳 Payment</button>
-                  <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--pur)', padding: '6px 12px' }}>👤 Assign</button>
+                  <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }}>📞 Call Logs</button>
+                  <button
+                    className="btn sm"
+                    style={{ background: 'rgba(79,125,255,0.1)', border: '1px solid rgba(79,125,255,0.3)', color: 'var(--acc2)', padding: '6px 12px' }}
+                    onClick={() => openModal('Edit Lead Disposition', <EditLeadModal lead={selectedLead} onDone={fetchLeads} />)}
+                  >
+                    ✎ Edit
+                  </button>
                 </div>
               </div>
 
               {/* Grid Info Boxes */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                {[
-                  { label: 'ACCOUNT NUMBER', value: selectedLead.account_no },
-                  { label: 'MOBILE NUMBER', value: selectedLead.mobile },
-                  { label: 'ALT MOBILE', value: '8612345678' },
-                  { label: 'EMAIL', value: selectedLead.email || 'customer@gmail.com', style: { textTransform: 'lowercase' } },
-                  { label: 'PAN NUMBER', value: selectedLead.pan || 'MNOPC3456P' },
-                  { label: 'PRODUCT TYPE', value: selectedLead.product || 'Business Loan', isText: true },
-                  { label: 'BANK / LENDER', value: selectedLead.bank || 'SBI', isText: true },
-                  { label: 'OUTSTANDING AMOUNT', value: `₹${(selectedLead.outstanding || 0).toLocaleString('en-IN')}`, color: 'var(--red)' },
-                  { label: 'DAYS PAST DUE', value: `${selectedLead.dpd || 0}d`, color: 'var(--red)' },
-                  { label: 'STATUS', value: selectedLead.status, isText: true }
-                ].map((item, i) => (
-                  <div key={i} style={{ background: '#1e2433', padding: '12px 14px', borderRadius: 6, minWidth: 120, flex: '1 1 auto', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{item.label}</div>
-                    <div className={item.isText ? 'nm' : 'mn'} style={{ fontSize: 13, color: item.color || 'var(--txt)', ...item.style }}>{item.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
-                {[
-                  { label: 'CITY', value: selectedLead.city || 'Kota', isText: true },
-                  { label: 'PORTFOLIO', value: selectedLead.portfolio?.name || 'Rajasthan Personal Loans', isText: true, color: 'var(--pur)' }
-                ].map((item, i) => (
-                  <div key={i} style={{ background: '#1e2433', padding: '12px 14px', borderRadius: 6, minWidth: 120, maxWidth: 200, flex: '1 1 auto', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{item.label}</div>
-                    <div className={item.isText ? 'nm' : 'mn'} style={{ fontSize: 13, color: item.color || 'var(--txt)' }}>{item.value}</div>
-                  </div>
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                {(profileCols.length > 0 ? profileCols : [
+                  { label: 'ACCOUNT NUMBER', key: 'account_no' },
+                  { label: 'MOBILE NUMBER', key: 'mobile' },
+                  { label: 'OUTSTANDING', key: 'outstanding', type: 'amount' },
+                  { label: 'STATUS', key: 'status' }
+                ]).map((item: any, i: number) => {
+                  const rawVal = selectedLead[item.key] ?? selectedLead.metadata?.[item.key] ?? '—';
+                  const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
+                  return (
+                    <div key={i} style={{ background: 'var(--bg3)', padding: '12px 14px', borderRadius: 6, border: '1px solid var(--faint)' }}>
+                      <div style={{ fontSize: 10, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{item.label}</div>
+                      <div style={{ fontSize: 13, color: item.type === 'amount' ? 'var(--red)' : 'var(--txt)' }}>
+                        {item.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` : String(val)}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -283,54 +384,100 @@ const Leads = () => {
               <div key={t} className={`stab ${filterTab === t.toLowerCase() ? 'on' : ''}`} onClick={() => setFilterTab(t.toLowerCase())} style={{ borderRadius: 16, padding: '4px 12px', fontSize: 12 }}>{t}</div>
             ))}
           </div>
-          <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)' }} onClick={() => setShowFilters(!showFilters)}>⊞ Filters {showFilters ? '▲' : '▼'}</button>
+          <SButton size="slim" variant="secondary" onClick={() => setShowFilters(!showFilters)}>⊞ Filters {showFilters ? '▲' : '▼'}</SButton>
           <span style={{ fontSize: 12, color: 'var(--txt3)', marginLeft: 'auto' }}>{leads.length} records</span>
         </div>
 
         {/* FILTER ROW */}
         {showFilters && (
-          <div id="fRow" style={{ display: 'flex', padding: '10px 20px', background: '#161b27', borderBottom: '1px solid var(--bdr)', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select className="finp" style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }}><option value="">All Status</option></select>
-            <input className="finp" type="number" placeholder="DPD Min" style={{ width: '90px', padding: '6px 10px' }} />
-            <input className="finp" type="number" placeholder="DPD Max" style={{ width: '90px', padding: '6px 10px' }} />
-            <input className="finp" type="number" placeholder="₹ Min" style={{ width: '100px', padding: '6px 10px' }} />
-            <select className="finp" style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }}><option value="">All Portfolios</option></select>
-            <button className="btn sm dn" style={{ padding: '6px 12px' }}>Clear</button>
+          <div id="fRow" style={{ display: 'flex', padding: '10px 20px', background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select className="finp" style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
+              <option value="">All Months</option>
+              {Array.from({length: 12}).map((_, i) => <option key={i+1} value={i+1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'short' })}</option>)}
+            </select>
+            <select className="finp" style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }} value={filterYear} onChange={e => setFilterYear(e.target.value)}>
+              <option value="">All Years</option>
+              {[0, 1, 2, 3, 4].map(y => {
+                const yr = new Date().getFullYear() - y;
+                return <option key={yr} value={yr}>{yr}</option>
+              })}
+            </select>
+            <select 
+              className="finp" 
+              style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }}
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+            >
+              <option value="">All Status</option>
+              {statusOptions.map(st => <option key={st} value={st}>{st}</option>)}
+            </select>
+            <input className="finp" type="number" placeholder="DPD Min" style={{ width: '90px', padding: '6px 10px' }} value={dpdMin} onChange={e => setDpdMin(e.target.value)} />
+            <input className="finp" type="number" placeholder="DPD Max" style={{ width: '90px', padding: '6px 10px' }} value={dpdMax} onChange={e => setDpdMax(e.target.value)} />
+            <input className="finp" type="number" placeholder="₹ Min" style={{ width: '100px', padding: '6px 10px' }} value={outMin} onChange={e => setOutMin(e.target.value)} />
+            <select className="finp" style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }} value={portfolioFilter} onChange={e => setPortfolioFilter(e.target.value)}>
+              <option value="">All Portfolios</option>
+              {portfolioOptions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <SButton size="slim" variant="critical" onClick={() => {
+              setStatusFilter(''); setDpdMin(''); setDpdMax(''); setOutMin(''); setPortfolioFilter(''); setSearch(''); setFilterTab('all'); setFilterMonth(''); setFilterYear('');
+            }}>Clear</SButton>
           </div>
         )}
 
         {/* RESULTS AREA */}
-        <div className="result-area" style={{ background: '#161b27' }}>
+        <div className="result-area" style={{ background: 'var(--bg2)' }}>
           <table className="tbl" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--bdr)' }}>
-                <th style={{ background: 'transparent', border: 'none', padding: '12px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Account Number</th>
-                <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer Name</th>
-                <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Mobile Number</th>
-                <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Product Type</th>
-                <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Outstanding Amount</th>
-                <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Days Past Due</th>
-                <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
-                <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>City</th>
-                <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Portfolio</th>
+                {tableCols.length > 0 ? tableCols.map(col => (
+                  <th key={col.key} style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left' }}>
+                    {col.label}
+                  </th>
+                )) : (
+                  <>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Account Number</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer Name</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Mobile Number</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Outstanding</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
+                  </>
+                )}
                 <th style={{ background: 'transparent', border: 'none', padding: '12px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Assigned To</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 50, color: 'var(--txt3)' }}>Loading...</td></tr>
+                Array.from({ length: 10 }).map((_, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
+                    {Array.from({ length: (tableCols.length || 5) + 1 }).map((_, j) => (
+                      <td key={j} style={{ padding: '14px 10px' }}>
+                        <div className="skel" style={{ width: `${Math.floor(Math.random() * 40) + 40}%` }} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : leads.map(lead => (
-                <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', background: selectedLead?.id === lead.id ? 'rgba(79,125,255,0.08)' : 'transparent' }}>
-                  <td className="mn" style={{ padding: '14px 20px', color: 'var(--txt3)' }}>{lead.account_no}</td>
-                  <td className="nm" style={{ padding: '14px 10px', color: 'var(--txt)' }}>{lead.name}</td>
-                  <td className="mn" style={{ padding: '14px 10px', color: 'var(--txt2)' }}>{lead.mobile}</td>
-                  <td style={{ padding: '14px 10px', fontSize: 12, color: 'var(--txt3)' }}>{lead.product || 'Personal Loan'}</td>
-                  <td className="mn" style={{ padding: '14px 10px', color: 'var(--red)', fontWeight: 600 }}>₹{lead.outstanding?.toLocaleString('en-IN')}</td>
-                  <td className="mn" style={{ padding: '14px 10px', color: 'var(--red)' }}>{lead.dpd}d</td>
-                  <td style={{ padding: '14px 10px' }}><span className="badge" style={{ background: lead.status === 'overdue' ? 'rgba(226,75,74,0.1)' : 'rgba(139,92,246,0.1)', color: lead.status === 'overdue' ? 'var(--red)' : 'var(--pur)', border: `1px solid ${lead.status === 'overdue' ? 'rgba(226,75,74,0.3)' : 'rgba(139,92,246,0.3)'}`, borderRadius: 12, padding: '4px 8px' }}><span style={{ fontSize: 8, marginRight: 4 }}>●</span> {lead.status}</span></td>
-                  <td style={{ padding: '14px 10px', fontSize: 12, color: 'var(--txt2)' }}>{lead.city || '—'}</td>
-                  <td style={{ padding: '14px 10px', color: 'var(--pur)', fontSize: 12 }}>{lead.portfolio?.name || 'Retail'}</td>
-                  <td style={{ padding: '14px 20px', fontSize: 12, color: 'var(--txt2)' }}>Jenna Rivera</td>
+                <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ borderBottom: '1px solid var(--faint)', cursor: 'pointer', background: selectedLead?.id === lead.id ? 'var(--accbg)' : 'transparent' }}>
+                  {tableCols.length > 0 ? tableCols.map(col => {
+                    const rawVal = lead[col.key] ?? lead.metadata?.[col.key] ?? '—';
+                    const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
+                    return (
+                      <td key={col.key} style={{ padding: '14px 10px', fontSize: 12, color: col.type === 'amount' ? 'var(--red)' : 'var(--txt2)' }}>
+                        {col.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` : 
+                         col.type === 'badge' ? <span className="badge" style={{ background: 'var(--purbg)', color: 'var(--pur)', border: '1px solid var(--purbg)', borderRadius: 12, padding: '2px 8px' }}>{String(val)}</span> :
+                         String(val)}
+                      </td>
+                    );
+                  }) : (
+                    <>
+                      <td className="mn" style={{ padding: '14px 20px', color: 'var(--txt3)' }}>{lead.account_no}</td>
+                      <td className="nm" style={{ padding: '14px 10px', color: 'var(--txt)' }}>{lead.name}</td>
+                      <td className="mn" style={{ padding: '14px 10px', color: 'var(--txt2)' }}>{lead.mobile}</td>
+                      <td className="mn" style={{ padding: '14px 10px', color: 'var(--red)', fontWeight: 600 }}>₹{lead.outstanding?.toLocaleString('en-IN')}</td>
+                      <td><span className="badge">{lead.status}</span></td>
+                    </>
+                  )}
+                  <td style={{ padding: '14px 20px', fontSize: 12, color: 'var(--txt2)' }}>{lead.assignedAgent?.name || 'Unassigned'}</td>
                 </tr>
               ))}
             </tbody>
