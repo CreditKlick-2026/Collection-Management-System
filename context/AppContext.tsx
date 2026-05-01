@@ -8,7 +8,8 @@ interface AppContextType {
   modalOpen: boolean;
   modalTitle: string;
   modalBody: React.ReactNode;
-  openModal: (title: string, body: React.ReactNode) => void;
+  modalWidth: number | string | undefined;
+  openModal: (title: string, body: React.ReactNode, width?: number | string) => void;
   closeModal: () => void;
 }
 
@@ -19,6 +20,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalBody, setModalBody] = useState<React.ReactNode>(null);
+  const [modalWidth, setModalWidth] = useState<number | string | undefined>(undefined);
 
   const toast = useCallback((msg: string) => {
     let t = document.getElementById('toast');
@@ -33,23 +35,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (window as any)._tt = setTimeout(() => t!.classList.remove('show'), 2800);
   }, []);
 
-  const openModal = useCallback((title: string, body: React.ReactNode) => {
+  const openModal = useCallback((title: string, body: React.ReactNode, width?: number | string) => {
     setModalTitle(title);
     setModalBody(body);
+    setModalWidth(width);
     setModalOpen(true);
   }, []);
 
   const closeModal = useCallback(() => {
     setModalOpen(false);
     setModalBody(null);
+    setModalWidth(undefined);
   }, []);
 
   return (
-    <AppContext.Provider value={{ user, setUser, toast, modalOpen, modalTitle, modalBody, openModal, closeModal }}>
+    <AppContext.Provider value={{ user, setUser, toast, modalOpen, modalTitle, modalBody, modalWidth, openModal, closeModal }}>
       {children}
       {/* Global Modal */}
       <div className={`modal-bg ${modalOpen ? 'on' : ''}`} onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
-        <div className="modal">
+        <div className="modal" style={{ maxWidth: modalWidth, width: modalWidth ? '100%' : undefined }}>
           <div className="m-hdr">
             <div className="m-title">{modalTitle}</div>
             <button className="m-close" onClick={closeModal}>✕</button>

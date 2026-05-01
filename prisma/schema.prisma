@@ -59,6 +59,7 @@ model Customer {
   linkage       String?
   upgrade_reason String?
   eligible_upgrade String?
+  eligible_for_update String?
   status        String    @default("active")
   city          String?
   state         String?

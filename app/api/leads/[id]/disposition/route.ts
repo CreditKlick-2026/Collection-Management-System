@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
+import redis from '@/lib/redis';
 
 export async function POST(
   request: Request,
@@ -15,13 +16,19 @@ export async function POST(
     const parsedUserId = userId ? Number(userId) : null;
 
     // 1. Update customer status
+    const updateData: any = {
+      status: data.disposition === 'Promised to Pay' ? 'ptp' : 
+              data.connectStatus === 'Right Party Connect' ? 'active' : 
+              'pending',
+    };
+
+    if (data.eligibleForUpdate !== undefined) {
+      updateData.eligible_for_update = data.eligibleForUpdate;
+    }
+
     await prisma.customer.update({
       where: { id },
-      data: {
-        status: data.disposition === 'Promised to Pay' ? 'ptp' : 
-                data.connectStatus === 'Right Party Connect' ? 'active' : 
-                'pending',
-      }
+      data: updateData
     });
 
     // 2. If it's a PTP, create a PTP record
@@ -52,6 +59,14 @@ export async function POST(
         details: details
       });
     }
+
+    // Invalidate Redis cache so Call Logs modal shows fresh data
+    try {
+      const keys = await redis.keys(`call-logs:${id}*`);
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    } catch (_) {}
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
