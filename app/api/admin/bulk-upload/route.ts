@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 const FIELD_MAP: Record<string, string> = {
   // Account
   'account number': 'account_no',
