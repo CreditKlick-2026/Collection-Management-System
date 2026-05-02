@@ -251,3 +251,56 @@
     color: #2563eb;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
+
+/* ── Responsive Design for Login Page ── */
+@media (max-width: 768px) {
+    .login-container {
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+    }
+
+    .branding-side {
+        flex: none;
+        height: 20vh;
+        min-height: 140px;
+    }
+
+    .branding-title {
+        font-size: 2.2rem;
+    }
+
+    .branding-sub {
+        font-size: 1rem;
+    }
+
+    .form-side {
+        flex: 1;
+        padding: 1.5rem 1rem;
+        align-items: flex-start;
+    }
+
+    .login-card {
+        padding: 1.5rem 1rem;
+    }
+
+    .decorative-square {
+        height: 6rem;
+        width: 6rem;
+        transform: rotate(45deg) translate(3rem, -3rem);
+    }
+}
+
+@media (max-width: 480px) {
+    .branding-title {
+        font-size: 2.5rem;
+    }
+
+    .branding-sub {
+        font-size: 1rem;
+    }
+
+    .login-card {
+        padding: 1.5rem 1rem;
+    }
+}

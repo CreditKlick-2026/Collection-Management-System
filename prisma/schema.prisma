@@ -109,6 +109,10 @@ model Payment {
   flagBy          Int?
   flagComment     String?
   rejectionReason String?
+  resolved        Boolean   @default(false)  // Manager lock — if true, agent cannot edit
+  resolvedBy      Int?                        // Manager who resolved it
+  resolvedAt      DateTime?                   // When it was resolved
+  metadata        Json?                       // Upgrade info, swap details, etc.
 }
 
 model PTP {

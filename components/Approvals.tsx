@@ -3,78 +3,191 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 
 /* ── Flag Modal ──────────────────────────────────────── */
-const FlagModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
+/* ── Review Payment Modal (Advanced) ──────────────────── */
+const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
   const { toast, closeModal, user } = useApp();
-  const [action, setAction] = useState<'approved' | 'flagged' | 'rejected'>('approved');
+  const [action, setAction] = useState<'approved' | 'flagged' | 'rejected' | 'reassign'>('approved');
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Upgrade / Bucket Logic
+  const isEligible = item.customer?.eligible_upgrade === 'Y';
+  const [upgradeData, setUpgradeData] = useState({ flag: '', type: '', upgraded: 'N' });
+  const [bucketUsers, setBucketUsers] = useState<any[]>([]);
+  const [selectedCustId, setSelectedCustId] = useState(item.customerId);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (!isEligible || action === 'reassign') {
+      fetchBucketUsers();
+    }
+  }, [action]);
+
+  const fetchBucketUsers = async () => {
+    try {
+      const res = await fetch(`/api/manager/bucket-users?bkt=${item.customer?.bkt_2 || ''}&product=${item.customer?.product || ''}`);
+      if (res.ok) setBucketUsers(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const filteredUsers = bucketUsers.filter(u => 
+    u.name.toLowerCase().includes(search.toLowerCase()) || 
+    u.account_no.toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleSubmit = async () => {
     if ((action === 'flagged' || action === 'rejected') && !comment.trim()) {
       toast('Please enter a comment / reason'); return;
     }
+    if (action === 'reassign' && selectedCustId === item.customerId) {
+      toast('Please select a different customer to re-assign'); return;
+    }
+
     setSaving(true);
     try {
+      const body: any = {
+        id: item.id,
+        status: action === 'approved' ? 'cleared' : action === 'rejected' ? 'rejected' : 'pending_approval',
+        flag: action === 'reassign' ? 'reassigned' : action,
+        flagBy: user?.id,
+        flagComment: comment,
+        rejectionReason: action === 'rejected' ? comment : undefined,
+      };
+
+      // If re-assigned, change customer
+      if (action === 'reassign') {
+        body.customerId = selectedCustId;
+        body.status = 'cleared'; // Re-assigning usually means we've fixed it and it's cleared
+      }
+
+      // Upgrade info
+      if (!isEligible) {
+        body.metadata = {
+          upgrade_flag: upgradeData.flag,
+          upgrade_type: upgradeData.type,
+          upgraded: upgradeData.upgraded
+        };
+      }
+
       const res = await fetch('/api/payments', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: item.id,
-          status: action === 'approved' ? 'cleared' : action === 'rejected' ? 'rejected' : 'pending_approval',
-          flag: action,
-          flagBy: user?.id,
-          flagComment: action === 'flagged' ? comment : undefined,
-          rejectionReason: action === 'rejected' ? comment : undefined,
-        })
+        body: JSON.stringify(body)
       });
+
       if (res.ok) {
-        toast(action === 'approved' ? 'Payment approved ✓' : action === 'rejected' ? 'Payment rejected' : 'Payment flagged ⚑');
+        toast('Action successful ✓');
         closeModal();
         onDone();
       } else {
-        toast('Action failed');
+        const err = await res.json();
+        toast(err.message || 'Action failed');
       }
     } catch (e) { toast('Network error'); }
     setSaving(false);
   };
 
+  const currentCust = bucketUsers.find(u => u.id === selectedCustId) || item.customer;
+
   return (
     <div style={{ padding: '16px 20px 20px' }}>
-      <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 8, padding: '12px 14px', marginBottom: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
-          <div><span style={{ color: 'var(--txt3)' }}>Customer: </span><b>{item.customer?.name}</b></div>
+      {/* Customer Info Header */}
+      <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: '14px', marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px', fontSize: 12 }}>
+          <div><span style={{ color: 'var(--txt3)' }}>Current Customer: </span><b>{item.customer?.name}</b></div>
           <div><span style={{ color: 'var(--txt3)' }}>Account: </span><b>{item.customer?.account_no}</b></div>
           <div><span style={{ color: 'var(--txt3)' }}>Amount: </span><b style={{ color: 'var(--grn)' }}>₹{item.amount?.toLocaleString('en-IN')}</b></div>
-          <div><span style={{ color: 'var(--txt3)' }}>Mode: </span><b>{item.mode}</b></div>
-          <div><span style={{ color: 'var(--txt3)' }}>Date: </span><b>{item.date}</b></div>
+          <div><span style={{ color: 'var(--txt3)' }}>Eligible: </span><span className={`badge ${isEligible ? 'grn' : 'red'}`} style={{ fontSize: 9 }}>{isEligible ? 'YES' : 'NO'}</span></div>
+          <div><span style={{ color: 'var(--txt3)' }}>Bucket (BKT): </span><b style={{ color: 'var(--pur)' }}>{item.customer?.bkt_2 || '—'}</b></div>
           <div><span style={{ color: 'var(--txt3)' }}>Agent: </span><b>{item.agent?.name}</b></div>
         </div>
       </div>
 
+      {!isEligible && (
+        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+          <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 11, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            ⚠️ INELIGIBLE UPGRADE DETECTED
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <div className="ff" style={{ margin: 0 }}>
+              <label style={{ fontSize: 9 }}>UPGRADE FLAG</label>
+              <select className="finp" value={upgradeData.flag} onChange={e => setUpgradeData({ ...upgradeData, flag: e.target.value })}>
+                <option value="">Select...</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+            <div className="ff" style={{ margin: 0 }}>
+              <label style={{ fontSize: 9 }}>UPGRADED</label>
+              <select className="finp" value={upgradeData.upgraded} onChange={e => setUpgradeData({ ...upgradeData, upgraded: e.target.value })}>
+                <option value="N">N</option>
+                <option value="Y">Y</option>
+              </select>
+            </div>
+            <div className="ff" style={{ margin: 0 }}>
+              <label style={{ fontSize: 9 }}>UPGRADE TYPE</label>
+              <input className="finp" placeholder="Type..." value={upgradeData.type} onChange={e => setUpgradeData({ ...upgradeData, type: e.target.value })} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Tabs */}
       <div className="tabs" style={{ marginBottom: 14 }}>
-        {(['approved', 'flagged', 'rejected'] as const).map(a => (
-          <div key={a} className={`tab ${action === a ? 'on' : ''}`} onClick={() => setAction(a)} style={{ textTransform: 'capitalize' }}>
-            {a === 'approved' ? '✓ Approve' : a === 'flagged' ? '⚑ Flag' : '✕ Reject'}
+        {(['approved', 'reassign', 'flagged', 'rejected'] as const).map(a => (
+          <div key={a} className={`tab ${action === a ? 'on' : ''}`} onClick={() => setAction(a)} style={{ textTransform: 'capitalize', fontSize: 11 }}>
+            {a === 'approved' ? '✓ Approve' : a === 'reassign' ? '🔄 Swap' : a === 'flagged' ? '⚑ Flag' : '✕ Reject'}
           </div>
         ))}
       </div>
 
-      {action === 'flagged' && (
-        <div className="ff" style={{ marginBottom: 14 }}>
-          <label>Flag Comment / Reason for Agent *</label>
-          <textarea className="finp" rows={3} style={{ resize: 'vertical' }} placeholder="Explain what needs to be clarified..." value={comment} onChange={e => setComment(e.target.value)} />
+      {action === 'reassign' && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🔄 Swap Customer (Same Bucket: {item.customer?.bkt_2})</div>
+          <input className="finp" placeholder="Search account or name..." value={search} onChange={e => setSearch(e.target.value)} style={{ marginBottom: 8 }} />
+          <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid var(--bdr)', borderRadius: 8, background: 'var(--bg2)' }}>
+            {filteredUsers.length === 0 ? (
+              <div style={{ padding: 10, fontSize: 11, color: 'var(--txt3)', textAlign: 'center' }}>No users found in this bucket</div>
+            ) : filteredUsers.map(u => (
+              <div key={u.id} 
+                onClick={() => setSelectedCustId(u.id)}
+                style={{ 
+                  padding: '8px 12px', borderBottom: '1px solid var(--faint)', cursor: 'pointer', fontSize: 11,
+                  background: selectedCustId === u.id ? 'var(--accbg)' : 'transparent',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, color: selectedCustId === u.id ? 'var(--acc2)' : 'var(--txt)' }}>{u.name}</div>
+                  <div style={{ fontSize: 9, color: 'var(--txt3)' }}>{u.account_no}</div>
+                </div>
+                {u.id === item.customerId && <span style={{ fontSize: 8, color: 'var(--txt3)', fontStyle: 'italic' }}>Original</span>}
+                {u.eligible_upgrade === 'Y' && <span className="badge grn" style={{ fontSize: 8 }}>Y</span>}
+              </div>
+            ))}
+          </div>
+          {selectedCustId !== item.customerId && (
+            <div style={{ marginTop: 10, padding: 10, background: 'rgba(79,125,255,0.06)', borderRadius: 6, fontSize: 11, border: '1px dashed var(--acc2)' }}>
+              Selected: <b>{currentCust?.name}</b> ({currentCust?.account_no})
+            </div>
+          )}
         </div>
       )}
-      {action === 'rejected' && (
+
+      {(action === 'flagged' || action === 'rejected') && (
         <div className="ff" style={{ marginBottom: 14 }}>
-          <label>Rejection Reason *</label>
-          <textarea className="finp" rows={3} style={{ resize: 'vertical' }} placeholder="Explain why this payment is rejected..." value={comment} onChange={e => setComment(e.target.value)} />
+          <label>{action === 'flagged' ? 'Flag Comment *' : 'Rejection Reason *'}</label>
+          <textarea className="finp" rows={3} style={{ resize: 'vertical' }} value={comment} onChange={e => setComment(e.target.value)} />
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className={`btn ${action === 'approved' ? 'gn' : action === 'rejected' ? 'dn' : 'am'}`} style={{ flex: 4, padding: 10 }} onClick={handleSubmit} disabled={saving}>
-          {saving ? 'Saving...' : action === 'approved' ? '✓ Confirm Approval' : action === 'rejected' ? '✕ Confirm Rejection' : '⚑ Submit Flag'}
+        <button className={`btn ${action === 'approved' ? 'gn' : action === 'reassign' ? 'pr' : action === 'rejected' ? 'dn' : 'am'}`} 
+          style={{ flex: 4, padding: 10 }} onClick={handleSubmit} disabled={saving}>
+          {saving ? 'Saving...' : 
+           action === 'approved' ? '✓ Confirm Approval' : 
+           action === 'reassign' ? '🔄 Confirm Swap & Clear' : 
+           action === 'rejected' ? '✕ Confirm Rejection' : '⚑ Submit Flag'}
         </button>
         <button className="btn" style={{ flex: 1, padding: 10 }} onClick={closeModal}>Cancel</button>
       </div>
@@ -160,39 +273,63 @@ const PTPFlagModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
 };
 
 /* ── Main Approvals Component ─────────────────────────── */
+const LIMIT = 25;
+
+const PaginationBar = ({ page, totalPages, total, limit, onPage }: { page: number, totalPages: number, total: number, limit: number, onPage: (p: number) => void }) => {
+  if (totalPages <= 1) return null;
+  const start = (page - 1) * limit + 1;
+  const end   = Math.min(page * limit, total);
+  const pages = Array.from({ length: Math.min(5, totalPages) }, (_, i) => Math.max(1, Math.min(totalPages - 4, page - 2)) + i);
+  const btn = (label: string, pg: number, disabled: boolean) => (
+    <button key={label} onClick={() => onPage(pg)} disabled={disabled}
+      style={{ padding: '3px 9px', borderRadius: 5, border: `1px solid ${pg === page ? 'var(--acc2)' : 'var(--bdr)'}`, background: pg === page ? 'var(--acc2)' : 'var(--bg2)', color: pg === page ? '#fff' : 'var(--txt3)', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: pg === page ? 700 : 400, opacity: disabled ? 0.4 : 1 }}>{label}</button>
+  );
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderTop: '1px solid var(--bdr)', background: 'var(--bg3)' }}>
+      <span style={{ fontSize: 11, color: 'var(--txt3)' }}>Showing {start}–{end} of {total}</span>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {btn('«', 1, page === 1)}
+        {btn('‹', page - 1, page === 1)}
+        {pages.map(pg => btn(String(pg), pg, false))}
+        {btn('›', page + 1, page === totalPages)}
+        {btn('»', totalPages, page === totalPages)}
+      </div>
+    </div>
+  );
+};
+
 const Approvals = () => {
   const { openModal, toast, user } = useApp();
   const [pending, setPending] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'payments' | 'ptps'>('payments');
   const [filters, setFilters] = useState({ date: '', agent: '', account: '' });
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => { fetchPending(); }, []);
+  useEffect(() => { fetchPending(1); }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchPending();
-    }, 400);
+    setPage(1);
+    const timer = setTimeout(() => fetchPending(1), 400);
     return () => clearTimeout(timer);
   }, [filters, activeTab]);
 
-  const fetchPending = async () => {
+  useEffect(() => { fetchPending(page); }, [page]);
+
+  const fetchPending = async (pg = page) => {
     setLoading(true);
     try {
-      const q = new URLSearchParams({
-        date: filters.date,
-        agent: filters.agent,
-        account: filters.account
-      });
-      
+      const q = new URLSearchParams({ date: filters.date, agent: filters.agent, account: filters.account, page: String(pg), limit: String(LIMIT) });
       if (activeTab === 'payments') {
         q.append('status', 'pending_approval');
         const res = await fetch(`/api/payments?${q.toString()}`);
-        if (res.ok) setPending(await res.json());
+        if (res.ok) { const j = await res.json(); setPending(j.data || []); setTotal(j.total || 0); setTotalPages(j.totalPages || 1); }
       } else {
         q.append('flag', 'null');
         const res = await fetch(`/api/ptps?${q.toString()}`);
-        if (res.ok) setPending(await res.json());
+        if (res.ok) { const j = await res.json(); setPending(j.data || []); setTotal(j.total || 0); setTotalPages(j.totalPages || 1); }
       }
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -209,7 +346,7 @@ const Approvals = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    if (res.ok) { toast(`${activeTab === 'payments' ? 'Payment' : 'PTP'} approved ✓`); fetchPending(); }
+    if (res.ok) { toast(`${activeTab === 'payments' ? 'Payment' : 'PTP'} approved ✓`); fetchPending(page); }
   };
 
   const quickReject = async (id: number) => {
@@ -226,7 +363,7 @@ const Approvals = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    if (res.ok) { toast(`${activeTab === 'payments' ? 'Payment' : 'PTP'} rejected`); fetchPending(); }
+    if (res.ok) { toast(`${activeTab === 'payments' ? 'Payment' : 'PTP'} rejected`); fetchPending(page); }
   };
 
   return (
@@ -237,8 +374,8 @@ const Approvals = () => {
           <div className="ph-s">Payments and PTPs awaiting your review</div>
         </div>
         <div className="ph-ml">
-          {pending.length > 0 && (
-            <span className="badge amb">⏳ {pending.length} Pending</span>
+          {total > 0 && (
+            <span className="badge amb">⏳ {total} Pending</span>
           )}
         </div>
       </div>
@@ -250,7 +387,7 @@ const Approvals = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--acc2)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' }}>{activeTab === 'payments' ? 'Payments' : 'PTPs'} Pending</div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--txt)' }}>{pending.length}</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--txt)' }}>{total}</div>
               </div>
               <div style={{ fontSize: 24, opacity: 0.5 }}>{activeTab === 'payments' ? '◈' : '₹'}</div>
             </div>
@@ -286,7 +423,7 @@ const Approvals = () => {
           <input className="finp" type="date" style={{ width: 'auto' }} value={filters.date} onChange={e => setFilters({ ...filters, date: e.target.value })} />
           <input className="finp" placeholder="Agent name..." style={{ width: 160 }} value={filters.agent} onChange={e => setFilters({ ...filters, agent: e.target.value })} />
           <input className="finp" placeholder="Account / Customer..." style={{ width: 200 }} value={filters.account} onChange={e => setFilters({ ...filters, account: e.target.value })} />
-          <button className="btn dn" style={{ color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => setFilters({ date: '', agent: '', account: '' })}>Clear</button>
+          <button className="btn" style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => setFilters({ date: '', agent: '', account: '' })}>Clear</button>
         </div>
 
         {/* Tab System */}
@@ -363,7 +500,7 @@ const Approvals = () => {
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                           <button className="btn sm gn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickApprove(p.id)}>Approve</button>
                           <button className="btn sm dn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickReject(p.id)}>Reject</button>
-                          <button className="btn sm am" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => openModal(`Review Payment`, <FlagModal item={p} onDone={fetchPending} />)}>Flag</button>
+                          <button className="btn sm am" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => openModal(`Review Payment`, <ReviewPaymentModal item={p} onDone={fetchPending} />)}>Flag</button>
                         </div>
                       </td>
                     </tr>

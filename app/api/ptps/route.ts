@@ -5,54 +5,57 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const date = searchParams.get('date');
-  const agent = searchParams.get('agent');
+  const date    = searchParams.get('date');
+  const agent   = searchParams.get('agent');
   const account = searchParams.get('account');
-  const status = searchParams.get('status');
-  const flag = searchParams.get('flag');
+  const status  = searchParams.get('status');
+  const flag    = searchParams.get('flag');
+  const page    = Math.max(1, parseInt(searchParams.get('page')  || '1'));
+  const limit   = Math.min(100, parseInt(searchParams.get('limit') || '25'));
+  const skip    = (page - 1) * limit;
+
+  const where: any = {
+    date:   date   || undefined,
+    status: status || undefined,
+    flag:   flag === 'null' ? null : (flag || undefined),
+    agent:  agent ? { name: { contains: agent, mode: 'insensitive' } } : undefined,
+    OR: account
+      ? [
+          { customer: { account_no: { contains: account, mode: 'insensitive' } } },
+          { customer: { name:       { contains: account, mode: 'insensitive' } } },
+        ]
+      : undefined,
+  };
 
   try {
-    const ptps = await prisma.pTP.findMany({
-      where: {
-        date: date || undefined,
-        status: status || undefined,
-        flag: flag === 'null' ? null : (flag || undefined),
-        agent: agent
-          ? {
-              name: { contains: agent, mode: 'insensitive' },
-            }
-          : undefined,
-        OR: account
-          ? [
-              { customer: { account_no: { contains: account, mode: 'insensitive' } } },
-              { customer: { name: { contains: account, mode: 'insensitive' } } },
-            ]
-          : undefined,
-      },
-      include: {
-        customer: true,
-        agent: true
-      },
-      orderBy: { created: 'desc' }
-    });
+    const [ptps, total] = await prisma.$transaction([
+      prisma.pTP.findMany({
+        where,
+        include: { customer: true, agent: true },
+        orderBy: { created: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.pTP.count({ where }),
+    ]);
 
     const formatted = ptps.map(p => ({
-      id: p.id,
-      account_no: p.customer.account_no,
-      customer_name: p.customer.name,
-      ptp_amount: p.amount,
-      ptp_date: p.date,
-      status: p.status,
-      agent_name: p.agent.name,
-      created: p.created,
-      flag: p.flag,
-      flag_comment: p.flagComment,
+      id:               p.id,
+      account_no:       p.customer.account_no,
+      customer_name:    p.customer.name,
+      ptp_amount:       p.amount,
+      ptp_date:         p.date,
+      status:           p.status,
+      agent_name:       p.agent.name,
+      created:          p.created,
+      flag:             p.flag,
+      flag_comment:     p.flagComment,
       rejection_reason: p.rejectionReason,
-      voc: p.voc,
-      remarks: p.remarks
+      voc:              p.voc,
+      remarks:          p.remarks,
     }));
 
-    return NextResponse.json(formatted);
+    return NextResponse.json({ data: formatted, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

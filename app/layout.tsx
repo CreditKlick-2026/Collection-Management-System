@@ -7,8 +7,11 @@ import { Providers } from '@/components/Providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'DebtRecover Pro',
-  description: 'Outbound Recovery System v4.0',
+  title: 'CMS',
+  description: 'Collection Management System',
+  icons: {
+    icon: '/cms_logo.png',
+  },
 };
 
 export default function RootLayout({

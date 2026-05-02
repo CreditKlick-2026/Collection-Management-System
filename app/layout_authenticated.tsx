@@ -10,11 +10,17 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   const router = useRouter();
   const pathname = usePathname();
 
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   if (loading) return <div style={{ color: 'white', padding: 20 }}>Loading...</div>;
   if (!user) return null;
@@ -25,9 +31,12 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   return (
     <div id="sc-app" className="screen active">
       <div className="app-shell">
-        <Topbar user={user} activePage={activePage} logout={logout} />
+        <Topbar user={user} activePage={activePage} logout={logout} toggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
         <div className="body-row">
-          <Sidebar activePage={activePage} setActivePage={(p) => router.push(`/${p}`)} user={user} />
+          {mobileMenuOpen && (
+            <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)}></div>
+          )}
+          <Sidebar activePage={activePage} setActivePage={(p) => router.push(`/${p}`)} user={user} isMobileOpen={mobileMenuOpen} />
           <div className="main-area">
             {children}
           </div>

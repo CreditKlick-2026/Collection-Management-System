@@ -128,23 +128,25 @@ const Dashboard: React.FC = () => {
               
               <div className="card">
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 15 }}>Portfolio Performance</div>
-                <table className="tbl">
-                  <thead>
-                    <tr><th>Portfolio</th><th>Penetration</th><th>Collected</th></tr>
-                  </thead>
-                  <tbody>
-                    {data.portfolios?.map((p: any, i: number) => (
-                      <tr key={i}>
-                        <td className="nm">{p.name}</td>
-                        <td><div className="prog" style={{ width: 60 }}><div className="prog-f" style={{ width: `${p.penetration}%`, background: 'var(--acc)' }}></div></div></td>
-                        <td className="mn" style={{ color: 'var(--grn)' }}>{formatAmt(p.collected)}</td>
-                      </tr>
-                    ))}
-                    {(!data.portfolios || data.portfolios.length === 0) && (
-                      <tr><td colSpan={3} style={{ textAlign: 'center', padding: 20, color: 'var(--txt3)' }}>No portfolio data</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="tbl">
+                    <thead>
+                      <tr><th>Portfolio</th><th>Penetration</th><th>Collected</th></tr>
+                    </thead>
+                    <tbody>
+                      {data.portfolios?.map((p: any, i: number) => (
+                        <tr key={i}>
+                          <td className="nm">{p.name}</td>
+                          <td><div className="prog" style={{ width: 60 }}><div className="prog-f" style={{ width: `${p.penetration}%`, background: 'var(--acc)' }}></div></div></td>
+                          <td className="mn" style={{ color: 'var(--grn)' }}>{formatAmt(p.collected)}</td>
+                        </tr>
+                      ))}
+                      {(!data.portfolios || data.portfolios.length === 0) && (
+                        <tr><td colSpan={3} style={{ textAlign: 'center', padding: 20, color: 'var(--txt3)' }}>No portfolio data</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </>

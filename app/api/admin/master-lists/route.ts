@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     });
     return NextResponse.json(lists);
   } catch (error: any) {
+    console.error('API Error: /api/admin/master-lists', error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

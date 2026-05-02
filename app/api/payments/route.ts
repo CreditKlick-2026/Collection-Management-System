@@ -6,39 +6,45 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status') || 'cleared';
-  const date = searchParams.get('date');
-  const mode = searchParams.get('mode');
-  const agent = searchParams.get('agent');
-  const account = searchParams.get('account');
+  const status     = searchParams.get('status') || 'cleared';
+  const date       = searchParams.get('date');
+  const mode       = searchParams.get('mode');
+  const agent      = searchParams.get('agent');
+  const account    = searchParams.get('account');
   const customerId = searchParams.get('customerId');
+  const page       = Math.max(1, parseInt(searchParams.get('page')  || '1'));
+  const limit      = Math.min(100, parseInt(searchParams.get('limit') || '25'));
+  const skip       = (page - 1) * limit;
+
+  const where: any = {
+    status: (status === 'all' || !status) ? undefined : status,
+    date:       date       || undefined,
+    mode:       mode       || undefined,
+    customerId: customerId ? Number(customerId) : undefined,
+    agent:      agent ? { name: { contains: agent, mode: 'insensitive' } } : undefined,
+    OR: account
+      ? [
+          { customer: { account_no: { contains: account, mode: 'insensitive' } } },
+          { customer: { name:       { contains: account, mode: 'insensitive' } } },
+        ]
+      : undefined,
+  };
 
   try {
-    const payments = await prisma.payment.findMany({
-      where: {
-        status: status === 'all' ? undefined : status,
-        date: date || undefined,
-        mode: mode || undefined,
-        customerId: customerId ? Number(customerId) : undefined,
-        agent: agent
-          ? {
-              name: { contains: agent, mode: 'insensitive' },
-            }
-          : undefined,
-        OR: account
-          ? [
-              { customer: { account_no: { contains: account, mode: 'insensitive' } } },
-              { customer: { name: { contains: account, mode: 'insensitive' } } },
-            ]
-          : undefined,
-      },
-      include: {
-        customer: { select: { id: true, name: true, account_no: true } },
-        agent: { select: { id: true, name: true } }
-      },
-      orderBy: { date: 'desc' }
-    });
-    return NextResponse.json(payments);
+    const [payments, total] = await prisma.$transaction([
+      prisma.payment.findMany({
+        where,
+        include: {
+          customer: { select: { id: true, name: true, account_no: true, bkt_2: true, eligible_upgrade: true, product: true } },
+          agent:    { select: { id: true, name: true, empId: true } },
+        },
+        orderBy: { date: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.payment.count({ where }),
+    ]);
+    return NextResponse.json({ data: payments, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     console.error('Error fetching payments', error);
     return NextResponse.json({ message: 'Error fetching payments' }, { status: 500 });
@@ -93,8 +99,15 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, status, flag, flagBy, flagComment, rejectionReason, remarks } =
+    const { id, status, flag, flagBy, flagComment, rejectionReason, remarks, customerId, metadata } =
       await request.json();
+
+    // Check if payment is locked (resolved by manager)
+    const existing = await prisma.payment.findUnique({ where: { id: Number(id) } });
+    if (existing?.resolved) {
+      return NextResponse.json({ message: 'LOCKED: This payment has been resolved by a manager and cannot be modified.' }, { status: 403 });
+    }
+
     const payment = await prisma.payment.update({
       where: { id: Number(id) },
       data: {
@@ -104,6 +117,8 @@ export async function PUT(request: Request) {
         flagComment,
         rejectionReason,
         remarks,
+        customerId: customerId ? Number(customerId) : undefined,
+        metadata: metadata || undefined,
       }
     });
 

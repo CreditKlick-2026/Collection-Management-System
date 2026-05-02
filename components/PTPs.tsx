@@ -244,30 +244,42 @@ const PTPs = () => {
   const [ptps, setPtps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ date: '', agent: '', account: '' });
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const LIMIT = 25;
 
   useEffect(() => {
     fetchPtps();
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchPtps();
-    }, 400);
+    setPage(1);
+    const timer = setTimeout(() => fetchPtps(1), 400);
     return () => clearTimeout(timer);
   }, [filters]);
 
-  const fetchPtps = async () => {
+  useEffect(() => {
+    fetchPtps(page);
+  }, [page]);
+
+  const fetchPtps = async (pg = page) => {
     setLoading(true);
     try {
       const q = new URLSearchParams({
         date: filters.date,
         agent: filters.agent,
-        account: filters.account
+        account: filters.account,
+        page: String(pg),
+        limit: String(LIMIT)
       }).toString();
       const res = await fetch(`/api/ptps?${q}`);
       if (res.ok) {
-        const data = await res.json();
-        setPtps(data);
+        const json = await res.json();
+        const dataArray = Array.isArray(json) ? json : (json.data || []);
+        setPtps(dataArray);
+        setTotalRecords(json.total || dataArray.length);
+        setTotalPages(json.totalPages || 1);
       }
     } catch (e) {
       console.error(e);
@@ -293,25 +305,25 @@ const PTPs = () => {
           <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
             <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Total PTPs</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--txt)' }}>
-              {ptps.length || 5}
+              {totalRecords}
             </div>
           </div>
           <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
             <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Pending</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--amb)' }}>
-              {ptps.filter(p => p.status === 'pending').length || 1}
+              {ptps.filter(p => p.status === 'pending').length}
             </div>
           </div>
           <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
             <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Paid / Kept</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--grn)' }}>
-              {ptps.filter(p => p.status === 'paid' || p.status === 'kept').length || 2}
+              {ptps.filter(p => p.status === 'paid' || p.status === 'kept').length}
             </div>
           </div>
           <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
             <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Broken</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--red)' }}>
-              {ptps.filter(p => p.status === 'broken').length || 1}
+              {ptps.filter(p => p.status === 'broken').length}
             </div>
           </div>
         </div>
@@ -321,7 +333,7 @@ const PTPs = () => {
           <input className="finp" type="date" style={{ width: 'auto' }} value={filters.date} onChange={e => setFilters({ ...filters, date: e.target.value })} />
           <input className="finp" placeholder="Agent name..." style={{ width: 160 }} value={filters.agent} onChange={e => setFilters({ ...filters, agent: e.target.value })} />
           <input className="finp" placeholder="Account / Customer..." style={{ width: 200 }} value={filters.account} onChange={e => setFilters({ ...filters, account: e.target.value })} />
-          <button className="btn dn" style={{ color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => setFilters({ date: '', agent: '', account: '' })}>Clear</button>
+          <button className="btn" style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => setFilters({ date: '', agent: '', account: '' })}>Clear</button>
         </div>
 
         <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: '1px solid var(--bdr)' }}>
@@ -420,7 +432,40 @@ const PTPs = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '1px solid var(--bdr)', background: 'rgba(255,255,255,0.01)' }}>
+              <div style={{ fontSize: 12, color: 'var(--txt3)' }}>
+                Showing {((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, totalRecords)} of {totalRecords}
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn sm" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Previous</button>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                    const pg = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
+                    if (pg > totalPages || pg < 1) return null;
+                    return (
+                      <button key={pg} 
+                        onClick={() => setPage(pg)}
+                        style={{ 
+                          width: 32, height: 32, borderRadius: 8, border: '1px solid var(--bdr)', 
+                          background: page === pg ? 'var(--acc2)' : 'var(--bg2)',
+                          color: page === pg ? '#fff' : 'var(--txt2)',
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer'
+                        }}
+                      >
+                        {pg}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button className="btn sm" disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</button>
+              </div>
+            </div>
+          )}
         </div>
+
       </div>
     </div>
   );

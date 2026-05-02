@@ -108,7 +108,11 @@ export async function GET(request: Request) {
       where.AND.push({ portfolioId: portfolio });
     }
 
-    const leads = await prisma.customer.findMany({
+    const paginate = searchParams.get('paginate') === 'true';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '25');
+
+    const queryOptions: any = {
       where,
       include: {
         assignedAgent: {
@@ -117,9 +121,23 @@ export async function GET(request: Request) {
         portfolio: true
       },
       orderBy: { dpd: 'desc' }
-    });
+    };
 
-    return NextResponse.json(leads);
+    if (paginate) {
+      const skip = (page - 1) * limit;
+      const [leads, total] = await Promise.all([
+        prisma.customer.findMany({
+          ...queryOptions,
+          skip,
+          take: limit
+        }),
+        prisma.customer.count({ where })
+      ]);
+      return NextResponse.json({ leads, total });
+    } else {
+      const leads = await prisma.customer.findMany(queryOptions);
+      return NextResponse.json(leads);
+    }
   } catch (error) {
     console.error('Fetch leads error:', error);
     return NextResponse.json({ message: 'Error fetching leads' }, { status: 500 });
