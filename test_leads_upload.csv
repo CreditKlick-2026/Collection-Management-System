@@ -1,0 +1,4 @@
+Account Number,Customer Name,Mobile Number,Total Outstanding,Principle Outstanding,Min Amount Due,DPD,Product Type,Bank / Lender,PAN Number,Status,Portfolio,Assigned Agent,City,State,Email,Alt Mobile,Address,Bucket,Eligible_For_Update
+LN-2024-001,Rajesh Kumar Sharma,9876543210,45000,40000,2500,15,Personal Loan,HDFC Bank,ABCDE1234F,pending,P1,jenna_agent,Delhi,Delhi,rajesh@example.com,9876500000,Flat 101 Street 5,B1,Yes
+LN-2024-002,Vikram Singh Rathore,9988776655,125000,110000,8000,45,Business Loan,SBI,VWXYZ9876G,active,P2,carlos_mgr,Jaipur,Rajasthan,vikram@example.com,9988700000,Sector 4 H.No 12,B2,No
+LN-2024-003,Meena Kumari Joshi,9123456789,12400,10000,1200,5,Credit Card,ICICI Bank,JKLMN5678H,pending,P1,jenna_agent,Mumbai,Maharashtra,meena@example.com,9123400000,Near Temple Road,B1,

@@ -61,7 +61,9 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const data = await request.json();
+    console.log("SETTLEMENT PUT DATA:", data);
     const { id, status, remarks, rejectionReason, managerId } = data;
+    const mId = managerId ? Number(managerId) : null;
 
     const settlement = await prisma.settlement.update({
       where: { id: Number(id) },
@@ -69,20 +71,23 @@ export async function PUT(request: Request) {
         status,
         remarks,
         rejectionReason,
-        managerId: managerId ? Number(managerId) : undefined
+        managerId: mId
       }
     });
 
-    await logAudit({
-      userId: Number(managerId),
-      action: `SETTLEMENT_${status.toUpperCase()}`,
-      entityType: 'Settlement',
-      entityId: String(id),
-      details: { status, remarks }
-    });
+    if (mId) {
+      await logAudit({
+        userId: mId,
+        action: `SETTLEMENT_${status.toUpperCase()}`,
+        entityType: 'Settlement',
+        entityId: String(id),
+        details: { status, remarks }
+      });
+    }
 
     return NextResponse.json(settlement);
   } catch (error) {
+    console.error("SETTLEMENT PUT ERROR:", error);
     return NextResponse.json({ message: 'Error updating settlement', error: String(error) }, { status: 500 });
   }
 }

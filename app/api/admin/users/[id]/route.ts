@@ -23,7 +23,8 @@ export async function PUT(
         dob: data.dob,
         doj: data.doj,
         address: data.address,
-        active: data.active
+        active: data.active,
+        ...(data.password && { password: data.password })
       }
     });
 

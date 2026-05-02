@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     const where: any = {
       AND: [
         q ? { OR: orFilters } : {},
-        status ? { status } : {},
+        status ? { status } : { status: { not: 'archived' } },
         dpdMin ? { dpd: { gte: Number(dpdMin) } } : {},
         dpdMax ? { dpd: { lte: Number(dpdMax) } } : {},
         outMin ? { outstanding: { gte: Number(outMin) } } : {},

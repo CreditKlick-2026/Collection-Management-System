@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { useApp } from '@/context/AppContext';
 
 const Admin = () => {
-  const { toast } = useApp();
+  const { toast, user } = useApp();
   const [columns, setColumns] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState<any[]>([]);
@@ -16,11 +16,57 @@ const Admin = () => {
   const [editUser, setEditUser] = useState<any>(null);
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
   const [deactivatingUser, setDeactivatingUser] = useState<any>(null);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [resetUser, setResetUser] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   // Bulk Upload State
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [activeJob, setActiveJob] = useState<any>(null);
+
+  // Polling for background job status
+  useEffect(() => {
+    let interval: any;
+
+    const checkStatus = async () => {
+      if (!activeJob?.id) return;
+      try {
+        const res = await fetch(`/api/admin/bulk-upload/status?jobId=${activeJob.id}`);
+        const data = await res.json();
+        if (data.job) {
+          setActiveJob(data.job);
+          if (data.job.status === 'completed' || data.job.status === 'failed') {
+            clearInterval(interval);
+            if (data.job.status === 'completed') {
+              toast(`✅ Bulk Upload Completed! ${data.job.successCount} imported.`);
+              fetchData(); // Refresh lists
+            }
+          }
+        }
+      } catch (e) { console.error(e); }
+    };
+
+    if (activeJob && (activeJob.status === 'processing' || activeJob.status === 'pending')) {
+      interval = setInterval(checkStatus, 2000);
+    }
+
+    return () => clearInterval(interval);
+  }, [activeJob?.id, activeJob?.status]);
+
+  // Initial check for any active job on mount
+  useEffect(() => {
+    const fetchActiveJob = async () => {
+      try {
+        const res = await fetch('/api/admin/bulk-upload/status?checkActive=true');
+        const data = await res.json();
+        if (data.activeJob) setActiveJob(data.activeJob);
+      } catch (e) {}
+    };
+    fetchActiveJob();
+  }, []);
   const [uploadAgent, setUploadAgent] = useState('');
   const [uploadPortfolio, setUploadPortfolio] = useState('');
   const [duplicateHandling, setDuplicateHandling] = useState('Skip Duplicates');
@@ -44,6 +90,14 @@ const Admin = () => {
   const [masterLists, setMasterLists] = useState<any[]>([]);
   const [newListItem, setNewListItem] = useState({ type: '', value: '' });
 
+  // Flush DB State
+  const [isFlushModalOpen, setIsFlushModalOpen] = useState(false);
+  const [flushPassword, setFlushPassword] = useState('');
+  const [flushing, setFlushing] = useState(false);
+  const [flushAction, setFlushAction] = useState<'all' | 'audit' | 'selective'>('all');
+  const [cleanupMonth, setCleanupMonth] = useState(new Date().getMonth() + 1);
+  const [cleanupYear, setCleanupYear] = useState(new Date().getFullYear());
+
   const DEFAULT_LISTS: Record<string, string[]> = {
     PAYMENT_MODE: ['Cash', 'NEFT', 'IMPS', 'UPI', 'Cheque', 'DD'],
     PTP_STATUS: ['Promised to Pay', 'Partial Amount', 'Full Outstanding', 'Minimum Amount'],
@@ -65,7 +119,7 @@ const Admin = () => {
       const res = await fetch('/api/admin/portfolios');
       setPortfolios(await res.json());
     }
-    if (activeTab === 'columns') {
+    if (activeTab === 'columns' || activeTab === 'bulk') {
       const res = await fetch('/api/admin/columns');
       setColumns(await res.json());
     }
@@ -178,6 +232,13 @@ const Admin = () => {
 
   const handleSave = async () => {
     const isEditing = !!editUser.id;
+
+    // Validation for new user
+    if (!isEditing) {
+      if (!editUser.password) return toast('Password is required');
+      if (editUser.password !== editUser.confirmPassword) return toast('Passwords do not match');
+    }
+
     const url = isEditing ? `/api/admin/users/${editUser.id}` : '/api/admin/users';
     const method = isEditing ? 'PUT' : 'POST';
 
@@ -213,7 +274,7 @@ const Admin = () => {
 
   const handleDeleteUser = async (user: any) => {
     if (!window.confirm(`Are you sure you want to PERMANENTLY DELETE user "${user.name}"? This action cannot be undone.`)) return;
-    
+
     try {
       const res = await fetch(`/api/admin/users/${user.id}`, {
         method: 'DELETE'
@@ -221,14 +282,55 @@ const Admin = () => {
       if (res.ok) {
         toast('User deleted successfully');
         fetchData();
-      } else {
-        const data = await res.json();
-        toast(data.message || 'Failed to delete user');
       }
     } catch (e) {
       console.error(e);
       toast('Error deleting user');
     }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!newPassword.trim()) return toast('Password cannot be empty');
+    setResetting(true);
+    try {
+      const res = await fetch(`/api/admin/users/${resetUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...resetUser, password: newPassword })
+      });
+      if (res.ok) {
+        toast('Password updated successfully ✓');
+        setIsPasswordModalOpen(false);
+        setNewPassword('');
+      } else {
+        toast('Failed to reset password');
+      }
+    } catch (e) {
+      toast('Network error');
+    }
+    setResetting(false);
+  };
+
+  const handleDownloadSample = () => {
+    // Standard system fields
+    const baseHeaders = ['Account No', 'Customer Name', 'Portfolio', 'Bucket', 'DPD', 'Outstanding', 'Mobile', 'Alt Mobile', 'Email', 'Address', 'Pincode', 'City', 'State'];
+    // Merge with any dynamic columns defined, but filter out internal fields
+    const dynamicHeaders = columns
+      .map(c => c.label)
+      .filter(label => !['Created Date', 'Updated Date', 'Created At', 'Updated At'].includes(label));
+    const allHeaders = [...new Set([...baseHeaders, ...dynamicHeaders])];
+
+    const csvContent = allHeaders.join(',') + '\n' + allHeaders.map(() => 'Sample Data').join(',');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'debt_recover_sample_upload.csv');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast('Sample file downloaded ✓');
   };
 
   const handleAddListItem = async (type: string) => {
@@ -257,6 +359,7 @@ const Admin = () => {
     setPreviewRows([]);
     setPreviewHeaders([]);
     setValidationError(null);
+    setColumnMatchResult(null);
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -272,18 +375,14 @@ const Admin = () => {
           setPreviewHeaders(rawHeaders);
           setPreviewRows(json.slice(0, 5));
 
-          // Strict validation: Excel columns vs Database columns
-          const expectedHeaders = columns.map(c => c.label.toLowerCase().trim());
-          const actualHeaders = rawHeaders.map(h => String(h).toLowerCase().trim());
-
-          const missing = expectedHeaders.filter(h => !actualHeaders.includes(h));
-          const extra = actualHeaders.filter(h => !expectedHeaders.includes(h));
-
-          if (missing.length > 0 || extra.length > 0) {
-            let errorMsg = "Column mismatch! Your file must exactly match the Database columns. ";
-            if (missing.length > 0) errorMsg += `Missing: ${missing.map(m => `"${m}"`).join(', ')}. `;
-            if (extra.length > 0) errorMsg += `Extra: ${extra.map(m => `"${m}"`).join(', ')}.`;
-            setValidationError(errorMsg);
+          // Extremely robust Account No detection
+          const actualHeaders = rawHeaders.map(h => String(h).toLowerCase().replace(/[^a-z0-9]/g, '').trim());
+          const hasAccountNo = actualHeaders.some(h => 
+            ['accountno', 'accountn', 'accno', 'accountnumber', 'loanaccount', 'loanid', 'customerid', 'accntno'].includes(h) || h.includes('account')
+          );
+          
+          if (!hasAccountNo) {
+            setValidationError(`Validation Error: Column 'Account No' not found. We checked: ${rawHeaders.join(', ')}`);
           }
         }
       } catch (err: any) {
@@ -293,10 +392,56 @@ const Admin = () => {
     reader.readAsBinaryString(file);
   };
 
+  const [columnMatchResult, setColumnMatchResult] = useState<any>(null);
+
+  const handleCheckColumns = () => {
+    if (!previewHeaders.length) return;
+    
+    const standard = [
+      { label: "Account Number", keys: ['accountno', 'accountnumber', 'accno', 'loanid', 'customerid'] },
+      { label: "Customer Name", keys: ['customername', 'name', 'borrowername'] },
+      { label: "Mobile Number", keys: ['mobilenumber', 'mobile', 'phone'] },
+      { label: "Total Outstanding", keys: ['totaloutstanding', 'outstanding', 'outstandingamount'] },
+      { label: "Principle Outstanding", keys: ['principleoutstanding', 'principaloutstanding'] },
+      { label: "Min Amount Due", keys: ['minamountdue', 'minamtdue'] },
+      { label: "DPD", keys: ['dpd', 'dayspastdue'] },
+      { label: "Product Type", keys: ['producttype', 'product'] },
+      { label: "Bank / Lender", keys: ['banklender', 'bank', 'lender'] },
+      { label: "PAN Number", keys: ['pannumber', 'pan'] },
+      { label: "Status", keys: ['status'] },
+      { label: "Portfolio", keys: ['portfolio', 'portfolioid'] },
+      { label: "Assigned Agent", keys: ['assignedagent', 'agent', 'agentusername'] },
+      { label: "City", keys: ['city'] },
+      { label: "State", keys: ['state'] },
+      { label: "Email", keys: ['email'] },
+      { label: "Alt Mobile", keys: ['altmobile'] },
+      { label: "Address", keys: ['address'] },
+      { label: "Bucket", keys: ['bucket', 'bkt2'] },
+      { label: "Eligible_For_Update", keys: ['eligibleforupdate', 'eligibleforupdate'] }
+    ];
+
+    const actual = previewHeaders.map(h => String(h).toLowerCase().replace(/[^a-z0-9]/g, '').trim());
+    
+    const report = standard.map(s => {
+      const foundIdx = actual.findIndex(a => s.keys.includes(a) || a.includes(s.label.toLowerCase().replace(/[^a-z0-9]/g, '')));
+      return {
+        label: s.label,
+        matched: foundIdx !== -1,
+        fileHeader: foundIdx !== -1 ? previewHeaders[foundIdx] : null
+      };
+    });
+
+    const extra = previewHeaders.filter(h => {
+      const normalized = String(h).toLowerCase().replace(/[^a-z0-9]/g, '');
+      return !standard.some(s => s.keys.includes(normalized) || normalized.includes(s.label.toLowerCase().replace(/[^a-z0-9]/g, '')));
+    });
+
+    setColumnMatchResult({ report, extra });
+  };
+
   const handleStartUpload = async () => {
     if (!uploadFile) return;
     setUploading(true);
-    setUploadResult(null);
     setUploadProgress(10);
     try {
       const reader = new FileReader();
@@ -307,8 +452,7 @@ const Admin = () => {
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           const json = XLSX.utils.sheet_to_json(worksheet);
-          setUploadProgress(40);
-
+          
           const res = await fetch('/api/admin/bulk-upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -316,26 +460,28 @@ const Admin = () => {
               data: json,
               agentId: uploadAgent || null,
               portfolioId: uploadPortfolio || null,
-              duplicateHandling
+              duplicateHandling,
+              fileName: uploadFile.name
             })
           });
-          setUploadProgress(90);
           const result = await res.json();
-          setUploadProgress(100);
-          if (res.ok) {
-            setUploadResult({ ...result, success: true });
+          if (result.success && result.jobId) {
+            setActiveJob({ id: result.jobId, status: 'processing', processedRows: 0, totalRows: json.length });
+            setUploadFile(null);
+            setPreviewRows([]);
+            toast('🚀 Bulk upload started in background');
           } else {
-            setUploadResult({ success: false, error: result.error });
+            toast('❌ Error: ' + (result.error || 'Failed to start upload'));
           }
         } catch (err: any) {
-          setUploadResult({ success: false, error: 'Error parsing file: ' + err.message });
+          toast('❌ Error: ' + err.message);
         } finally {
           setUploading(false);
         }
       };
       reader.readAsBinaryString(uploadFile);
     } catch (err: any) {
-      setUploadResult({ success: false, error: err.message });
+      toast('❌ Error: ' + err.message);
       setUploading(false);
     }
   };
@@ -349,11 +495,86 @@ const Admin = () => {
     setValidationError(null);
   };
 
+  const handleFlushDB = async () => {
+    if (!flushPassword) return toast("Password required");
+    setFlushing(true);
+    try {
+      const res = await fetch('/api/admin/flush-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          password: flushPassword, 
+          userId: user?.id, 
+          action: flushAction,
+          month: cleanupMonth,
+          year: cleanupYear
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (flushAction === 'selective') {
+          toast(`Cleanup done: ${data.deletedCount} deleted, ${data.skippedCount} skipped (with payments) ✓`);
+        } else {
+          toast(`${flushAction === 'all' ? 'Database flushed' : 'Audit logs cleared'} successfully ✓`);
+        }
+        setIsFlushModalOpen(false);
+        setFlushPassword('');
+        fetchData();
+      } else {
+        const err = await res.json();
+        toast(err.message || "Flush failed");
+      }
+    } catch (e) {
+      toast("Network error during flush");
+    }
+    setFlushing(false);
+  };
+
   const handleDownloadTemplate = () => {
-    const headers = columns.map(c => c.label);
-    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    const headers = [
+      "Account Number",
+      "Customer Name",
+      "Mobile Number",
+      "Total Outstanding",
+      "Principle Outstanding",
+      "Min Amount Due",
+      "DPD",
+      "Product Type",
+      "Bank / Lender",
+      "PAN Number",
+      "Status",
+      "Portfolio",
+      "Assigned Agent",
+      "City",
+      "State",
+      "Email",
+      "Alt Mobile",
+      "Address",
+      "Bucket",
+      "Eligible_For_Update"
+    ];
+    
+    // Add any extra custom columns that are not in the standard list
+    const standardKeys = ['account_no', 'name', 'mobile', 'outstanding', 'principle_outstanding', 'min_amt_due', 'dpd', 'product', 'bank', 'pan', 'status', 'portfolio', 'assignedAgent', 'city', 'state', 'email', 'alt_mobile', 'address', 'bkt_2', 'eligible_for_update'];
+    const custom = columns
+      .filter(c => !standardKeys.includes(c.key))
+      .map(c => c.label);
+
+    const allHeaders = [...headers, ...custom];
+    
+    const ws = XLSX.utils.aoa_to_sheet([
+      allHeaders,
+      allHeaders.map(h => {
+        if (h === "Account Number") return "LN-2024-TEST-001";
+        if (h === "Total Outstanding") return "50000";
+        if (h === "DPD") return "30";
+        if (h === "Mobile Number") return "9876543210";
+        return "Sample";
+      })
+    ]);
+    
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.utils.book_append_sheet(wb, ws, "Upload Template");
     XLSX.writeFile(wb, "bulk_upload_template.xlsx");
   };
 
@@ -372,13 +593,52 @@ const Admin = () => {
 
   return (
     <div className="page on" style={{ background: 'var(--bg)' }}>
-      <div className="ph" style={{ padding: '16px 20px 12px', borderBottom: '1px solid var(--bdr)', background: 'var(--bg2)' }}>
-        <div>
-          <div className="ph-t" style={{ fontSize: 16, fontWeight: 700 }}>⚙ Admin Panel</div>
-          <div className="ph-s" style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>Full system configuration — Admin only</div>
+      {/* Sticky Progress Bar for Background Jobs */}
+      {activeJob && (
+        <div style={{ 
+          position: 'sticky', top: 0, zIndex: 1000, 
+          background: activeJob.status === 'completed' ? 'rgba(34,197,94,0.1)' : 'var(--bg2)', 
+          borderBottom: `1px solid ${activeJob.status === 'completed' ? 'rgba(34,197,94,0.3)' : 'var(--bdr)'}`,
+          padding: '12px 20px', backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontSize: 18 }}>{activeJob.status === 'completed' ? '✅' : '⏳'}</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)' }}>
+                  {activeJob.status === 'completed' ? 'Upload Completed' : 'Processing Bulk Upload...'}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 2 }}>{activeJob.fileName} • {activeJob.processedRows} of {activeJob.totalRows} processed</div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: 20 }}>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#2ecca7' }}>SUCCESS</div>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{activeJob.successCount}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--acc2)' }}>UPDATED</div>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{activeJob.updatedCount}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#f5a623' }}>ERRORS</div>
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{activeJob.errorCount}</div>
+              </div>
+              {activeJob.status === 'completed' && (
+                <button onClick={() => setActiveJob(null)} style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, color: 'var(--txt)' }}>Close</button>
+              )}
+            </div>
+          </div>
+          <div style={{ height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ 
+              height: '100%', background: activeJob.status === 'completed' ? '#22c55e' : 'var(--acc)', 
+              width: `${(activeJob.processedRows / activeJob.totalRows) * 100}%`,
+              transition: 'width 0.4s ease-out'
+            }} />
+          </div>
         </div>
-      </div>
-
+      )}
       <div className="admin-nav" style={{ padding: '8px 20px', background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)', display: 'flex', gap: 5, overflowX: 'auto' }}>
         {tabs.map(t => (
           <div key={t.id} className={`admin-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: activeTab === t.id ? 'rgba(79,125,255,0.1)' : 'transparent', color: activeTab === t.id ? 'var(--acc2)' : 'var(--txt3)' }}>
@@ -392,11 +652,11 @@ const Admin = () => {
         {activeTab === 'users' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 15 }}>
-              <button 
-                className="btn pr" 
+              <button
+                className="btn pr"
                 style={{ borderRadius: 6, padding: '7px 15px', fontSize: 11 }}
                 onClick={() => {
-                  setEditUser({ name: '', username: '', role: 'agent', empId: '', email: '', initials: '', active: true });
+                  setEditUser({ name: '', username: '', role: 'agent', empId: '', email: '', initials: '', active: true, password: '', confirmPassword: '' });
                   setIsEditModalOpen(true);
                 }}
               >
@@ -405,58 +665,58 @@ const Admin = () => {
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: 'none' }}>
               <table className="tbl" style={{ borderCollapse: 'separate', borderSpacing: '0 8px' }}>
-              <thead>
-                <tr style={{ background: 'transparent' }}>
-                  <th style={{ background: 'transparent', border: 'none' }}>NAME</th>
-                  <th style={{ background: 'transparent', border: 'none' }}>EMP ID</th>
-                  <th style={{ background: 'transparent', border: 'none' }}>ROLE</th>
-                  <th style={{ background: 'transparent', border: 'none' }}>MANAGER</th>
-                  <th style={{ background: 'transparent', border: 'none' }}>PORTFOLIO</th>
-                  <th style={{ background: 'transparent', border: 'none' }}>DOJ</th>
-                  <th style={{ background: 'transparent', border: 'none' }}>STATUS</th>
-                  <th style={{ background: 'transparent', border: 'none' }}>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody style={{ background: 'transparent' }}>
-                {users.map(u => (
-                  <tr key={u.id} style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    <td style={{ padding: '12px 10px', borderRadius: '8px 0 0 8px' }}>
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accbg)', color: 'var(--acc2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{u.initials}</div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{u.name}</div>
-                          <div style={{ fontSize: 10, color: 'var(--txt3)' }}>{u.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="mn">{u.empId}</td>
-                    <td><span className="badge" style={{ background: u.role === 'admin' ? 'var(--redbg)' : u.role === 'manager' ? 'var(--ambbg)' : 'var(--accbg)', color: u.role === 'admin' ? 'var(--red)' : u.role === 'manager' ? 'var(--amb)' : 'var(--acc2)', border: 'none' }}>{u.role}</span></td>
-                    <td style={{ fontSize: 12 }}>
-                      {u.manager ? <><div style={{ color: 'var(--txt)' }}>{u.manager.name}</div><div style={{ fontSize: 10, color: 'var(--txt3)' }}>{u.manager.empId}</div></> : <span style={{ color: 'var(--txt3)' }}>—</span>}
-                    </td>
-                    <td style={{ color: 'var(--pur)', fontSize: 11, maxWidth: 250, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {u.role !== 'admin' ? 'Rajasthan Personal Loans, Rajasthan Credit Cards' : '—'}
-                    </td>
-                    <td className="mn" style={{ color: 'var(--txt3)' }}>{u.doj || '—'}</td>
-                    <td><span className={`badge ${u.active ? 'grn' : 'red'}`} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${u.active ? 'rgba(46,204,138,0.2)' : 'rgba(226,75,74,0.2)'}`, background: 'transparent' }}>{u.active ? 'Active' : 'Inactive'}</span></td>
-                    <td style={{ borderRadius: '0 8px 8px 0' }}>
-                      <div style={{ display: 'flex', gap: 5 }}>
-                        <button className="btn sm" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => handleEditClick(u)}>Edit</button>
-                        <button className="btn sm" style={{ background: 'rgba(245,166,35,0.1)', color: 'var(--amb)', border: '1px solid rgba(245,166,35,0.2)' }} title="Reset Password">🔑</button>
-                        <button className="btn sm" style={{ fontSize: 10, background: u.active ? 'rgba(226,75,74,0.1)' : 'rgba(46,204,138,0.1)', color: u.active ? 'var(--red)' : 'var(--grn)', border: `1px solid ${u.active ? 'rgba(226,75,74,0.2)' : 'rgba(46,204,138,0.2)'}`, minWidth: 80 }} onClick={() => handleDeactivateClick(u)}>
-                          {u.active ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button className="btn sm" style={{ background: 'rgba(226,75,74,0.05)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.1)', padding: '4px 8px' }} onClick={() => handleDeleteUser(u)}>
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+                <thead>
+                  <tr style={{ background: 'transparent' }}>
+                    <th style={{ background: 'transparent', border: 'none' }}>NAME</th>
+                    <th style={{ background: 'transparent', border: 'none' }}>EMP ID</th>
+                    <th style={{ background: 'transparent', border: 'none' }}>ROLE</th>
+                    <th style={{ background: 'transparent', border: 'none' }}>MANAGER</th>
+                    <th style={{ background: 'transparent', border: 'none' }}>PORTFOLIO</th>
+                    <th style={{ background: 'transparent', border: 'none' }}>DOJ</th>
+                    <th style={{ background: 'transparent', border: 'none' }}>STATUS</th>
+                    <th style={{ background: 'transparent', border: 'none' }}>ACTIONS</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody style={{ background: 'transparent' }}>
+                  {users.map(u => (
+                    <tr key={u.id} style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      <td style={{ padding: '12px 10px', borderRadius: '8px 0 0 8px' }}>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accbg)', color: 'var(--acc2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{u.initials}</div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{u.name}</div>
+                            <div style={{ fontSize: 10, color: 'var(--txt3)' }}>{u.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="mn">{u.empId}</td>
+                      <td><span className="badge" style={{ background: u.role === 'admin' ? 'var(--redbg)' : u.role === 'manager' ? 'var(--ambbg)' : 'var(--accbg)', color: u.role === 'admin' ? 'var(--red)' : u.role === 'manager' ? 'var(--amb)' : 'var(--acc2)', border: 'none' }}>{u.role}</span></td>
+                      <td style={{ fontSize: 12 }}>
+                        {u.manager ? <><div style={{ color: 'var(--txt)' }}>{u.manager.name}</div><div style={{ fontSize: 10, color: 'var(--txt3)' }}>{u.manager.empId}</div></> : <span style={{ color: 'var(--txt3)' }}>—</span>}
+                      </td>
+                      <td style={{ color: 'var(--pur)', fontSize: 11, maxWidth: 250, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {u.portfolios || '—'}
+                      </td>
+                      <td className="mn" style={{ color: 'var(--txt3)' }}>{u.doj || '—'}</td>
+                      <td><span className={`badge ${u.active ? 'grn' : 'red'}`} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${u.active ? 'rgba(46,204,138,0.2)' : 'rgba(226,75,74,0.2)'}`, background: 'transparent' }}>{u.active ? 'Active' : 'Inactive'}</span></td>
+                      <td style={{ borderRadius: '0 8px 8px 0' }}>
+                        <div style={{ display: 'flex', gap: 5 }}>
+                          <button className="btn sm" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => handleEditClick(u)}>Edit</button>
+                          <button className="btn sm" style={{ background: 'rgba(245,166,35,0.1)', color: 'var(--amb)', border: '1px solid rgba(245,166,35,0.2)', padding: '6px 12px' }} title="Reset Password" onClick={() => { setResetUser(u); setIsPasswordModalOpen(true); }}>🔑</button>
+                          <button className="btn sm" style={{ fontSize: 10, background: u.active ? 'rgba(226,75,74,0.1)' : 'rgba(46,204,138,0.1)', color: u.active ? 'var(--red)' : 'var(--grn)', border: `1px solid ${u.active ? 'rgba(226,75,74,0.2)' : 'rgba(46,204,138,0.2)'}`, minWidth: 80 }} onClick={() => handleDeactivateClick(u)}>
+                            {u.active ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button className="btn sm" style={{ background: 'rgba(226,75,74,0.05)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.1)', padding: '4px 8px' }} onClick={() => handleDeleteUser(u)}>
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
         )}
 
         {activeTab === 'portfolios' && (
@@ -472,72 +732,95 @@ const Admin = () => {
               </div>
             </div>
           ) : (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 15 }}>
-              <button className="btn pr" style={{ borderRadius: 6, padding: '7px 15px', fontSize: 11 }} onClick={() => setIsAddingPortfolio(true)}>+ Add Portfolio</button>
-            </div>
-            
-            {isAddingPortfolio && (
-              <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(79,125,255,0.05)', border: '1px dashed var(--acc)', padding: '12px 16px', borderRadius: 8, gap: 10, marginBottom: 15 }}>
-                <input className="finp" placeholder="Portfolio ID (e.g. P4)" style={{ width: 150 }} value={newPortfolio.id} onChange={e => setNewPortfolio({...newPortfolio, id: e.target.value})} />
-                <input className="finp" placeholder="Portfolio Name (e.g. Credit Cards)" style={{ flex: 1 }} value={newPortfolio.name} onChange={e => setNewPortfolio({...newPortfolio, name: e.target.value})} />
-                <button className="btn pr" onClick={handleAddPortfolio}>Save</button>
-                <button className="btn sm" onClick={() => setIsAddingPortfolio(false)}>Cancel</button>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 15 }}>
+                <button className="btn pr" style={{ borderRadius: 6, padding: '7px 15px', fontSize: 11 }} onClick={() => setIsAddingPortfolio(true)}>+ Add Portfolio</button>
               </div>
-            )}
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {portfolios.map(p => (
-                <div key={p.id} style={{ background: '#161b27', border: '1px solid var(--bdr)', borderRadius: 12, padding: '24px', position: 'relative' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span className="badge pur" style={{ padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 800 }}>{p.id}</span>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--txt)' }}>{p.name}</div>
-                    </div>
-                    <button className="btn sm" style={{ background: 'rgba(226,75,74,0.1)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.2)', padding: '6px 12px' }}>Delete</button>
-                  </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
-                    {/* Agents Section */}
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, textTransform: 'uppercase' }}>Assigned Agents</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {users.filter(u => u.role === 'agent').map(u => (
-                          <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                            <input 
-                              type="checkbox" 
-                              style={{ accentColor: 'var(--acc)' }} 
-                              checked={p.agents?.some((a:any) => a.id === u.id)} 
-                              onChange={(e) => handleAssignmentChange(p.id, u.id, 'agent', e.target.checked)}
-                            />
-                            <div style={{ fontSize: 13, color: 'var(--txt2)' }}>{u.name} <span style={{ fontSize: 10, color: 'var(--txt3)', marginLeft: 5 }}>{u.empId}</span></div>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Managers Section */}
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, textTransform: 'uppercase' }}>Assigned Managers</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {users.filter(u => u.role === 'manager').map(u => (
-                          <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                            <input 
-                              type="checkbox" 
-                              style={{ accentColor: 'var(--amb)' }} 
-                              checked={p.managers?.some((m:any) => m.id === u.id)} 
-                              onChange={(e) => handleAssignmentChange(p.id, u.id, 'manager', e.target.checked)}
-                            />
-                            <div style={{ fontSize: 13, color: 'var(--txt2)' }}>{u.name} <span style={{ fontSize: 10, color: 'var(--txt3)', marginLeft: 5 }}>{u.empId}</span></div>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+              {isAddingPortfolio && (
+                <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(79,125,255,0.05)', border: '1px dashed var(--acc)', padding: '12px 16px', borderRadius: 8, gap: 10, marginBottom: 15 }}>
+                  <input className="finp" placeholder="Portfolio ID (e.g. P4)" style={{ width: 150 }} value={newPortfolio.id} onChange={e => setNewPortfolio({ ...newPortfolio, id: e.target.value })} />
+                  <input className="finp" placeholder="Portfolio Name (e.g. Credit Cards)" style={{ flex: 1 }} value={newPortfolio.name} onChange={e => setNewPortfolio({ ...newPortfolio, name: e.target.value })} />
+                  <button className="btn pr" onClick={handleAddPortfolio}>Save</button>
+                  <button className="btn sm" onClick={() => setIsAddingPortfolio(false)}>Cancel</button>
                 </div>
-              ))}
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 20 }}>
+                {portfolios.map(p => (
+                  <div key={p.id} className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 14, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    {/* Header */}
+                    <div style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 32, height: 32, background: 'var(--accbg)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: 'var(--acc2)' }}>{p.id}</div>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)' }}>{p.name}</div>
+                          <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 1 }}>{p.agents?.length || 0} Agents • {p.managers?.length || 0} Managers</div>
+                        </div>
+                      </div>
+                      <button className="btn sm" style={{ background: 'rgba(226,75,74,0.05)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.1)', padding: '5px 10px' }}>Delete</button>
+                    </div>
+
+                    {/* Body */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', flex: 1 }}>
+                      {/* Agents Section */}
+                      <div style={{ padding: '20px', borderRight: '1px solid var(--bdr)' }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--acc2)', letterSpacing: 0.8, marginBottom: 15, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>👥</span> ASSIGNED AGENTS
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: 5 }}>
+                          {users.filter(u => u.role === 'agent').map(u => {
+                            const isAssigned = p.agents?.some((a: any) => a.id === u.id);
+                            return (
+                              <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: isAssigned ? 'rgba(79,125,255,0.05)' : 'transparent', border: `1px solid ${isAssigned ? 'rgba(79,125,255,0.15)' : 'transparent'}`, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                <input
+                                  type="checkbox"
+                                  style={{ accentColor: 'var(--acc)' }}
+                                  checked={isAssigned}
+                                  onChange={(e) => handleAssignmentChange(p.id, u.id, 'agent', e.target.checked)}
+                                />
+                                <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700, color: 'var(--txt2)' }}>{u.initials}</div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: isAssigned ? 'var(--txt)' : 'var(--txt3)' }}>{u.name}</div>
+                                  <div style={{ fontSize: 9, color: 'var(--txt3)' }}>{u.empId}</div>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Managers Section */}
+                      <div style={{ padding: '20px', background: 'rgba(255,255,255,0.01)' }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--amb)', letterSpacing: 0.8, marginBottom: 15, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>👔</span> ASSIGNED MANAGERS
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: 5 }}>
+                          {users.filter(u => (u.role === 'manager' || u.role === 'admin')).map(u => {
+                            const isAssigned = p.managers?.some((m: any) => m.id === u.id);
+                            return (
+                              <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: isAssigned ? 'rgba(245,166,35,0.05)' : 'transparent', border: `1px solid ${isAssigned ? 'rgba(245,166,35,0.15)' : 'transparent'}`, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                <input
+                                  type="checkbox"
+                                  style={{ accentColor: 'var(--amb)' }}
+                                  checked={isAssigned}
+                                  onChange={(e) => handleAssignmentChange(p.id, u.id, 'manager', e.target.checked)}
+                                />
+                                <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700, color: 'var(--txt2)' }}>{u.initials}</div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: isAssigned ? 'var(--txt)' : 'var(--txt3)' }}>{u.name}</div>
+                                  <div style={{ fontSize: 9, color: 'var(--txt3)' }}>{u.empId}</div>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
           )
         )}
 
@@ -598,89 +881,92 @@ const Admin = () => {
 
         {activeTab === 'bulk' && (
           loading ? (
-            <div style={{ maxWidth: 1100, display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 25 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div>
-                  <div className="skel" style={{ width: 250, height: 20, marginBottom: 8, borderRadius: 4 }}></div>
-                  <div className="skel" style={{ width: 400, height: 14, borderRadius: 4 }}></div>
+                  <div className="skel" style={{ width: 300, height: 24, marginBottom: 10, borderRadius: 4 }}></div>
+                  <div className="skel" style={{ width: 500, height: 16, borderRadius: 4 }}></div>
                 </div>
-                <div className="skel" style={{ width: 160, height: 32, borderRadius: 6 }}></div>
+                <div className="skel" style={{ width: 180, height: 40, borderRadius: 8 }}></div>
               </div>
-              <div className="skel" style={{ height: 160, borderRadius: 10, border: '2px dashed rgba(255,255,255,0.05)' }}></div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="skel" style={{ height: 180, borderRadius: 8 }}></div>
-                ))}
+              <div className="skel" style={{ height: 200, borderRadius: 12 }}></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                <div className="skel" style={{ height: 300, borderRadius: 12 }}></div>
+                <div className="skel" style={{ height: 300, borderRadius: 12 }}></div>
               </div>
             </div>
           ) : (
-            <div style={{ maxWidth: 1100 }}>
+            <div style={{ width: '100%', animation: 'fadeIn 0.3s ease' }}>
               {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30, background: 'var(--bg2)', padding: '24px 30px', borderRadius: 12, border: '1px solid var(--bdr)' }}>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 700 }}>📤 Bulk Upload — Customer Data</div>
-                  <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3 }}>Import leads from Excel (.xlsx) or CSV files directly into the database</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--txt)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 24 }}>📤</span> Bulk Upload — Customer Data
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 6, opacity: 0.8 }}>Import leads from Excel (.xlsx) or CSV files directly into the database</div>
                 </div>
                 <button
                   onClick={handleDownloadTemplate}
-                  style={{ fontSize: 11, color: 'var(--acc2)', background: 'rgba(79,125,255,0.1)', border: '1px solid rgba(79,125,255,0.2)', padding: '6px 14px', borderRadius: 6, cursor: 'pointer' }}
+                  className="btn"
+                  style={{ background: 'var(--accbg)', color: 'var(--acc2)', border: '1px solid var(--acc)', padding: '12px 20px', borderRadius: 10, fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}
                 >
-                  ⬇ Download Template (.xlsx)
+                  📥 Download Sample Template (Excel)
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                {/* Top: File + Preview */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                  {/* Drop Zone */}
-                  <label style={{ border: `2px dashed ${uploadFile ? 'var(--grn)' : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '36px 20px', textAlign: 'center', cursor: 'pointer', background: uploadFile ? 'rgba(46,204,138,0.04)' : 'rgba(255,255,255,0.02)', display: 'block', transition: 'all 0.2s' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 25 }}>
+                {/* Upload Area */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <label style={{ border: `2px dashed ${uploadFile ? 'var(--grn)' : 'var(--bdr)'}`, borderRadius: 16, padding: '60px 40px', textAlign: 'center', cursor: 'pointer', background: uploadFile ? 'rgba(46,204,138,0.03)' : 'var(--bg2)', display: 'block', transition: 'all 0.3s ease', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--acc)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = uploadFile ? 'var(--grn)' : 'var(--bdr)')}>
                     <input type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={(e) => handleFileSelect(e.target.files?.[0] || null)} />
                     {uploadFile ? (
-                      <div>
-                        <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
-                        <div style={{ fontWeight: 600, color: 'var(--grn)', fontSize: 14 }}>{uploadFile.name}</div>
-                        <div style={{ color: 'var(--txt3)', fontSize: 11, marginTop: 4 }}>
-                          {(uploadFile.size / 1024).toFixed(1)} KB · {previewRows.length > 0 ? `${previewRows.length}+ rows detected` : 'Parsing...'}
+                      <div style={{ animation: 'scaleIn 0.3s ease' }}>
+                        <div style={{ fontSize: 48, marginBottom: 15 }}>📄</div>
+                        <div style={{ fontWeight: 800, color: 'var(--grn)', fontSize: 18 }}>{uploadFile.name}</div>
+                        <div style={{ color: 'var(--txt3)', fontSize: 13, marginTop: 8, fontWeight: 500 }}>
+                          {(uploadFile.size / 1024).toFixed(1)} KB · {previewRows.length > 0 ? `${previewRows.length}+ rows detected` : 'Parsing file...'}
                         </div>
-                        <button onClick={(e) => { e.preventDefault(); handleReset(); }} style={{ marginTop: 10, background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 11 }}>✕ Remove file</button>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: 15, marginTop: 20 }}>
+                          <button onClick={(e) => { e.preventDefault(); handleReset(); }} style={{ background: 'rgba(226,75,74,0.1)', border: '1px solid rgba(226,75,74,0.2)', color: 'var(--red)', padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>Remove File</button>
+                        </div>
                       </div>
                     ) : (
-                      <div>
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
-                        <div style={{ fontWeight: 600, color: 'var(--txt2)', fontSize: 13 }}>Click to select or drag & drop</div>
-                        <div style={{ color: 'var(--txt3)', fontSize: 11, marginTop: 4 }}>Supports .CSV, .XLSX, .XLS</div>
+                      <div style={{ animation: 'fadeIn 0.5s ease' }}>
+                        <div style={{ fontSize: 56, marginBottom: 15, opacity: 0.8 }}>📁</div>
+                        <div style={{ fontWeight: 800, color: 'var(--txt)', fontSize: 18, marginBottom: 8 }}>Click to select or drag & drop</div>
+                        <div style={{ color: 'var(--txt3)', fontSize: 13, fontWeight: 500 }}>Supports CSV and Excel files (.csv, .xlsx, .xls)</div>
                       </div>
                     )}
                   </label>
 
-                  {/* Validation Error */}
                   {validationError && (
-                    <div style={{ background: 'rgba(226,75,74,0.06)', border: '1px solid rgba(226,75,74,0.2)', borderRadius: 8, padding: '16px 20px', color: 'var(--red)', fontSize: 12 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 5 }}>❌ Validation Error</div>
-                      {validationError}
+                    <div style={{ background: 'rgba(226,75,74,0.08)', border: '1px solid var(--red)', borderRadius: 12, padding: '20px 24px', color: 'var(--red)', animation: 'slideIn 0.3s ease' }}>
+                      <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}><span>❌</span> Validation Error</div>
+                      <div style={{ fontSize: 13, lineHeight: 1.6, opacity: 0.9 }}>{validationError}</div>
                     </div>
                   )}
 
-                  {/* Preview Table */}
                   {previewRows.length > 0 && (
-                    <div style={{ background: '#161b27', border: '1px solid var(--bdr)', borderRadius: 8, overflow: 'hidden' }}>
-                      <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--bdr)', fontSize: 12, fontWeight: 600, color: 'var(--txt2)' }}>Preview (first 5 rows)</div>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="tbl" style={{ fontSize: 11 }}>
-                          <thead>
+                    <div style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 12, overflow: 'hidden', animation: 'fadeIn 0.3s ease' }}>
+                      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--bdr)', fontSize: 13, fontWeight: 700, color: 'var(--txt)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>File Preview (First 5 Rows)</span>
+                        <span style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 400 }}>{previewHeaders.length} columns detected</span>
+                      </div>
+                      <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
+                        <table className="tbl" style={{ width: 'max-content', minWidth: '100%', fontSize: 12 }}>
+                          <thead style={{ background: 'rgba(255,255,255,0.01)' }}>
                             <tr>
-                              {previewHeaders.map(h => (
-                                <th key={h} style={{ whiteSpace: 'nowrap', padding: '8px 12px', fontSize: 10 }}>{h}</th>
+                              {previewHeaders.map((h, i) => (
+                                <th key={i} style={{ whiteSpace: 'nowrap', padding: '12px 18px', fontSize: 11, textAlign: 'left', color: 'var(--txt3)', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{h}</th>
                               ))}
                             </tr>
                           </thead>
                           <tbody>
                             {previewRows.map((row, i) => (
-                              <tr key={i}>
-                                {previewHeaders.map(h => (
-                                  <td key={h} style={{ whiteSpace: 'nowrap', padding: '6px 12px', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {row[h] ?? '—'}
+                              <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                {previewHeaders.map((h, j) => (
+                                  <td key={j} style={{ whiteSpace: 'nowrap', padding: '12px 18px', color: 'var(--txt2)', borderRight: '1px solid rgba(255,255,255,0.03)' }}>
+                                    {row[h] ?? <span style={{ opacity: 0.3 }}>—</span>}
                                   </td>
                                 ))}
                               </tr>
@@ -691,117 +977,157 @@ const Admin = () => {
                     </div>
                   )}
 
-                  {/* Progress */}
                   {uploading && (
-                    <div style={{ background: '#161b27', border: '1px solid var(--bdr)', borderRadius: 8, padding: '16px 20px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8 }}>
-                        <span style={{ color: 'var(--txt2)' }}>Uploading...</span>
+                    <div style={{ background: 'var(--bg2)', border: '1px solid var(--acc)', borderRadius: 12, padding: '25px 30px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 12, fontWeight: 700 }}>
+                        <span style={{ color: 'var(--txt)' }}>⏳ Processing Records...</span>
                         <span style={{ color: 'var(--acc2)' }}>{uploadProgress}%</span>
                       </div>
-                      <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${uploadProgress}%`, background: 'linear-gradient(90deg, #4f7dff, #7c5aff)', borderRadius: 4, transition: 'width 0.4s ease' }} />
+                      <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, height: 10, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${uploadProgress}%`, background: 'linear-gradient(90deg, var(--acc), #7c5aff)', borderRadius: 10, transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }} />
                       </div>
                     </div>
                   )}
 
-                  {/* Result */}
                   {uploadResult && !uploading && (
-                    <div style={{ background: uploadResult.success ? 'rgba(46,204,138,0.06)' : 'rgba(226,75,74,0.06)', border: `1px solid ${uploadResult.success ? 'rgba(46,204,138,0.2)' : 'rgba(226,75,74,0.2)'}`, borderRadius: 8, padding: '16px 20px' }}>
+                    <div style={{ background: uploadResult.success ? 'rgba(46,204,138,0.08)' : 'rgba(226,75,74,0.08)', border: `1px solid ${uploadResult.success ? 'var(--grn)' : 'var(--red)'}`, borderRadius: 12, padding: '30px', animation: 'scaleIn 0.3s ease' }}>
                       {uploadResult.success ? (
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--grn)', marginBottom: 12 }}>✅ Upload Complete</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                            {[['Total', uploadResult.total, '#fff'], ['Imported', uploadResult.imported, 'var(--grn)'], ['Updated', uploadResult.updated, 'var(--acc2)'], ['Skipped', uploadResult.skipped, 'var(--txt3)']].map(([label, val, color]) => (
-                              <div key={label as string} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.04)', borderRadius: 6, padding: '10px 8px' }}>
-                                <div style={{ fontSize: 22, fontWeight: 800, color: color as string }}>{val as number}</div>
-                                <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 2 }}>{label as string}</div>
+                          <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--grn)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}><span>✅</span> Upload Successfully Completed</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                            {[['Total Records', uploadResult.total, '#fff'], ['Successfully Imported', uploadResult.imported, 'var(--grn)'], ['Existing Updated', uploadResult.updated, 'var(--acc2)'], ['Duplicate Skipped', uploadResult.skipped, 'var(--txt3)']].map(([label, val, color]) => (
+                              <div key={label as string} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '20px 15px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ fontSize: 28, fontWeight: 900, color: color as string }}>{val as number}</div>
+                                <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label as string}</div>
                               </div>
                             ))}
                           </div>
                           {uploadResult.errors?.length > 0 && (
-                            <div style={{ marginTop: 12, fontSize: 11, color: 'var(--amb)' }}>
-                              ⚠ {uploadResult.errors.length} row error(s): {uploadResult.errors[0]}
+                            <div style={{ marginTop: 20, fontSize: 12, color: 'var(--amb)', padding: '12px 16px', background: 'rgba(245,166,35,0.05)', borderRadius: 8, border: '1px solid rgba(245,166,35,0.1)' }}>
+                              <strong>Note:</strong> {uploadResult.errors.length} row(s) had errors. Example: {uploadResult.errors[0]}
                             </div>
                           )}
-                          <button className="btn pr" style={{ marginTop: 14, fontSize: 11 }} onClick={handleReset}>Upload Another File</button>
+                          <button className="btn pr" style={{ marginTop: 25, padding: '12px 25px', borderRadius: 10, fontWeight: 700 }} onClick={handleReset}>Upload Another Dataset</button>
                         </div>
                       ) : (
                         <div>
-                          <div style={{ fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>❌ Upload Failed</div>
-                          <div style={{ fontSize: 12, color: 'var(--txt2)' }}>{uploadResult.error}</div>
-                          <button className="btn" style={{ marginTop: 12, fontSize: 11 }} onClick={handleReset}>Try Again</button>
+                          <div style={{ fontWeight: 800, color: 'var(--red)', marginBottom: 12, fontSize: 18 }}>❌ Import Failed</div>
+                          <div style={{ fontSize: 14, color: 'var(--txt2)', lineHeight: 1.6 }}>{uploadResult.error}</div>
+                          <button className="btn" style={{ marginTop: 20, padding: '10px 20px', background: 'var(--red)', color: '#fff', borderRadius: 8, border: 'none', fontWeight: 700 }} onClick={handleReset}>Try Again</button>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Bottom: Config Row — horizontal */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                {/* Configuration Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 25 }}>
+                  {/* Left Column: Settings */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <div style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 12, padding: '24px' }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)', marginBottom: 20, letterSpacing: 0.5 }}>IMPORT CONFIGURATION</div>
 
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        <div className="ff">
+                          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', marginBottom: 8, display: 'block' }}>ASSIGN TO PORTFOLIO</label>
+                          <select className="finp" style={{ height: 45, borderRadius: 10 }} value={uploadPortfolio} onChange={e => setUploadPortfolio(e.target.value)}>
+                            <option value="">— Auto Detect from File —</option>
+                            {portfolios.map((p: any) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
 
-                  {/* Assign Portfolio */}
-                  <div style={{ background: '#161b27', border: '1px solid var(--bdr)', borderRadius: 8, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 10, color: 'var(--txt3)', letterSpacing: '0.5px' }}>ASSIGN TO PORTFOLIO</div>
-                    <select className="finp" value={uploadPortfolio} onChange={e => setUploadPortfolio(e.target.value)}>
-                      <option value="">— Auto / From File —</option>
-                      {portfolios.map((p: any) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                    <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 8, lineHeight: 1.5 }}>If file has a "Portfolio" column, it takes priority</div>
-                  </div>
-
-                  {/* Duplicate Handling */}
-                  <div style={{ background: '#161b27', border: '1px solid var(--bdr)', borderRadius: 8, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 10, color: 'var(--txt3)', letterSpacing: '0.5px' }}>DUPLICATE HANDLING</div>
-                    <select className="finp" value={duplicateHandling} onChange={e => setDuplicateHandling(e.target.value)}>
-                      <option>Skip Duplicates</option>
-                      <option>Update Existing</option>
-                      <option>Update Missing Fields Only</option>
-                    </select>
-                    <div style={{ marginTop: 8, fontSize: 10, color: 'var(--txt3)', lineHeight: 1.6 }}>
-                      {duplicateHandling === 'Skip Duplicates' && '🔵 Existing records will not be changed. Only new account numbers will be added.'}
-                      {duplicateHandling === 'Update Existing' && '🟡 All fields in the file will overwrite existing database values.'}
-                      {duplicateHandling === 'Update Missing Fields Only' && '🟢 Only empty/missing fields in the database will be filled from the file.'}
-                    </div>
-                  </div>
-
-                  {/* Field Mapping Guide */}
-                  <div style={{ background: '#161b27', border: '1px solid var(--bdr)', borderRadius: 8, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 10, color: 'var(--txt3)', letterSpacing: '0.5px' }}>ACCEPTED COLUMN NAMES</div>
-                    {[
-                      ['Account Number', 'Required — unique key'],
-                      ['Customer Name', 'Full name'],
-                      ['Mobile Number', 'Primary mobile'],
-                      ['Outstanding Amount', 'Total outstanding'],
-                      ['DPD', 'Days past due'],
-                      ['Status', 'active / overdue / ptp'],
-                      ['Portfolio', 'Portfolio ID or name'],
-                      ['Agent', 'Agent username or empId'],
-                    ].map(([col, desc]) => (
-                      <div key={col} style={{ display: 'flex', gap: 8, marginBottom: 5, fontSize: 10 }}>
-                        <span style={{ fontFamily: 'monospace', color: 'var(--acc2)', minWidth: 130 }}>{col}</span>
-                        <span style={{ color: 'var(--txt3)' }}>{desc}</span>
+                        <div className="ff">
+                          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', marginBottom: 8, display: 'block' }}>DUPLICATE HANDLING</label>
+                          <select className="finp" style={{ height: 45, borderRadius: 10 }} value={duplicateHandling} onChange={e => setDuplicateHandling(e.target.value)}>
+                            <option value="Skip Duplicates">Skip Duplicates (Fastest)</option>
+                            <option value="Update Existing">Overwrite Existing Data</option>
+                          </select>
+                        </div>
+                        
+                        <button 
+                          className="btn" 
+                          onClick={handleCheckColumns}
+                          disabled={!uploadFile}
+                          style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', color: 'var(--acc2)', fontWeight: 700, padding: '12px', borderRadius: 10, opacity: !uploadFile ? 0.5 : 1, transition: 'all 0.2s' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(79,125,255,0.05)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'var(--bg3)'}
+                        >
+                          🔍 Check Column Match Status
+                        </button>
                       </div>
-                    ))}
+                    </div>
+
+                    <button
+                      className="btn pr"
+                      style={{ height: 60, fontSize: 16, background: 'var(--acc)', borderRadius: 12, fontWeight: 800, opacity: (!uploadFile || uploading || !!validationError) ? 0.4 : 1, boxShadow: '0 4px 15px rgba(79,125,255,0.2)', transition: 'all 0.3s ease' }}
+                      onClick={handleStartUpload}
+                      disabled={!uploadFile || uploading || !!validationError}
+                    >
+                      {uploading ? '⌛ Processing Data...' : '🚀 Start Bulk Import'}
+                    </button>
                   </div>
 
+                  {/* Right Column: Guide or Check Results */}
+                  <div style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 12, padding: '24px', display: 'flex', flexDirection: 'column' }}>
+                    {columnMatchResult ? (
+                      <div style={{ animation: 'fadeIn 0.3s ease' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)', letterSpacing: 0.5 }}>MATCH STATUS REPORT</div>
+                          <button className="btn sm" onClick={() => setColumnMatchResult(null)} style={{ padding: '4px 8px', fontSize: 10, background: 'var(--bg3)', border: '1px solid var(--bdr)' }}>Back to Guide</button>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 400, overflowY: 'auto', paddingRight: 10 }}>
+                          {columnMatchResult.report.map((item: any) => (
+                            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: item.matched ? 'rgba(34,197,94,0.04)' : 'rgba(245,158,11,0.04)', padding: '10px 14px', borderRadius: 10, border: `1px solid ${item.matched ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)'}` }}>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: item.matched ? '#2ecca7' : '#f5a623' }}>{item.label}</span>
+                                {item.matched && <span style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 2 }}>Matched to: <span style={{ fontFamily: 'monospace', color: 'var(--acc2)' }}>{item.fileHeader}</span></span>}
+                              </div>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: item.matched ? '#2ecca7' : '#f5a623' }}>{item.matched ? '✓ MATCHED' : '⚠️ MISSING'}</span>
+                            </div>
+                          ))}
+                          
+                          {columnMatchResult.extra.length > 0 && (
+                            <div style={{ marginTop: 20 }}>
+                              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', marginBottom: 10, letterSpacing: 1 }}>EXTRA COLUMNS (WILL BE IGNORED)</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                {columnMatchResult.extra.map((ex: string) => (
+                                  <span key={ex} style={{ fontSize: 10, background: 'rgba(255,255,255,0.03)', padding: '5px 10px', borderRadius: 6, color: 'var(--txt3)', border: '1px solid var(--bdr)' }}>{ex}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)', marginBottom: 20, letterSpacing: 0.5 }}>ACCEPTED COLUMN HEADERS</div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 400, overflowY: 'auto', paddingRight: 10 }}>
+                          {[
+                            ['Account Number', 'Required — Unique identifier'],
+                            ['Customer Name', 'Primary name on account'],
+                            ['Mobile Number', 'Primary contact number'],
+                            ['Total Outstanding', 'Total amount due'],
+                            ['DPD', 'Days Past Due'],
+                            ['Portfolio', 'Portfolio ID or Name'],
+                          ].map(([col, desc]) => (
+                            <div key={col} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '12px 15px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.03)' }}>
+                              <span style={{ fontFamily: 'monospace', color: 'var(--acc2)', fontWeight: 700, fontSize: 12 }}>{col}</span>
+                              <span style={{ color: 'var(--txt3)', fontSize: 11 }}>{desc}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: 20, fontSize: 11, color: 'var(--txt3)', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: 8, textAlign: 'center' }}>
+                          Make sure column names match exactly. Case-insensitive.
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-
-                {/* Upload Button */}
-                <button
-                  className="btn pr"
-                  style={{ width: '100%', padding: 14, fontSize: 13, background: 'var(--acc)', borderRadius: 8, fontWeight: 700, opacity: (!uploadFile || uploading || !!validationError) ? 0.5 : 1 }}
-                  onClick={handleStartUpload}
-                  disabled={!uploadFile || uploading || !!validationError}
-                >
-                  {uploading ? '⏳ Processing...' : '↑ Start Upload'}
-                </button>
-
               </div>
             </div>
-
           )
         )}
         {activeTab === 'lists' && (
@@ -827,7 +1153,7 @@ const Admin = () => {
                         <div style={{ width: 30 }} /> {/* Spacer */}
                       </div>
                     ))}
-                    
+
                     {/* Database Items */}
                     {masterLists.filter(l => l.type === section.type).map(item => (
                       <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--acc2)40' }}>
@@ -838,10 +1164,10 @@ const Admin = () => {
                       </div>
                     ))}
                     <div style={{ display: 'flex', gap: 8, marginTop: 5 }}>
-                      <input 
-                        className="finp" 
-                        placeholder={section.placeholder} 
-                        value={(newListItem as any)[section.type] || ''} 
+                      <input
+                        className="finp"
+                        placeholder={section.placeholder}
+                        value={(newListItem as any)[section.type] || ''}
                         onChange={e => setNewListItem(prev => ({ ...prev, [section.type]: e.target.value }))}
                         onKeyDown={e => e.key === 'Enter' && handleAddListItem(section.type)}
                       />
@@ -1030,29 +1356,51 @@ const Admin = () => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20 }}>
-              {/* General Settings */}
+
+
               <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '24px' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)', marginBottom: 20 }}>General Settings</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                  <div className="ff">
-                    <label style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--txt3)' }}>COMPANY NAME</label>
-                    <input className="finp" defaultValue="DebtRecover Solutions Pvt. Ltd." />
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--acc2)', marginBottom: 20 }}>Maintenance & Cleanup</div>
+                <div style={{ background: 'rgba(79,125,255,0.04)', border: '1px solid rgba(79,125,255,0.15)', borderRadius: 10, padding: '20px', display: 'flex', flexDirection: 'column', gap: 15 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--acc2)', display: 'flex', alignItems: 'center', gap: 8 }}>🧹 Clear Audit Logs</div>
+                    <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 5, lineHeight: 1.5 }}>This will remove all system audit logs. Leads and payments will be preserved.</div>
                   </div>
-                  <div className="ff">
-                    <label style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--txt3)' }}>TIMEZONE</label>
-                    <select className="finp">
-                      <option>Asia/Kolkata (IST)</option>
-                      <option>UTC (Coordinated Universal Time)</option>
-                      <option>America/New_York (EST)</option>
-                    </select>
+                  <button className="btn" style={{ background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', border: '1px solid rgba(79,125,255,0.2)', padding: '10px', fontSize: 12, fontWeight: 600 }} onClick={() => {
+                    setFlushAction('audit');
+                    setIsFlushModalOpen(true);
+                  }}>Clear Audit Logs</button>
+                </div>
+
+                <div style={{ background: 'rgba(245,166,35,0.04)', border: '1px solid rgba(245,166,35,0.15)', borderRadius: 10, padding: '20px', display: 'flex', flexDirection: 'column', gap: 15, marginTop: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--amb)', display: 'flex', alignItems: 'center', gap: 8 }}>📅 Selective Lead Cleanup</div>
+                    <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 5, lineHeight: 1.5 }}>Delete leads by Month/Year. <b>Leads with payment records will NOT be deleted.</b></div>
                   </div>
-                  <div className="ff">
-                    <label style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--txt3)' }}>SESSION TIMEOUT (HOURS)</label>
-                    <input className="finp" type="number" defaultValue="8" />
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="ff">
+                      <select className="finp" style={{ height: 38, fontSize: 12 }} value={cleanupMonth} onChange={e => setCleanupMonth(Number(e.target.value))}>
+                        {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
+                          <option key={m} value={i + 1}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="ff">
+                      <select className="finp" style={{ height: 38, fontSize: 12 }} value={cleanupYear} onChange={e => setCleanupYear(Number(e.target.value))}>
+                        {[2024, 2025, 2026, 2027].map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <button className="btn pr" style={{ width: '100%', padding: '12px', marginTop: 10 }} onClick={() => toast('System settings updated ✓')}>✓ Save Settings</button>
+
+                  <button className="btn" style={{ background: 'rgba(245,166,35,0.1)', color: 'var(--amb)', border: '1px solid rgba(245,166,35,0.2)', padding: '10px', fontSize: 12, fontWeight: 600 }} onClick={() => {
+                    setFlushAction('selective');
+                    setIsFlushModalOpen(true);
+                  }}>Delete Selected Leads</button>
                 </div>
               </div>
+
 
               {/* Danger Zone */}
               <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '24px' }}>
@@ -1063,13 +1411,14 @@ const Admin = () => {
                     <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 5, lineHeight: 1.5 }}>This will permanently delete all records including leads, payments, and logs. This action cannot be undone.</div>
                   </div>
                   <button className="btn" style={{ background: 'rgba(226,75,74,0.1)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.2)', padding: '10px', fontSize: 12, fontWeight: 600 }} onClick={() => {
-                    const confirm = window.confirm("Are you ABSOLUTELY sure? All data will be lost.");
-                    if(confirm) toast("Critical action triggered. Check backend logs.");
+                    setFlushAction('all');
+                    setIsFlushModalOpen(true);
                   }}>Delete All Data</button>
                 </div>
               </div>
             </div>
           </div>
+
         )}
 
 
@@ -1087,22 +1436,30 @@ const Admin = () => {
                   <div className="ff"><label>Username</label><input className="finp" value={editUser.username} onChange={e => setEditUser({ ...editUser, username: e.target.value })} /></div>
                   <div className="ff"><label>Employee ID</label><input className="finp" value={editUser.empId} onChange={e => setEditUser({ ...editUser, empId: e.target.value })} /></div>
                   <div className="ff"><label>Role</label>
-                    <select className="finp" value={editUser.role} onChange={e => setEditUser({ ...editUser, role: e.target.value })}>
+                    <select className="finp" value={editUser.role} onChange={e => setEditUser({ ...editUser, role: e.target.value, ...(e.target.value !== 'agent' && { managerId: null }) })}>
                       <option>admin</option><option>manager</option><option>agent</option>
                     </select>
                   </div>
-                  <div className="ff"><label>Reports To</label>
-                    <select className="finp" value={editUser.managerId || ''} onChange={e => setEditUser({ ...editUser, managerId: e.target.value })}>
-                      <option value="">— None —</option>
-                      {users.filter(x => (x.role === 'manager' || x.role === 'admin') && x.id !== editUser.id).map(u => (
-                        <option key={u.id} value={u.id}>{u.name} ({u.empId})</option>
-                      ))}
-                    </select>
-                  </div>
+                  {editUser.role === 'agent' && (
+                    <div className="ff"><label>Reports To</label>
+                      <select className="finp" value={editUser.managerId || ''} onChange={e => setEditUser({ ...editUser, managerId: e.target.value })}>
+                        <option value="">— None —</option>
+                        {users.filter(x => (x.role === 'manager' || x.role === 'admin') && x.id !== editUser.id).map(u => (
+                          <option key={u.id} value={u.id}>{u.name} ({u.empId})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="ff"><label>Email</label><input className="finp" value={editUser.email || ''} onChange={e => setEditUser({ ...editUser, email: e.target.value })} /></div>
                   <div className="ff"><label>Contact</label><input className="finp" value={editUser.contact || ''} onChange={e => setEditUser({ ...editUser, contact: e.target.value })} /></div>
                   <div className="ff"><label>DOB</label><input className="finp" value={editUser.dob || ''} onChange={e => setEditUser({ ...editUser, dob: e.target.value })} /></div>
                   <div className="ff"><label>DOJ</label><input className="finp" value={editUser.doj || ''} onChange={e => setEditUser({ ...editUser, doj: e.target.value })} /></div>
+                  {!editUser.id && (
+                    <>
+                      <div className="ff"><label>Password *</label><input className="finp" type="password" value={editUser.password || ''} onChange={e => setEditUser({ ...editUser, password: e.target.value })} /></div>
+                      <div className="ff"><label>Confirm Password *</label><input className="finp" type="password" value={editUser.confirmPassword || ''} onChange={e => setEditUser({ ...editUser, confirmPassword: e.target.value })} /></div>
+                    </>
+                  )}
                 </div>
                 <div className="ff" style={{ marginTop: 15 }}><label>Address</label><input className="finp" value={editUser.address || ''} onChange={e => setEditUser({ ...editUser, address: e.target.value })} /></div>
               </div>
@@ -1147,7 +1504,95 @@ const Admin = () => {
           </div>
         )}
 
+        {isPasswordModalOpen && resetUser && (
+          <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="modal-content" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 12, width: '100%', maxWidth: '400px', padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>🔐 Reset Password — {resetUser.name}</div>
+                <button style={{ background: 'transparent', border: 'none', color: 'var(--txt3)', fontSize: 20, cursor: 'pointer' }} onClick={() => setIsPasswordModalOpen(false)}>✕</button>
+              </div>
+
+              <div style={{ background: 'rgba(245,166,35,0.05)', border: '1px solid rgba(245,166,35,0.15)', padding: '12px 16px', borderRadius: 8, marginBottom: 20, color: 'var(--amb)', fontSize: 11 }}>
+                Resetting password for <b>{resetUser.username}</b>. Ensure you share the new password securely.
+              </div>
+
+              <div className="ff" style={{ marginBottom: 25 }}>
+                <label>NEW PASSWORD *</label>
+                <input
+                  type="text"
+                  className="finp"
+                  autoFocus
+                  placeholder="Type new password..."
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handlePasswordReset()}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn pr" style={{ flex: 3, padding: 12, fontSize: 13, background: 'var(--acc)' }} onClick={handlePasswordReset} disabled={resetting}>
+                  {resetting ? 'Updating...' : '✓ Update Password'}
+                </button>
+                <button className="btn" style={{ flex: 1, padding: 12, fontSize: 13, background: 'transparent', color: 'var(--txt3)', border: '1px solid var(--bdr)' }} onClick={() => { setIsPasswordModalOpen(false); setNewPassword(''); }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isFlushModalOpen && (
+          <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="modal-content" style={{ background: '#1a1d26', border: '1px solid var(--red)', borderRadius: 12, width: '100%', maxWidth: '400px', padding: '24px' }}>
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <div style={{ fontSize: 32, marginBottom: 10 }}>🚨</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>Critical Action!</div>
+                <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 8 }}>
+                  Enter your admin password to confirm {flushAction === 'all' ? 'full database flush' : 'audit logs cleanup'}.
+                  <br /><b>This cannot be undone.</b>
+                </div>
+              </div>
+
+              <div className="ff" style={{ marginBottom: 20 }}>
+                <label style={{ color: 'var(--red)' }}>ADMIN PASSWORD</label>
+                <input
+                  type="password"
+                  className="finp"
+                  autoFocus
+                  style={{ border: '1px solid rgba(226,75,74,0.3)', background: 'rgba(226,75,74,0.05)' }}
+                  placeholder="Enter password..."
+                  value={flushPassword}
+                  onChange={e => setFlushPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleFlushDB()}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  className="btn"
+                  style={{ flex: 1, padding: 12, background: 'var(--red)', color: '#fff', fontWeight: 700 }}
+                  onClick={handleFlushDB}
+                  disabled={flushing}
+                >
+                  {flushing ? 'Flushing...' : 'Confirm Flush'}
+                </button>
+                <button
+                  className="btn"
+                  style={{ padding: 12, background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--txt3)' }}
+                  onClick={() => { setIsFlushModalOpen(false); setFlushPassword(''); }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
+
+
+
+
+
+
     </div>
   );
 };

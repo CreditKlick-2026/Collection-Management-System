@@ -191,3 +191,18 @@ model MasterList {
   type  String // PAYMENT_MODE, PTP_STATUS, DISPUTE_STATUS, FLAG_OPTION
   value String
 }
+model BulkUploadJob {
+  id              String    @id @default(cuid())
+  status          String    @default("pending") // pending, processing, completed, failed
+  totalRows       Int       @default(0)
+  processedRows   Int       @default(0)
+  successCount    Int       @default(0)
+  updatedCount    Int       @default(0)
+  skippedCount    Int       @default(0)
+  errorCount      Int       @default(0)
+  errors          Json?     // Array of error messages
+  fileName        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+}

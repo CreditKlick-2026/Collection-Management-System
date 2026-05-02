@@ -7,9 +7,9 @@ export async function GET() {
   try {
     const users = await prisma.user.findMany({
       include: {
-        manager: { select: { name: true } },
-        portfoliosManaged: { select: { name: true } },
-        portfoliosAgent: { select: { name: true } }
+        manager: { select: { id: true, name: true, empId: true } },
+        portfoliosManaged: { select: { id: true, name: true } },
+        portfoliosAgent: { select: { id: true, name: true } }
       },
       orderBy: { name: 'asc' }
     });
@@ -29,9 +29,20 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const user = await prisma.user.create({ data });
+    
+    // Clean data for Prisma
+    const { confirmPassword, ...prismaData } = data;
+    
+    if (prismaData.managerId) {
+      prismaData.managerId = parseInt(prismaData.managerId);
+    }
+
+    const user = await prisma.user.create({ 
+      data: prismaData 
+    });
     return NextResponse.json(user);
   } catch (error) {
+    console.error("CREATE USER ERROR:", error);
     return NextResponse.json({ message: 'Error creating user' }, { status: 500 });
   }
 }

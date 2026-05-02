@@ -370,40 +370,14 @@ const PTPs = () => {
                     </tr>
                   ))
                 ) : ptps.length === 0 ? (
-                  <>
-                    {/* Dummy Data specifically for matching the screenshot if no data is present */}
-                    {[
-                      { id: 1, date: '2024-04-25', account: 'LN-2024-001', customer: 'Rajesh Kumar Sharma', amount: 45000, ptp_date: '2024-05-10', status: 'pending', agent: 'Jenna Rivera', voc: 'Customer confirmed salary...', flag: null },
-                      { id: 2, date: '2024-04-26', account: 'PL-2024-005', customer: 'Vikram Singh Rathore', amount: 15000, ptp_date: '2024-05-05', status: 'partial', agent: 'Aisha Brown', voc: 'Will pay 15k first instal...', flag: 'flagged' },
-                      { id: 3, date: '2024-04-28', account: 'AL-2024-003', customer: 'Amit Verma Gupta', amount: 92000, ptp_date: '2024-05-15', status: 'broken', agent: 'Carlos Mendes', voc: 'Not reachable on PTP date', flag: 'approved' },
-                      { id: 4, date: '2024-04-28', account: 'AL-2024-009', customer: 'Rajesh Patel Mehta', amount: 20000, ptp_date: '2024-05-20', status: 'paid', agent: 'Aisha Brown', voc: 'Full amount paid via NEFT', flag: 'approved' },
-                      { id: 5, date: '2024-04-22', account: 'CC-2024-006', customer: 'Meena Kumari Joshi', amount: 12400, ptp_date: '2024-05-08', status: 'kept', agent: 'Jenna Rivera', voc: 'Payment received on time', flag: 'rejected' }
-                    ].map((p, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
-                        <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.date}</td>
-                        <td className="mn" style={{ padding: '12px 10px' }}>{p.account}</td>
-                        <td className="nm" style={{ padding: '12px 10px', color: 'var(--txt)' }}>{p.customer}</td>
-                        <td className="mn" style={{ padding: '12px 10px', color: 'var(--amb)', fontWeight: 700 }}>₹{p.amount.toLocaleString('en-IN')}</td>
-                        <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.ptp_date}</td>
-                        <td style={{ padding: '12px 10px' }}>
-                          <span className="badge" style={{ background: 'transparent', border: `1px solid ${p.status === 'broken' ? 'rgba(226,75,74,0.3)' : (p.status === 'paid' || p.status === 'kept') ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', borderRadius: 12 }}>
-                            <span style={{ color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', fontSize: 8, marginRight: 5 }}>●</span> {p.status}
-                          </span>
-                        </td>
-                        <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{p.agent}</td>
-                        <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.voc}</td>
-                        <td style={{ padding: '12px 10px', fontSize: 12, fontWeight: 600 }}>
-                          {p.flag === 'flagged' ? <span style={{ color: 'var(--amb)' }}>⚑ Flagged ↗</span> :
-                           p.flag === 'approved' ? <span style={{ color: 'var(--grn)' }}>✓ Approved</span> :
-                           p.flag === 'rejected' ? <span style={{ color: 'var(--red)' }}>✕ Rejected ↗</span> :
-                           <span style={{ color: 'var(--txt3)', fontWeight: 400 }}>—</span>}
-                        </td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>
-                          <button className="btn sm" style={{ background: 'var(--faint)', border: '1px solid var(--faint)' }} onClick={() => openModal(`PTP — ${p.account}`, <EditPTPModal item={p} onDone={fetchPtps} />)}>Edit</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </>
+                  <tr>
+                    <td colSpan={10} style={{ padding: '40px', textAlign: 'center' }}>
+                      <div style={{ color: 'var(--txt3)', fontSize: 14 }}>
+                        <div style={{ fontSize: 24, marginBottom: 10 }}>📂</div>
+                        No PTP records found for the selected filters.
+                      </div>
+                    </td>
+                  </tr>
                 ) : ptps.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--faint)' }}>
                     <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.created}</td>

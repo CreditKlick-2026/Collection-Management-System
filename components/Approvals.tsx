@@ -224,6 +224,9 @@ const ReviewSettlementModal = ({ item, onDone }: { item: any, onDone: () => void
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
+    if (!item?.id) {
+      toast('Error: Settlement ID missing'); return;
+    }
     if (status === 'Rejected' && !remarks.trim()) {
       toast('Please enter a rejection reason in Remarks'); return;
     }
@@ -398,6 +401,7 @@ const Approvals = () => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [settlementStatus, setSettlementStatus] = useState('Raised');
 
   useEffect(() => { fetchPending(1); }, []);
 
@@ -405,7 +409,7 @@ const Approvals = () => {
     setPage(1);
     const timer = setTimeout(() => fetchPending(1), 400);
     return () => clearTimeout(timer);
-  }, [filters, activeTab]);
+  }, [filters, activeTab, settlementStatus]);
 
   useEffect(() => { fetchPending(page); }, [page]);
 
@@ -422,7 +426,7 @@ const Approvals = () => {
         const res = await fetch(`/api/ptps?${q.toString()}`);
         if (res.ok) { const j = await res.json(); setPending(j.data || []); setTotal(j.total || 0); setTotalPages(j.totalPages || 1); }
       } else if (activeTab === 'settlements') {
-        q.append('status', 'Raised');
+        q.append('status', settlementStatus);
         const res = await fetch(`/api/settlements?${q.toString()}`);
         if (res.ok) { const data = await res.json(); setPending(data || []); setTotal(data.length || 0); setTotalPages(1); }
       }
@@ -524,7 +528,20 @@ const Approvals = () => {
           <input className="finp" type="date" style={{ width: 'auto' }} value={filters.date} onChange={e => setFilters({ ...filters, date: e.target.value })} />
           <input className="finp" placeholder="Agent name..." style={{ width: 160 }} value={filters.agent} onChange={e => setFilters({ ...filters, agent: e.target.value })} />
           <input className="finp" placeholder="Account / Customer..." style={{ width: 200 }} value={filters.account} onChange={e => setFilters({ ...filters, account: e.target.value })} />
-          <button className="btn" style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => setFilters({ date: '', agent: '', account: '' })}>Clear</button>
+          <button className="btn" style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => { setFilters({ date: '', agent: '', account: '' }); setSettlementStatus('Raised'); }}>Clear</button>
+          
+          {activeTab === 'settlements' && (
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)' }}>STATUS:</label>
+              <select className="finp" style={{ width: 'auto', background: 'var(--bg3)', borderRadius: 8 }} value={settlementStatus} onChange={e => setSettlementStatus(e.target.value)}>
+                <option value="all">All Statuses</option>
+                <option value="Raised">Raised</option>
+                <option value="Pending">Pending</option>
+                <option value="Approve">Approved</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Tab System */}

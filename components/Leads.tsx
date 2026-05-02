@@ -267,6 +267,65 @@ const PaymentSummaryModal = ({ lead }: { lead: any }) => {
   );
 };
 
+/* ── Settlement History Modal ─────────────────────────────── */
+const SettlementHistoryModal = ({ lead }: { lead: any }) => {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!lead?.id) return;
+    setLoading(true);
+    fetch(`/api/settlements?customerId=${lead.id}&status=all`)
+      .then(r => r.json())
+      .then(d => { setData(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [lead?.id]);
+
+  const STATUS_MAP: any = {
+    Raised: { color: 'var(--amb)', label: 'Raised' },
+    Approve: { color: 'var(--grn)', label: 'Approved' },
+    Rejected: { color: 'var(--red)', label: 'Rejected' },
+    Pending: { color: 'var(--pur)', label: 'Pending' },
+  };
+
+  return (
+    <div style={{ padding: '0 20px 20px' }}>
+      {loading ? (
+        <div style={{ padding: 40, textAlign: 'center' }}>Loading history...</div>
+      ) : data.length === 0 ? (
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--txt3)' }}>No settlement history found for this customer.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {data.map((s: any) => {
+            const cfg = STATUS_MAP[s.status] || { color: 'var(--txt3)', label: s.status };
+            return (
+              <div key={s.id} style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: 15 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{s.reason}</div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: `${cfg.color}15`, padding: '2px 8px', borderRadius: 10, border: `1px solid ${cfg.color}30` }}>
+                    {cfg.label}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--txt2)', marginBottom: 8 }}>
+                  <b>Agent Remarks:</b> {s.justification}
+                </div>
+                {s.remarks && (
+                  <div style={{ fontSize: 11, color: 'var(--txt)', background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 6, borderLeft: '3px solid var(--acc2)' }}>
+                    <b>Manager Remarks:</b> {s.remarks}
+                  </div>
+                )}
+                <div style={{ fontSize: 9, color: 'var(--txt3)', marginTop: 10, textAlign: 'right' }}>
+                  Requested on {new Date(s.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 const CallLogsModal = ({ lead }: { lead: any }) => {
   const [logs, setLogs] = useState<any[]>([]);
@@ -831,17 +890,30 @@ const Leads = () => {
   const [limit, setLimit] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
   const [leadPaySummary, setLeadPaySummary] = useState<any>(null);
+  const [latestSettlement, setLatestSettlement] = useState<any>(null);
 
   useEffect(() => {
     fetchMetadata();
   }, []);
 
   useEffect(() => {
-    if (!selectedLead?.id) { setLeadPaySummary(null); return; }
+    if (!selectedLead?.id) { 
+      setLeadPaySummary(null); 
+      setLatestSettlement(null);
+      return; 
+    }
+    
+    // Fetch payment summary
     fetch(`/api/leads/${selectedLead.id}/payments`)
       .then(r => r.json())
       .then(d => setLeadPaySummary(d?.summary || null))
       .catch(() => setLeadPaySummary(null));
+
+    // Fetch latest settlement status
+    fetch(`/api/settlements?customerId=${selectedLead.id}&status=all&limit=1`)
+      .then(r => r.json())
+      .then(d => setLatestSettlement(Array.isArray(d) && d.length > 0 ? d[0] : null))
+      .catch(() => setLatestSettlement(null));
   }, [selectedLead?.id]);
 
   useEffect(() => {
@@ -1195,6 +1267,35 @@ const Leads = () => {
                     </div>
                   );
                 })}
+
+                {/* Settlement Status Box */}
+                <div className="cust-dash-grid-item" style={{ border: '1px solid rgba(244,63,94,0.2)', background: 'rgba(244,63,94,0.03)', gridColumn: 'span 2', minWidth: 280 }}>
+                  <div className="item-lbl" style={{ color: 'var(--red)', fontWeight: 700 }}>SETTLEMENT STATUS</div>
+                  <div className="item-val" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 32 }}>
+                    {!latestSettlement ? (
+                      <span style={{ color: 'var(--txt3)', fontSize: 12, fontWeight: 600, opacity: 0.6 }}>No Request Raised</span>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                        <span style={{ 
+                          color: latestSettlement.status === 'Approve' ? 'var(--grn)' : latestSettlement.status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
+                          fontWeight: 900,
+                          fontSize: 12,
+                          letterSpacing: 0.5
+                        }}>
+                          {latestSettlement.status === 'Approve' ? '✅ APPROVED' : 
+                           latestSettlement.status === 'Rejected' ? '❌ REJECTED' : 
+                           latestSettlement.status === 'Pending' ? '🔄 PENDING' : '⏳ RAISED'}
+                        </span>
+                        <button 
+                          style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 6, padding: '5px 12px', fontSize: 10, cursor: 'pointer', color: 'var(--txt)', fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'all 0.2s' }}
+                          onClick={() => openModal(`⚖️ Settlement History — ${selectedLead.name}`, <SettlementHistoryModal lead={selectedLead} />, 600)}
+                        >
+                          View History
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : null}
           </div>
