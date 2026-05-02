@@ -953,6 +953,71 @@ const Leads = () => {
   const tableCols = applyOrder(leadColumns.filter(c => c.visible !== false && !excluded(c)));
   const profileCols = applyOrder(leadColumns.filter(c => c.showInProfile !== false && !excluded(c)));
 
+  const RaiseSettlementModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
+    const { toast, closeModal, user } = useApp();
+    const [reason, setReason] = useState('Accident');
+    const [justification, setJustification] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const reasons = [
+      'Accident', 
+      'dispute', 
+      'medical issue', 
+      'job loss', 
+      'business Loss', 
+      'depht in family', 
+      'customer dead'
+    ];
+
+    const handleSubmit = async () => {
+      if (!justification.trim()) { toast('Please provide justification'); return; }
+      setLoading(true);
+      try {
+        const res = await fetch('/api/settlements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId: lead.id,
+            agentId: user?.id,
+            reason,
+            justification
+          })
+        });
+        if (res.ok) {
+          toast('Settlement Request Raised ✓');
+          closeModal();
+          onDone();
+        } else {
+          toast((await res.json()).message || 'Failed to raise request');
+        }
+      } catch (e) {
+        toast('Error raising request');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div style={{ padding: '20px' }}>
+        <div className="ff">
+          <label>Reason for Settlement *</label>
+          <select className="finp" style={{ borderRadius: 4 }} value={reason} onChange={e => setReason(e.target.value)}>
+            {reasons.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+
+        <div className="ff">
+          <label>Agent Justification *</label>
+          <textarea className="finp" rows={4} style={{ borderRadius: 4, resize: 'vertical' }} value={justification} onChange={e => setJustification(e.target.value)} placeholder="Provide detailed justification for this settlement request..." />
+        </div>
+
+        <button className="btn pr" style={{ width: '100%', padding: '12px', fontSize: 13, borderRadius: 4 }} onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Raising...' : 'Raise Request for Settlement'}
+        </button>
+      </div>
+    );
+  };
+
   return (
     <>
       <style>{`
@@ -1050,6 +1115,12 @@ const Leads = () => {
                     onClick={() => selectedLead && openModal('Edit Lead Disposition', <EditLeadModal lead={selectedLead} onDone={fetchLeads} />)}
                   >
                     ✎ VOC UPDATE
+                  </button>
+                  <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', color: 'var(--red)', padding: '6px 12px' }}
+                    disabled={!selectedLead}
+                    onClick={() => selectedLead && openModal(`Raise Settlement — ${selectedLead.name}`, <RaiseSettlementModal lead={selectedLead} onDone={fetchLeads} />, 600)}
+                  >
+                    ⚖️ Settlement
                   </button>
                 </div>
 

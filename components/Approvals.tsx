@@ -13,19 +13,25 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
   // Upgrade / Bucket Logic
   const isEligible = item.customer?.eligible_upgrade === 'Y';
   const [upgradeData, setUpgradeData] = useState({ flag: '', type: '', upgraded: 'N' });
+  const [buckets, setBuckets] = useState<string[]>([]);
+  const [selectedBucket, setSelectedBucket] = useState(item.customer?.bkt_2 || '');
   const [bucketUsers, setBucketUsers] = useState<any[]>([]);
   const [selectedCustId, setSelectedCustId] = useState(item.customerId);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (!isEligible || action === 'reassign') {
-      fetchBucketUsers();
-    }
-  }, [action]);
+    fetch('/api/manager/buckets').then(r => r.json()).then(b => setBuckets(b || [])).catch(console.error);
+  }, []);
 
-  const fetchBucketUsers = async () => {
+  useEffect(() => {
+    if (selectedBucket && (action === 'reassign' || !isEligible)) {
+      fetchBucketUsers(selectedBucket);
+    }
+  }, [selectedBucket, action]);
+
+  const fetchBucketUsers = async (bkt: string) => {
     try {
-      const res = await fetch(`/api/manager/bucket-users?bkt=${item.customer?.bkt_2 || ''}&product=${item.customer?.product || ''}`);
+      const res = await fetch(`/api/manager/bucket-users?bkt=${encodeURIComponent(bkt)}`);
       if (res.ok) setBucketUsers(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -92,7 +98,7 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
   return (
     <div style={{ padding: '16px 20px 20px' }}>
       {/* Customer Info Header */}
-      <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: '14px', marginBottom: 16 }}>
+      <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 4, padding: '14px', marginBottom: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px', fontSize: 12 }}>
           <div><span style={{ color: 'var(--txt3)' }}>Current Customer: </span><b>{item.customer?.name}</b></div>
           <div><span style={{ color: 'var(--txt3)' }}>Account: </span><b>{item.customer?.account_no}</b></div>
@@ -104,14 +110,14 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
       </div>
 
       {!isEligible && (
-        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 4, padding: '10px 14px', marginBottom: 16 }}>
           <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 11, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
             ⚠️ INELIGIBLE UPGRADE DETECTED
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             <div className="ff" style={{ margin: 0 }}>
               <label style={{ fontSize: 9 }}>UPGRADE FLAG</label>
-              <select className="finp" value={upgradeData.flag} onChange={e => setUpgradeData({ ...upgradeData, flag: e.target.value })}>
+              <select className="finp" style={{ borderRadius: 4 }} value={upgradeData.flag} onChange={e => setUpgradeData({ ...upgradeData, flag: e.target.value })}>
                 <option value="">Select...</option>
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
@@ -119,23 +125,29 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
             </div>
             <div className="ff" style={{ margin: 0 }}>
               <label style={{ fontSize: 9 }}>UPGRADED</label>
-              <select className="finp" value={upgradeData.upgraded} onChange={e => setUpgradeData({ ...upgradeData, upgraded: e.target.value })}>
+              <select className="finp" style={{ borderRadius: 4 }} value={upgradeData.upgraded} onChange={e => setUpgradeData({ ...upgradeData, upgraded: e.target.value })}>
                 <option value="N">N</option>
                 <option value="Y">Y</option>
               </select>
             </div>
             <div className="ff" style={{ margin: 0 }}>
               <label style={{ fontSize: 9 }}>UPGRADE TYPE</label>
-              <input className="finp" placeholder="Type..." value={upgradeData.type} onChange={e => setUpgradeData({ ...upgradeData, type: e.target.value })} />
+              <select className="finp" style={{ borderRadius: 4 }} value={upgradeData.type} onChange={e => setUpgradeData({ ...upgradeData, type: e.target.value })}>
+                <option value="">— Select —</option>
+                <option value="System">System</option>
+                <option value="Payment Received">Payment Received</option>
+                <option value="Money Collection">Money Collection</option>
+                <option value="Reversal">Reversal</option>
+              </select>
             </div>
           </div>
         </div>
       )}
 
-      {/* Action Tabs */}
+
       <div className="tabs" style={{ marginBottom: 14 }}>
         {(['approved', 'reassign', 'flagged', 'rejected'] as const).map(a => (
-          <div key={a} className={`tab ${action === a ? 'on' : ''}`} onClick={() => setAction(a)} style={{ textTransform: 'capitalize', fontSize: 11 }}>
+          <div key={a} className={`tab ${action === a ? 'on' : ''}`} onClick={() => setAction(a)} style={{ textTransform: 'capitalize', fontSize: 11, borderRadius: 4 }}>
             {a === 'approved' ? '✓ Approve' : a === 'reassign' ? '🔄 Swap' : a === 'flagged' ? '⚑ Flag' : '✕ Reject'}
           </div>
         ))}
@@ -143,9 +155,18 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
 
       {action === 'reassign' && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🔄 Swap Customer (Same Bucket: {item.customer?.bkt_2})</div>
-          <input className="finp" placeholder="Search account or name..." value={search} onChange={e => setSearch(e.target.value)} style={{ marginBottom: 8 }} />
-          <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid var(--bdr)', borderRadius: 8, background: 'var(--bg2)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🔄 Swap Customer</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 9, color: 'var(--txt3)' }}>SELECT BUCKET</span>
+              <select className="finp" style={{ padding: '4px 8px', fontSize: 11, width: 'auto', borderRadius: 4 }} value={selectedBucket} onChange={e => setSelectedBucket(e.target.value)}>
+                <option value="">— Select —</option>
+                {buckets.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+          </div>
+          <input className="finp" placeholder="Search account or name..." value={search} onChange={e => setSearch(e.target.value)} style={{ marginBottom: 8, borderRadius: 4 }} />
+          <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid var(--bdr)', borderRadius: 4, background: 'var(--bg2)' }}>
             {filteredUsers.length === 0 ? (
               <div style={{ padding: 10, fontSize: 11, color: 'var(--txt3)', textAlign: 'center' }}>No users found in this bucket</div>
             ) : filteredUsers.map(u => (
@@ -167,7 +188,7 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
             ))}
           </div>
           {selectedCustId !== item.customerId && (
-            <div style={{ marginTop: 10, padding: 10, background: 'rgba(79,125,255,0.06)', borderRadius: 6, fontSize: 11, border: '1px dashed var(--acc2)' }}>
+            <div style={{ marginTop: 10, padding: 10, background: 'rgba(79,125,255,0.06)', borderRadius: 4, fontSize: 11, border: '1px dashed var(--acc2)' }}>
               Selected: <b>{currentCust?.name}</b> ({currentCust?.account_no})
             </div>
           )}
@@ -191,6 +212,76 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
         </button>
         <button className="btn" style={{ flex: 1, padding: 10 }} onClick={closeModal}>Cancel</button>
       </div>
+    </div>
+  );
+};
+
+/* ── Settlement Review Modal ──────────────────────────── */
+const ReviewSettlementModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
+  const { toast, closeModal, user } = useApp();
+  const [status, setStatus] = useState<'Approve' | 'Pending' | 'Rejected'>('Approve');
+  const [remarks, setRemarks] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (status === 'Rejected' && !remarks.trim()) {
+      toast('Please enter a rejection reason in Remarks'); return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/settlements', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: item.id,
+          status,
+          remarks,
+          rejectionReason: status === 'Rejected' ? remarks : undefined,
+          managerId: user?.id
+        })
+      });
+      if (res.ok) {
+        toast(`Settlement ${status} ✓`);
+        closeModal();
+        onDone();
+      } else {
+        toast('Action failed');
+      }
+    } catch (e) { toast('Network error'); }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ padding: '20px' }}>
+      <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 4, padding: '14px', marginBottom: 16, fontSize: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px' }}>
+          <div><span style={{ color: 'var(--txt3)' }}>Customer: </span><b>{item.customer?.name} ({item.customer?.account_no})</b></div>
+          <div><span style={{ color: 'var(--txt3)' }}>Agent: </span><b>{item.agent?.name}</b></div>
+          <div><span style={{ color: 'var(--txt3)' }}>Reason: </span><b style={{ color: 'var(--red)' }}>{item.reason} {item.subReason ? `(${item.subReason})` : ''}</b></div>
+          <div><span style={{ color: 'var(--txt3)' }}>Status: </span><span className="badge amb">{item.status}</span></div>
+        </div>
+        <div style={{ marginTop: 12, padding: 10, background: 'var(--bg2)', borderRadius: 4, border: '1px solid var(--bdr)' }}>
+          <div style={{ fontSize: 10, color: 'var(--txt3)', marginBottom: 4 }}>AGENT JUSTIFICATION</div>
+          <div>{item.justification}</div>
+        </div>
+      </div>
+
+      <div className="tabs" style={{ marginBottom: 14 }}>
+        {(['Approve', 'Pending', 'Rejected'] as const).map(a => (
+          <div key={a} className={`tab ${status === a ? 'on' : ''}`} onClick={() => setStatus(a)} style={{ fontSize: 11, borderRadius: 4 }}>
+            {a === 'Approve' ? '✓ Approve' : a === 'Pending' ? '⏳ Pending' : '✕ Reject'}
+          </div>
+        ))}
+      </div>
+
+      <div className="ff">
+        <label>Manager Remarks {status === 'Rejected' && '*'}</label>
+        <textarea className="finp" rows={3} style={{ borderRadius: 4, resize: 'vertical' }} value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Provide remarks..." />
+      </div>
+
+      <button className={`btn ${status === 'Approve' ? 'gn' : status === 'Pending' ? 'pr' : 'dn'}`} style={{ width: '100%', padding: '12px', fontSize: 13, borderRadius: 4 }} onClick={handleSubmit} disabled={saving}>
+        {saving ? 'Processing...' : status === 'Approve' ? 'Approve Settlement' : status === 'Pending' ? 'Set as Pending' : 'Reject Settlement'}
+      </button>
     </div>
   );
 };
@@ -302,7 +393,7 @@ const Approvals = () => {
   const { openModal, toast, user } = useApp();
   const [pending, setPending] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'payments' | 'ptps'>('payments');
+  const [activeTab, setActiveTab] = useState<'payments' | 'ptps' | 'settlements'>('payments');
   const [filters, setFilters] = useState({ date: '', agent: '', account: '' });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -326,20 +417,30 @@ const Approvals = () => {
         q.append('status', 'pending_approval');
         const res = await fetch(`/api/payments?${q.toString()}`);
         if (res.ok) { const j = await res.json(); setPending(j.data || []); setTotal(j.total || 0); setTotalPages(j.totalPages || 1); }
-      } else {
+      } else if (activeTab === 'ptps') {
         q.append('flag', 'null');
         const res = await fetch(`/api/ptps?${q.toString()}`);
         if (res.ok) { const j = await res.json(); setPending(j.data || []); setTotal(j.total || 0); setTotalPages(j.totalPages || 1); }
+      } else if (activeTab === 'settlements') {
+        q.append('status', 'Raised');
+        const res = await fetch(`/api/settlements?${q.toString()}`);
+        if (res.ok) { const data = await res.json(); setPending(data || []); setTotal(data.length || 0); setTotalPages(1); }
       }
     } catch (e) { console.error(e); }
     setLoading(false);
   };
 
-  const quickApprove = async (id: number) => {
+  const quickApprove = async (item: any) => {
+    // Force manager to review if payment upgrade is ineligible
+    if (activeTab === 'payments' && item.customer?.eligible_upgrade !== 'Y') {
+      openModal(`Review Payment (Ineligible Upgrade)`, <ReviewPaymentModal item={item} onDone={() => fetchPending(page)} />);
+      return;
+    }
+
     const endpoint = activeTab === 'payments' ? '/api/payments' : '/api/ptps';
     const body = activeTab === 'payments' 
-      ? { id, status: 'cleared', flag: 'approved', flagBy: user?.id }
-      : { id, flag: 'approved' };
+      ? { id: item.id, status: 'cleared', flag: 'approved', flagBy: user?.id }
+      : { id: item.id, flag: 'approved' };
 
     const res = await fetch(endpoint, {
       method: 'PUT',
@@ -386,10 +487,10 @@ const Approvals = () => {
           <div className="card" style={{ background: 'linear-gradient(135deg, rgba(79,125,255,0.1) 0%, rgba(79,125,255,0.02) 100%)', border: '1px solid rgba(79,125,255,0.2)', padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--acc2)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' }}>{activeTab === 'payments' ? 'Payments' : 'PTPs'} Pending</div>
+                <div style={{ fontSize: 11, color: 'var(--acc2)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' }}>{activeTab === 'payments' ? 'Payments' : activeTab === 'ptps' ? 'PTPs' : 'Settlements'} Pending</div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--txt)' }}>{total}</div>
               </div>
-              <div style={{ fontSize: 24, opacity: 0.5 }}>{activeTab === 'payments' ? '◈' : '₹'}</div>
+              <div style={{ fontSize: 24, opacity: 0.5 }}>{activeTab === 'payments' ? '◈' : activeTab === 'ptps' ? '₹' : '⚖️'}</div>
             </div>
           </div>
 
@@ -448,6 +549,16 @@ const Approvals = () => {
           >
             PTPs {activeTab === 'ptps' && pending.length > 0 && <span style={{ marginLeft: 6, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: 6, fontSize: 10 }}>{pending.length}</span>}
           </div>
+          <div 
+            onClick={() => setActiveTab('settlements')}
+            style={{ 
+              padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+              background: activeTab === 'settlements' ? 'var(--acc2)' : 'transparent',
+              color: activeTab === 'settlements' ? '#fff' : 'var(--txt3)'
+            }}
+          >
+            ⚖️ Settlements {activeTab === 'settlements' && pending.length > 0 && <span style={{ marginLeft: 6, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: 6, fontSize: 10 }}>{pending.length}</span>}
+          </div>
         </div>
 
         {activeTab === 'payments' && (
@@ -498,9 +609,9 @@ const Approvals = () => {
                       </td>
                       <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button className="btn sm gn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickApprove(p.id)}>Approve</button>
+                          <button className="btn sm gn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickApprove(p)}>Approve</button>
                           <button className="btn sm dn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickReject(p.id)}>Reject</button>
-                          <button className="btn sm am" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => openModal(`Review Payment`, <ReviewPaymentModal item={p} onDone={fetchPending} />)}>Flag</button>
+                          <button className="btn sm am" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => openModal(`Review Payment`, <ReviewPaymentModal item={p} onDone={() => fetchPending(page)} />)}>Flag</button>
                         </div>
                       </td>
                     </tr>
@@ -556,9 +667,67 @@ const Approvals = () => {
                       </td>
                       <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button className="btn sm gn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickApprove(p.id)}>Approve</button>
+                          <button className="btn sm gn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickApprove(p)}>Approve</button>
                           <button className="btn sm dn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickReject(p.id)}>Reject</button>
                           <button className="btn sm am" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => openModal(`Review PTP`, <PTPFlagModal item={p} onDone={fetchPending} />)}>Flag</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'settlements' && (
+          <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 16 }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--bdr)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>Settlements Awaiting Review</div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Showing {pending.length} records</div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)' }}>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Date</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Customer</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Reason</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Agent Info</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
+                        <td colSpan={5} style={{ padding: '15px 20px' }}><div className="skel" style={{ width: '100%', height: 20 }} /></td>
+                      </tr>
+                    ))
+                  ) : pending.length === 0 ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: 60, color: 'var(--txt3)' }}>
+                      <div style={{ fontSize: 40, marginBottom: 15, opacity: 0.2 }}>✨</div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>All caught up!</div>
+                      <div style={{ fontSize: 12, opacity: 0.6 }}>No Settlements are pending for your review.</div>
+                    </td></tr>
+                  ) : pending.map(p => (
+                    <tr key={p.id} className="tr-h" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}>
+                      <td className="mn" style={{ padding: '16px 20px', fontSize: 13, color: 'var(--txt3)' }}>{p.created}</td>
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{p.customer?.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'monospace' }}>{p.customer?.account_no}</div>
+                      </td>
+                      <td style={{ padding: '16px 20px' }}>
+                        <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: 'rgba(244,63,94,0.1)', color: 'var(--red)', border: '1px solid rgba(244,63,94,0.2)', textTransform: 'uppercase' }}>{p.reason}</span>
+                        {p.subReason && <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>{p.subReason}</div>}
+                      </td>
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>{p.agent?.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--txt3)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.justification || 'No remarks'}</div>
+                      </td>
+                      <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <button className="btn sm pr" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => openModal(`Review Settlement`, <ReviewSettlementModal item={p} onDone={() => fetchPending(page)} />)}>Review</button>
                         </div>
                       </td>
                     </tr>

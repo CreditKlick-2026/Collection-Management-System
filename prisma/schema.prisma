@@ -30,6 +30,7 @@ model User {
   payments      Payment[]  @relation("PaymentAgent")
   ptps          PTP[]      @relation("PTPAgent")
   disputes      Dispute[]  @relation("DisputeAgent")
+  settlements   Settlement[] @relation("SettlementAgent")
   
   portfoliosManaged Portfolio[] @relation("PortfolioManagers")
   portfoliosAgent   Portfolio[] @relation("PortfolioAgents")
@@ -80,6 +81,7 @@ model Customer {
   payments      Payment[]
   ptps          PTP[]
   disputes      Dispute[]
+  settlements   Settlement[]
 }
 
 model LeadColumn {
@@ -166,6 +168,24 @@ model AuditLog {
   details     Json?    // Stores the delta or extra context
   timestamp   DateTime @default(now())
 }
+model Settlement {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  agentId         Int
+  agent           User      @relation("SettlementAgent", fields: [agentId], references: [id])
+  managerId       Int?
+  reason          String    // Accident, Dispute, Medical, Job loss, Business loss
+  subReason       String?   // Death in family, Customer deceased
+  justification   String    // Agent Justification
+  remarks         String?   // Manager Remarks
+  status          String    @default("Raised") // Raised, Pending, Approve, Rejected
+  rejectionReason String?
+  created         String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
 model MasterList {
   id    Int    @id @default(autoincrement())
   type  String // PAYMENT_MODE, PTP_STATUS, DISPUTE_STATUS, FLAG_OPTION
