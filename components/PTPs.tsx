@@ -401,7 +401,6 @@ const PTPs = () => {
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Agent</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>VOC</th>
-                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Flag Status</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px' }}></th>
                   </tr>
                 </thead>
@@ -414,16 +413,15 @@ const PTPs = () => {
                         <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '150px' }} /></td>
                         <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '70px' }} /></td>
                         <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px' }} /></td>
-                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '60px', height: 18, borderRadius: 12 }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px', height: 18, borderRadius: 12 }} /></td>
                         <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100px' }} /></td>
                         <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '120px' }} /></td>
-                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px', height: 16 }} /></td>
                         <td style={{ padding: '14px 10px', textAlign: 'right' }}><div className="skel" style={{ width: '45px', height: 26, borderRadius: 6, display: 'inline-block' }} /></td>
                       </tr>
                     ))
                   ) : ptps.length === 0 ? (
                     <tr>
-                      <td colSpan={10} style={{ padding: '40px', textAlign: 'center' }}>
+                      <td colSpan={9} style={{ padding: '40px', textAlign: 'center' }}>
                         <div style={{ color: 'var(--txt3)', fontSize: 14 }}>
                           <div style={{ fontSize: 24, marginBottom: 10 }}>📂</div>
                           No PTP records found for the selected filters.
@@ -438,18 +436,26 @@ const PTPs = () => {
                       <td className="mn" style={{ padding: '12px 10px', color: 'var(--amb)', fontWeight: 700 }}>₹{p.ptp_amount?.toLocaleString('en-IN')}</td>
                       <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.ptp_date}</td>
                       <td style={{ padding: '12px 10px' }}>
-                        <span className="badge" style={{ background: 'transparent', border: `1px solid ${p.status === 'broken' ? 'rgba(226,75,74,0.3)' : (p.status === 'paid' || p.status === 'kept') ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', borderRadius: 12 }}>
-                          <span style={{ color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', fontSize: 8, marginRight: 5 }}>●</span> {p.status}
-                        </span>
+                        {p.flag === 'approved' ? (
+                          <span className="badge" style={{ background: 'rgba(46,204,138,0.1)', border: '1px solid rgba(46,204,138,0.3)', color: 'var(--grn)', borderRadius: 12 }}>
+                            <span style={{ fontSize: 8, marginRight: 5 }}>●</span> Approved
+                          </span>
+                        ) : p.flag === 'rejected' ? (
+                          <span className="badge" style={{ background: 'rgba(226,75,74,0.1)', border: '1px solid rgba(226,75,74,0.3)', color: 'var(--red)', borderRadius: 12 }}>
+                            <span style={{ fontSize: 8, marginRight: 5 }}>●</span> Rejected
+                          </span>
+                        ) : p.flag === 'flagged' ? (
+                          <span className="badge" style={{ background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.3)', color: 'var(--amb)', borderRadius: 12 }}>
+                            <span style={{ fontSize: 8, marginRight: 5 }}>⚑</span> Flagged
+                          </span>
+                        ) : (
+                          <span className="badge" style={{ background: 'transparent', border: `1px solid ${p.status === 'broken' ? 'rgba(226,75,74,0.3)' : (p.status === 'paid' || p.status === 'kept') ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', borderRadius: 12 }}>
+                            <span style={{ fontSize: 8, marginRight: 5 }}>●</span> {p.status}
+                          </span>
+                        )}
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{p.agent_name}</td>
                       <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.voc || '—'}</td>
-                      <td style={{ padding: '12px 10px', fontSize: 12, fontWeight: 600 }}>
-                        {p.flag === 'flagged' ? <span style={{ color: 'var(--amb)' }}>⚑ Flagged ↗</span> :
-                         p.flag === 'approved' ? <span style={{ color: 'var(--grn)' }}>✓ Approved</span> :
-                         p.flag === 'rejected' ? <span style={{ color: 'var(--red)' }}>✕ Rejected ↗</span> :
-                         <span style={{ color: 'var(--txt3)', fontWeight: 400 }}>—</span>}
-                      </td>
                       <td style={{ padding: '12px 10px', textAlign: 'right' }}>
                         <button className="btn sm" style={{ background: 'var(--faint)', border: '1px solid var(--faint)' }} onClick={() => openModal(`PTP — ${p.account_no}`, <EditPTPModal item={p} onDone={fetchPtps} />)}>Edit</button>
                       </td>
@@ -469,19 +475,18 @@ const PTPs = () => {
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Agent</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Reason</th>
-                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Flag Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                      Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
-                        <td colSpan={9} style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100%' }} /></td>
+                        <td colSpan={8} style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100%' }} /></td>
                       </tr>
                     ))
                   ) : settlements.length === 0 ? (
                     <tr>
-                      <td colSpan={9} style={{ padding: '40px', textAlign: 'center' }}>
+                      <td colSpan={8} style={{ padding: '40px', textAlign: 'center' }}>
                         <div style={{ color: 'var(--txt3)', fontSize: 14 }}>
                           <div style={{ fontSize: 24, marginBottom: 10 }}>⚖️</div>
                           No settlements found.
@@ -503,11 +508,6 @@ const PTPs = () => {
                       <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{s.agent?.name}</td>
                       <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {s.reason} {s.subReason ? `(${s.subReason})` : ''}
-                      </td>
-                      <td style={{ padding: '12px 10px', fontSize: 12, fontWeight: 600 }}>
-                        {s.status === 'Approve' ? <span style={{ color: 'var(--grn)' }}>✓ Approved</span> :
-                         s.status === 'Rejected' ? <span style={{ color: 'var(--red)' }}>✕ Rejected</span> :
-                         <span style={{ color: 'var(--amb)' }}>Pending</span>}
                       </td>
                     </tr>
                   ))}

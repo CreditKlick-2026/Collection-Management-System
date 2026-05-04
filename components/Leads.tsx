@@ -1249,20 +1249,22 @@ const Leads = () => {
                   <select 
                     className="finp" 
                     style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }} 
-                    value={filterMonth} 
+                    value={filterMonth || String(new Date().getMonth() + 1)} 
                     onChange={e => setFilterMonth(e.target.value)}
                   >
+                    <option value="all">All Months</option>
                     {Array.from({ length: 12 }).map((_, i) => <option key={i + 1} value={i + 1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'short' })}</option>)}
                   </select>
                   <select 
                     className="finp" 
                     style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }} 
-                    value={filterYear} 
+                    value={filterYear || String(new Date().getFullYear())} 
                     onChange={e => setFilterYear(e.target.value)}
                   >
+                    <option value="all">All Years</option>
                     {[0, 1, 2, 3, 4].map(y => {
                       const yr = new Date().getFullYear() - y;
-                      return <option key={yr} value={yr}>{yr}</option>
+                      return <option key={yr} value={yr}>{yr}</option>;
                     })}
                   </select>
                 </div>

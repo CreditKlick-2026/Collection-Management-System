@@ -72,17 +72,22 @@ export async function GET(request: Request) {
       }
     }
 
+    // Date Filtering Logic
     let dateFilter: any = {};
-    if (year) {
-      const yearInt = parseInt(year);
-      if (month) {
-        const monthInt = parseInt(month) - 1; // 0-indexed
-        const startDate = new Date(yearInt, monthInt, 1);
-        const endDate = new Date(yearInt, monthInt + 1, 1);
+    const skipDefault = (q && q.trim().length > 0); // If searching, don't force current month default
+
+    // If explicit 'all', make it null. If empty, default to current (unless searching).
+    let targetYear = year === 'all' ? null : (year ? parseInt(year) : (skipDefault ? null : new Date().getFullYear()));
+    let targetMonth = month === 'all' ? null : (month ? parseInt(month) : (skipDefault ? null : new Date().getMonth() + 1));
+
+    if (targetYear !== null) {
+      if (targetMonth !== null) {
+        const startDate = new Date(targetYear, targetMonth - 1, 1);
+        const endDate = new Date(targetYear, targetMonth, 1);
         dateFilter = { createdAt: { gte: startDate, lt: endDate } };
       } else {
-        const startDate = new Date(yearInt, 0, 1);
-        const endDate = new Date(yearInt + 1, 0, 1);
+        const startDate = new Date(targetYear, 0, 1);
+        const endDate = new Date(targetYear + 1, 0, 1);
         dateFilter = { createdAt: { gte: startDate, lt: endDate } };
       }
     }
@@ -101,35 +106,33 @@ export async function GET(request: Request) {
 
     // Access control: Portfolios + Manager/Agent scoping
     if (!isAdmin) {
-      // 1. Portfolio filter
-      if (portfolio) {
-        const pId = Number(portfolio);
-        if (portfolioIds.includes(pId)) {
-          where.AND.push({ portfolioId: pId });
-        } else {
-          // User doesn't have access to this portfolio — return nothing
-          where.AND.push({ id: -1 });
-        }
-      } else if (portfolioIds.length > 0) {
-        // Only restrict to assigned portfolios if user actually has some
-        where.AND.push({ portfolioId: { in: portfolioIds } });
-      }
-      // If portfolioIds is empty AND no portfolio filter → do NOT restrict by portfolio
-      // (user might just have leads assigned directly to them)
-
-      // 2. Role-based scoping
       if (isManager) {
-        // Manager sees leads in their portfolios OR assigned to their agents
-        if (portfolioIds.length > 0 || subordinateIds.length > 0) {
-          where.AND.push({
-            OR: [
-              ...(subordinateIds.length > 0 ? [{ assignedAgentId: { in: [...subordinateIds, Number(userId)] } }] : []),
-              ...(portfolioIds.length > 0 ? [{ portfolioId: { in: portfolioIds } }] : [])
-            ]
-          });
+        // Manager sees leads in their specific portfolios OR assigned to their agents
+        const managerOrConditions: any[] = [];
+        if (subordinateIds.length > 0) {
+          managerOrConditions.push({ assignedAgentId: { in: [...subordinateIds, Number(userId)] } });
+        } else {
+          managerOrConditions.push({ assignedAgentId: Number(userId) });
+        }
+        
+        if (portfolioIds.length > 0) {
+          managerOrConditions.push({ portfolioId: { in: portfolioIds } });
+        }
+        
+        // If a portfolio filter is explicitly requested by manager
+        if (portfolio) {
+          const pId = Number(portfolio);
+          if (portfolioIds.includes(pId)) {
+            where.AND.push({ portfolioId: pId });
+          } else {
+            where.AND.push({ id: -1 }); // Manager requested a portfolio they don't own
+          }
+        } else {
+          where.AND.push({ OR: managerOrConditions });
         }
       } else {
-        // Agent — see only leads assigned to themselves
+        // Agent — STRICTLY see only leads assigned to themselves
+        // We do NOT enforce portfolio matching here because the assignment takes precedence.
         where.AND.push({ assignedAgentId: Number(userId) });
       }
     } else if (portfolio) {

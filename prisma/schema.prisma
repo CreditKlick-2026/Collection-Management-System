@@ -108,6 +108,7 @@ model Payment {
   
   amount          Float
   mode            String
+  type            String    @default("Payment") // Payment, PTP, Settlement
   ref             String?
   date            String
   agentId         Int

@@ -591,10 +591,11 @@ const Approvals = () => {
               <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)' }}>
-                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Date</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Created</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Account Details</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Amount</th>
-                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Mode</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Payment Date</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Type</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Agent Info</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -603,25 +604,37 @@ const Approvals = () => {
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
-                        <td colSpan={6} style={{ padding: '15px 20px' }}><div className="skel" style={{ width: '100%', height: 20 }} /></td>
+                        <td colSpan={7} style={{ padding: '15px 20px' }}><div className="skel" style={{ width: '100%', height: 20 }} /></td>
                       </tr>
                     ))
                   ) : pending.length === 0 ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: 60, color: 'var(--txt3)' }}>
+                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: 60, color: 'var(--txt3)' }}>
                       <div style={{ fontSize: 40, marginBottom: 15, opacity: 0.2 }}>✨</div>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>All caught up!</div>
                       <div style={{ fontSize: 12, opacity: 0.6 }}>No payments are pending for your approval.</div>
                     </td></tr>
                   ) : pending.map(p => (
                     <tr key={p.id} className="tr-h" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}>
-                      <td className="mn" style={{ padding: '16px 20px', fontSize: 13, color: 'var(--txt3)' }}>{p.date}</td>
+                      <td className="mn" style={{ padding: '16px 20px', fontSize: 12, color: 'var(--txt3)' }}>{p.date}</td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{p.customer?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'monospace' }}>{p.customer?.account_no}</div>
+                        <div style={{ marginTop: 3 }}><span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', border: '1px solid rgba(79,125,255,0.2)', textTransform: 'uppercase' }}>{p.mode}</span></div>
                       </td>
                       <td className="mn" style={{ padding: '16px 20px', color: 'var(--grn)', fontWeight: 800, fontSize: 15 }}>₹{p.amount?.toLocaleString('en-IN')}</td>
+                      <td className="mn" style={{ padding: '16px 20px', color: 'var(--txt2)', fontSize: 13 }}>{p.date}</td>
                       <td style={{ padding: '16px 20px' }}>
-                        <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', border: '1px solid rgba(79,125,255,0.2)', textTransform: 'uppercase' }}>{p.mode}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                            background: p.type === 'PTP' ? 'rgba(245,166,35,0.1)' : p.type === 'Settlement' ? 'rgba(167,139,250,0.1)' : 'rgba(46,204,138,0.1)',
+                            color: p.type === 'PTP' ? 'var(--amb)' : p.type === 'Settlement' ? 'var(--pur)' : 'var(--grn)',
+                            border: `1px solid ${p.type === 'PTP' ? 'rgba(245,166,35,0.3)' : p.type === 'Settlement' ? 'rgba(167,139,250,0.3)' : 'rgba(46,204,138,0.25)'}`,
+                            width: 'fit-content'
+                          }}>
+                            {p.type === 'PTP' ? '⏳' : p.type === 'Settlement' ? '⚖️' : '💳'} {p.type || 'Payment'}
+                          </span>
+                          <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', border: '1px solid rgba(79,125,255,0.2)', textTransform: 'uppercase', width: 'fit-content' }}>{p.mode}</span>
+                        </div>
                       </td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>{p.agent?.name}</div>
@@ -654,8 +667,8 @@ const Approvals = () => {
                   <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)' }}>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Created</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Account Details</th>
-                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>PTP Amount</th>
-                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Promise Date</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Amount</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Payment Date</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Agent Info</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -710,9 +723,10 @@ const Approvals = () => {
               <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)' }}>
-                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Date</th>
-                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Customer</th>
-                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Reason</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Created</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Account Details</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Amount</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Payment Date</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Agent Info</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -721,26 +735,25 @@ const Approvals = () => {
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
-                        <td colSpan={5} style={{ padding: '15px 20px' }}><div className="skel" style={{ width: '100%', height: 20 }} /></td>
+                        <td colSpan={6} style={{ padding: '15px 20px' }}><div className="skel" style={{ width: '100%', height: 20 }} /></td>
                       </tr>
                     ))
                   ) : pending.length === 0 ? (
-                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: 60, color: 'var(--txt3)' }}>
+                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: 60, color: 'var(--txt3)' }}>
                       <div style={{ fontSize: 40, marginBottom: 15, opacity: 0.2 }}>✨</div>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>All caught up!</div>
                       <div style={{ fontSize: 12, opacity: 0.6 }}>No Settlements are pending for your review.</div>
                     </td></tr>
                   ) : pending.map(p => (
                     <tr key={p.id} className="tr-h" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}>
-                      <td className="mn" style={{ padding: '16px 20px', fontSize: 13, color: 'var(--txt3)' }}>{p.created}</td>
+                      <td className="mn" style={{ padding: '16px 20px', fontSize: 12, color: 'var(--txt3)' }}>{p.created}</td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{p.customer?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'monospace' }}>{p.customer?.account_no}</div>
+                        <div style={{ marginTop: 3 }}><span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: 'rgba(244,63,94,0.1)', color: 'var(--red)', border: '1px solid rgba(244,63,94,0.2)', textTransform: 'uppercase' }}>{p.reason}{p.subReason ? ` · ${p.subReason}` : ''}</span></div>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
-                        <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: 'rgba(244,63,94,0.1)', color: 'var(--red)', border: '1px solid rgba(244,63,94,0.2)', textTransform: 'uppercase' }}>{p.reason}</span>
-                        {p.subReason && <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>{p.subReason}</div>}
-                      </td>
+                      <td className="mn" style={{ padding: '16px 20px', color: 'var(--acc2)', fontWeight: 800, fontSize: 15 }}>₹{p.amount?.toLocaleString('en-IN')}</td>
+                      <td className="mn" style={{ padding: '16px 20px', color: 'var(--txt2)', fontSize: 13 }}>{p.created}</td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>{p.agent?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.justification || 'No remarks'}</div>

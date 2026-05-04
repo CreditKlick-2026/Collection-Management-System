@@ -70,6 +70,7 @@ export async function POST(request: Request) {
         customerId,
         amount,
         mode: data.mode || 'Cash',
+        type: data.type || 'Payment',
         ref: data.ref || '',
         date: data.date || new Date().toISOString().split('T')[0],
         agentId,
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, status, flag, flagBy, flagComment, rejectionReason, remarks, customerId, agentId, metadata } =
+    const { id, status, flag, flagBy, flagComment, rejectionReason, remarks, customerId, agentId, metadata, type } =
       await request.json();
 
     // Check if payment is locked (resolved by manager)
@@ -117,6 +118,7 @@ export async function PUT(request: Request) {
         flagComment,
         rejectionReason,
         remarks,
+        type: type || undefined,
         customerId: customerId ? Number(customerId) : undefined,
         agentId: agentId ? Number(agentId) : undefined,
         metadata: metadata || undefined,
