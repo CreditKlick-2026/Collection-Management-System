@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const userId = searchParams.get('userId');
 
   try {
-    let portfolioIds: string[] = [];
+    let portfolioIds: number[] = [];
     let subordinateIds: number[] = [];
     let isAdmin = false;
     let isManager = false;
@@ -100,8 +100,9 @@ export async function GET(request: Request) {
     if (!isAdmin) {
       // 1. Portfolio Filter
       if (portfolio) {
-        if (portfolioIds.includes(portfolio)) {
-          where.AND.push({ portfolioId: portfolio });
+        const pId = Number(portfolio);
+        if (portfolioIds.includes(pId)) {
+          where.AND.push({ portfolioId: pId });
         } else {
           where.AND.push({ id: -1 }); // No access
         }
@@ -123,7 +124,7 @@ export async function GET(request: Request) {
       }
     } else if (portfolio) {
       // Admin filtering by specific portfolio
-      where.AND.push({ portfolioId: portfolio });
+      where.AND.push({ portfolioId: Number(portfolio) });
     }
 
     const paginate = searchParams.get('paginate') === 'true';

@@ -75,7 +75,7 @@ model Customer {
   assignedAgentId Int?
   assignedAgent   User?    @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
   
-  portfolioId   String?
+  portfolioId   Int?
   portfolio     Portfolio? @relation(fields: [portfolioId], references: [id])
   
   bulkUploadJobId String?  // To track which upload job created/updated this customer
@@ -158,8 +158,9 @@ model Dispute {
 }
 
 model Portfolio {
-  id          String   @id
+  id          Int      @id @default(autoincrement())
   name        String
+  bank        String?
   agents      User[]   @relation("PortfolioAgents")
   managers    User[]   @relation("PortfolioManagers")
   customers   Customer[]

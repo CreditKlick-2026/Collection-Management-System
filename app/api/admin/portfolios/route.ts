@@ -26,8 +26,9 @@ export async function GET(request: Request) {
       }
     });
     return NextResponse.json(portfolios);
-  } catch (error) {
-    return NextResponse.json({ message: 'Error' }, { status: 500 });
+  } catch (error: any) {
+    console.error('PORTFOLIO GET ERROR:', error);
+    return NextResponse.json({ message: 'Error fetching portfolios', error: error.message }, { status: 500 });
   }
 }
 
@@ -49,7 +50,7 @@ export async function PUT(request: Request) {
     }
 
     const portfolio = await prisma.portfolio.update({
-      where: { id },
+      where: { id: Number(id) },
       data: updateData,
       include: {
         agents: { select: { id: true, name: true } },
@@ -57,9 +58,9 @@ export async function PUT(request: Request) {
       }
     });
     return NextResponse.json(portfolio);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ message: 'Error updating portfolio' }, { status: 500 });
+  } catch (error: any) {
+    console.error('PORTFOLIO UPDATE ERROR:', error);
+    return NextResponse.json({ message: 'Error updating portfolio', error: error.message }, { status: 500 });
   }
 }
 
@@ -68,13 +69,14 @@ export async function POST(request: Request) {
     const data = await request.json();
     const portfolio = await prisma.portfolio.create({
       data: {
-        id: data.id,
-        name: data.name
+        name: data.name,
+        bank: data.bank || null
       }
     });
     return NextResponse.json(portfolio);
-  } catch (error) {
-    return NextResponse.json({ message: 'Error creating portfolio' }, { status: 500 });
+  } catch (error: any) {
+    console.error('PORTFOLIO CREATE ERROR:', error);
+    return NextResponse.json({ message: 'Error creating portfolio', error: error.message }, { status: 500 });
   }
 }
 
@@ -89,7 +91,7 @@ export async function DELETE(request: Request) {
 
     // Check if portfolio exists
     const portfolio = await prisma.portfolio.findUnique({
-      where: { id },
+      where: { id: Number(id) },
       include: {
         agents: { select: { id: true } },
         managers: { select: { id: true } },
@@ -104,7 +106,7 @@ export async function DELETE(request: Request) {
     // Step 1: Disconnect all agents from this portfolio
     if (portfolio.agents.length > 0) {
       await prisma.portfolio.update({
-        where: { id },
+        where: { id: Number(id) },
         data: {
           agents: { set: [] }
         }
@@ -114,7 +116,7 @@ export async function DELETE(request: Request) {
     // Step 2: Disconnect all managers from this portfolio
     if (portfolio.managers.length > 0) {
       await prisma.portfolio.update({
-        where: { id },
+        where: { id: Number(id) },
         data: {
           managers: { set: [] }
         }
@@ -124,12 +126,12 @@ export async function DELETE(request: Request) {
     // Step 3: Nullify portfolioId on all customers belonging to this portfolio
     // (Customers are NOT deleted — they become unassigned)
     await prisma.customer.updateMany({
-      where: { portfolioId: id },
+      where: { portfolioId: Number(id) },
       data: { portfolioId: null }
     });
 
     // Step 4: Delete the portfolio itself
-    await prisma.portfolio.delete({ where: { id } });
+    await prisma.portfolio.delete({ where: { id: Number(id) } });
 
     return NextResponse.json({ 
       message: 'Portfolio deleted successfully',

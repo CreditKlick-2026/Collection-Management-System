@@ -282,7 +282,7 @@ const Admin = () => {
 
   // Portfolio State
   const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
-  const [newPortfolio, setNewPortfolio] = useState({ id: '', name: '' });
+  const [newPortfolio, setNewPortfolio] = useState({ name: '', bank: '' });
 
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -318,7 +318,8 @@ const Admin = () => {
     }
     if (activeTab === 'portfolios' || activeTab === 'bulk') {
       const res = await fetch(`/api/admin/portfolios?requesterId=${user?.id}`);
-      setPortfolios(await res.json());
+      const data = await res.json();
+      setPortfolios(Array.isArray(data) ? data : []);
     }
     if (activeTab === 'columns' || activeTab === 'bulk') {
       const res = await fetch('/api/admin/columns');
@@ -342,7 +343,7 @@ const Admin = () => {
     setLoading(false);
   };
 
-  const handleSavePortfolio = async (portfolioId: string, agentIds: number[], managerIds: number[]) => {
+  const handleSavePortfolio = async (portfolioId: number, agentIds: number[], managerIds: number[]) => {
     const res = await fetch('/api/admin/portfolios', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -356,7 +357,7 @@ const Admin = () => {
     }
   };
 
-  const handleDeletePortfolio = async (id: string) => {
+  const handleDeletePortfolio = async (id: number) => {
     try {
       const res = await fetch(`/api/admin/portfolios?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -426,14 +427,14 @@ const Admin = () => {
   };
 
   const handleAddPortfolio = async () => {
-    if (!newPortfolio.id || !newPortfolio.name) return alert('Portfolio ID and Name are required');
+    if (!newPortfolio.name) return alert('Portfolio Name is required');
     const res = await fetch('/api/admin/portfolios', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newPortfolio)
     });
     if (res.ok) {
-      setNewPortfolio({ id: '', name: '' });
+      setNewPortfolio({ name: '', bank: '' });
       setIsAddingPortfolio(false);
       fetchData();
     } else {

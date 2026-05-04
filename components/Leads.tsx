@@ -612,7 +612,7 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
   return (
     <div style={{ padding: '0 20px 20px' }}>
       <div style={{ background: 'rgba(79,125,255,0.08)', border: '1px solid rgba(79,125,255,0.2)', padding: '12px 16px', borderRadius: 8, marginBottom: 20, color: 'var(--acc2)', fontSize: 13 }}>
-        Updating Disposition for: <b>{lead?.name}</b> <span style={{ color: 'var(--txt3)' }}>·</span> <b>{lead?.account_no}</b>
+        Updating Disposition for: <b>{lead?.name}</b> <span style={{ color: 'var(--txt3)' }}>·</span> <b>{(lead?.account_no || '').replace(/LN-|-/g, '')}</b>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 15, marginBottom: 15 }}>
@@ -910,6 +910,7 @@ const Leads = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [leadPaySummary, setLeadPaySummary] = useState<any>(null);
   const [latestSettlement, setLatestSettlement] = useState<any>(null);
+  const [openAltIdx, setOpenAltIdx] = useState<number | null>(null);
 
   useEffect(() => {
     fetchMetadata();
@@ -1016,7 +1017,6 @@ const Leads = () => {
     city:                  { order: 9,  label: 'City'                  },
     state:                 { order: 10, label: 'State'                 },
     email:                 { order: 11, label: 'Email'                 },
-    alt_mobile:            { order: 12, label: 'Alt Mobile'            },
     address:               { order: 13, label: 'Address'               },
     min_amt_due:           { order: 14, label: 'Min Amount Due'        },
     principle_outstanding: { order: 15, label: 'Principle Outstanding' },
@@ -1038,7 +1038,7 @@ const Leads = () => {
 
   const excluded = (c: any) => {
     const k = c.key?.toLowerCase();
-    return k === 'eligible_for_update' || k === 'eligible_upgrade';
+    return k === 'eligible_for_update' || k === 'eligible_upgrade' || k === 'alt_mobile' || k === 'alt mobile' || k === 'alt_mobile_2' || k === 'alt_mobile_3' || k === 'alt_mobile_4';
   };
 
   const tableCols = applyOrder(leadColumns.filter(c => c.visible !== false && !excluded(c)));
@@ -1124,11 +1124,29 @@ const Leads = () => {
       <style>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .num-dropdown .num-dropdown-list { display: none; }
-        .num-dropdown:hover .num-dropdown-list,
-        .num-dropdown:active .num-dropdown-list,
-        .num-dropdown:focus-within .num-dropdown-list {
+        .num-dropdown { position: relative; }
+        .num-dropdown .num-dropdown-list { 
+          display: none; 
+          position: absolute; 
+          top: calc(100% + 4px); 
+          left: 0; 
+          z-index: 1000; 
+          background: var(--bg); 
+          border: 1px solid var(--bdr); 
+          border-radius: 10px; 
+          box-shadow: 0 12px 30px rgba(0,0,0,0.25); 
+          min-width: 100%; 
+          width: max-content;
+          padding: 8px 0;
+          pointer-events: auto;
+          animation: slideDown 0.2s ease-out;
+        }
+        .num-dropdown .num-dropdown-list.show {
           display: block !important;
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
       <div id="pg-leads" className="page on">
@@ -1183,7 +1201,7 @@ const Leads = () => {
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', overflow: 'hidden' }}>
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {selectedLead.account_no} - {selectedLead.product || 'Personal Loan'} - {selectedLead.bank || 'HDFC Bank'}
+                          {(selectedLead.account_no || '').replace(/LN-|-/g, '')} - {selectedLead.product || 'Personal Loan'} - {selectedLead.bank || 'HDFC Bank'}
                         </span>
                         {leadPaySummary !== null && (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '1px 8px', borderRadius: 10, fontSize: 10, border: '1px solid rgba(34,197,94,0.25)', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -1274,24 +1292,65 @@ const Leads = () => {
                   const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
                   
                   const isMobile = lowerKey === 'mobile' || lowerKey === 'mobile_number' || lowerKey === 'mobile_no';
-                  const altMobile = selectedLead.alt_mobile || selectedLead.metadata?.alt_mobile || selectedLead.metadata?.ALT_MOBILE || selectedLead.metadata?.['ALT MOBILE'];
+                  const allAlts = Array.from(new Set([
+                    selectedLead.alt_mobile,
+                    selectedLead.alt_mobile_2,
+                    selectedLead.alt_mobile_3,
+                    selectedLead.alt_mobile_4,
+                    selectedLead.metadata?.alt_mobile,
+                    selectedLead.metadata?.ALT_MOBILE,
+                    selectedLead.metadata?.['ALT MOBILE'],
+                    selectedLead.metadata?.alt_mobile_2,
+                    selectedLead.metadata?.alt_mobile_3,
+                    selectedLead.metadata?.alt_mobile_4
+                  ])).filter(n => n && n !== '—' && n !== val);
                   
                   return (
-                    <div key={i} className="cust-dash-grid-item" style={{ position: 'relative', overflow: 'visible' }}>
+                    <div key={i} className={`cust-dash-grid-item ${isMobile && allAlts.length > 0 ? 'num-dropdown' : ''}`} 
+                      style={{ position: 'relative', overflow: 'visible' }}
+                    >
                       <div className="item-lbl" title={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>{item.label}</span>
-                        {isMobile && altMobile && altMobile !== '—' && altMobile !== val && (
-                          <div className="num-dropdown" style={{ position: 'relative', cursor: 'pointer', padding: '0 2px' }}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: 10, height: 10, color: 'var(--acc2)' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            <div className="num-dropdown-list" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 100, minWidth: 150, padding: '4px 0' }}>
-                              <div style={{ padding: '6px 12px', fontSize: 11, color: 'var(--txt)', borderBottom: '1px solid var(--faint)' }}>{val} <span style={{ color: 'var(--txt3)', fontSize: 9 }}>(Primary)</span></div>
-                              <div style={{ padding: '6px 12px', fontSize: 11, color: 'var(--txt)' }}>{altMobile} <span style={{ color: 'var(--txt3)', fontSize: 9 }}>(Alternate)</span></div>
+                        {isMobile && allAlts.length > 0 && (
+                          <div 
+                            style={{ padding: '2px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenAltIdx(openAltIdx === i ? null : i);
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: 10, height: 10, color: 'var(--acc2)', transform: openAltIdx === i ? 'rotate(180deg)' : 'none', transition: '0.2s' }}>
+                              <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                          </div>
+                        )}
+                        {isMobile && allAlts.length > 0 && (
+                          <div className={`num-dropdown-list ${openAltIdx === i ? 'show' : ''}`}>
+                            <div style={{ padding: '8px 15px', fontSize: 10, color: 'var(--acc2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--faint)', marginBottom: 5 }}>Contact Numbers</div>
+                            <div style={{ padding: '10px 15px', fontSize: 12, color: 'var(--txt)', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>{val}</span>
+                              <span style={{ color: 'var(--grn)', fontSize: 9, background: 'rgba(34,197,94,0.1)', padding: '2px 6px', borderRadius: 4 }}>PRIMARY</span>
+                            </div>
+                            {allAlts.map((alt, idx) => (
+                              <div key={idx} style={{ padding: '10px 15px', fontSize: 12, color: 'var(--txt2)', borderTop: '1px solid var(--faint)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>{String(alt)}</span>
+                                <span style={{ color: 'var(--txt3)', fontSize: 9, background: 'var(--faint)', padding: '2px 6px', borderRadius: 4 }}>ALT {idx + 1}</span>
+                              </div>
+                            ))}
+                            <div 
+                              style={{ padding: '8px 15px', fontSize: 10, textAlign: 'center', color: 'var(--red)', fontWeight: 700, cursor: 'pointer', borderTop: '1px solid var(--faint)', marginTop: 4 }}
+                              onClick={() => setOpenAltIdx(null)}
+                            >
+                              ✕ CLOSE
                             </div>
                           </div>
                         )}
                       </div>
                       <div className={`item-val ${item.type === 'amount' ? 'amt' : ''}`} title={String(val)}>
-                        {item.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` : String(val)}
+                        {item.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` : 
+                         lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
+                         lowerKey === 'createdat' ? String(val).split('T')[0] :
+                         String(val)}
                       </div>
                     </div>
                   );
@@ -1443,12 +1502,14 @@ const Leads = () => {
                         <td key={col.key} style={{ padding: '8px 10px', fontSize: 11, color: col.type === 'amount' ? 'var(--red)' : 'var(--txt2)' }}>
                           {col.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` :
                             col.type === 'badge' ? <span className="badge" style={{ background: 'var(--purbg)', color: 'var(--pur)', border: '1px solid var(--purbg)', borderRadius: 12, padding: '2px 8px' }}>{String(val)}</span> :
-                              String(val)}
+                            lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
+                            lowerKey === 'createdat' ? String(val).split('T')[0] :
+                            String(val)}
                         </td>
                       );
                     }) : (
                       <>
-                        <td className="mn" style={{ padding: '8px 10px', color: 'var(--txt3)' }}>{lead.account_no}</td>
+                        <td className="mn" style={{ padding: '8px 10px', color: 'var(--txt3)' }}>{String(lead.account_no || '').replace(/LN-|-/g, '')}</td>
                         <td className="nm" style={{ padding: '8px 10px', color: 'var(--txt)' }}>{lead.name}</td>
                         <td className="mn" style={{ padding: '8px 10px', color: 'var(--txt2)' }}>{lead.mobile}</td>
                         <td className="mn" style={{ padding: '8px 10px', color: 'var(--red)', fontWeight: 600 }}>₹{lead.outstanding?.toLocaleString('en-IN')}</td>

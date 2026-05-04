@@ -159,7 +159,7 @@ async function processJob() {
 
     const allPortfolios = await prisma.portfolio.findMany({ select: { id: true, name: true } });
     const byPName       = new Map(allPortfolios.map(p => [p.name.toLowerCase(), p.id]));
-    const byPId         = new Map(allPortfolios.map(p => [p.id.toLowerCase(), p.id]));
+    const byPId         = new Map(allPortfolios.map(p => [String(p.id).toLowerCase(), p.id]));
 
     // Dynamic columns from LeadColumn
     const leadColumns   = await prisma.leadColumn.findMany({ select: { key: true, label: true, type: true } });
@@ -189,10 +189,10 @@ async function processJob() {
         }
 
         if (m['portfolioId']) {
-          const p = m['portfolioId'].toLowerCase();
+          const p = String(m['portfolioId']).toLowerCase().trim();
           m['portfolioId'] = byPId.get(p) ?? byPName.get(p) ?? null;
         } else if (portfolioId) {
-          m['portfolioId'] = portfolioId;
+          m['portfolioId'] = parseInt(portfolioId) || null;
         }
 
         mapped.push(m);

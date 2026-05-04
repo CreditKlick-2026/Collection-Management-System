@@ -26,7 +26,7 @@ export async function PUT(
       outstanding: data.outstanding ? parseFloat(data.outstanding) : undefined,
       dpd: data.dpd ? parseInt(data.dpd) : undefined,
       status: data.status,
-      portfolioId: data.portfolioId,
+      portfolioId: data.portfolioId ? parseInt(data.portfolioId) : undefined,
       assignedAgentId: data.assignedAgentId ? parseInt(data.assignedAgentId) : null
     };
 

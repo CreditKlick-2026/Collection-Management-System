@@ -9,6 +9,7 @@ const REPORT_DEFS = [
   { key: 'ptps',      label: 'PTP Report',       icon: '🤝', color: '#f59e0b', desc: 'Promise to Pay records with dates and amounts' },
   { key: 'leads',     label: 'Leads / Allocation Report', icon: '📋', color: 'var(--acc2)', desc: 'Customer allocations with outstanding and agent info' },
   { key: 'call_logs', label: 'Call Log Report',  icon: '📞', color: 'var(--pur)', desc: 'VOC call records with disposition and PTP info' },
+  { key: 'settlements', label: 'Settlement Report', icon: '📝', color: '#06b6d4', desc: 'Settlement history with discount, amount and approval status' },
   { key: 'disputes',  label: 'Dispute Report',   icon: '⚖️', color: '#ef4444', desc: 'All dispute cases with status and resolution' },
 ];
 
@@ -46,7 +47,7 @@ function downloadExcel(rows: any[], filename: string) {
 
 // ─── ReportsTab ────────────────────────────────────────────────────────────
 const ReportsTab = () => {
-  const { toast } = useApp();
+  const { toast, user } = useApp();
 
   // Default: current month
   const today = new Date().toISOString().split('T')[0];
@@ -66,7 +67,7 @@ const ReportsTab = () => {
     setLoading(true);
     setFetched(false);
     try {
-      const res = await fetch(`/api/manager/reports?type=${selectedType}&from=${from}&to=${to}`);
+      const res = await fetch(`/api/manager/reports?type=${selectedType}&from=${from}&to=${to}&managerId=${user?.id}`);
       if (res.ok) {
         const data = await res.json();
         setRows(data.rows || []);
@@ -354,7 +355,6 @@ const ManagerPanel = () => {
         <div className="tabs">
           <div className={`tab ${activeTab === 'team' ? 'on' : ''}`}     onClick={() => setActiveTab('team')}>👥 Team</div>
           <div className={`tab ${activeTab === 'payments' ? 'on' : ''}`} onClick={() => setActiveTab('payments')}>🔒 Payments</div>
-          <div className={`tab ${activeTab === 'upload' ? 'on' : ''}`}   onClick={() => setActiveTab('upload')}>↑ Upload</div>
           <div className={`tab ${activeTab === 'reports' ? 'on' : ''}`}  onClick={() => setActiveTab('reports')}>📊 Reports</div>
         </div>
 
@@ -529,21 +529,7 @@ const ManagerPanel = () => {
           </div>
         )}
 
-        {/* ── Upload Tab ── */}
-        {activeTab === 'upload' && (
-          <div>
-            <div className="info-box blue">Upload customer allocations.</div>
-            <label style={{ border: '2px dashed var(--bdr2)', borderRadius: 9, padding: 20, textAlign: 'center', cursor: 'pointer', display: 'block', color: 'var(--txt3)', marginBottom: 12 }}>
-              <input type="file" style={{ display: 'none' }} onChange={(e) => toast(`File: ${e.target.files?.[0]?.name}`)} />
-              <div style={{ fontSize: 22, marginBottom: 6 }}>↑</div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--txt2)' }}>Click to select .CSV or .XLSX</div>
-            </label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn pr" onClick={() => toast('Upload started...')}>↑ Upload</button>
-              <button className="btn gn" onClick={() => toast('Sample downloaded ✓')}>↓ Sample</button>
-            </div>
-          </div>
-        )}
+
 
         {/* ── Reports Tab ── */}
         {activeTab === 'reports' && (

@@ -10,8 +10,8 @@ interface PortfoliosTabProps {
   handleAddPortfolio: () => void;
   portfolios: any[];
   users: any[];
-  onSavePortfolio: (portfolioId: string, agentIds: number[], managerIds: number[]) => Promise<void>;
-  onDeletePortfolio: (id: string) => Promise<void>;
+  onSavePortfolio: (portfolioId: number, agentIds: number[], managerIds: number[]) => Promise<void>;
+  onDeletePortfolio: (id: number) => Promise<void>;
 }
 
 const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
@@ -26,16 +26,16 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
   onSavePortfolio,
   onDeletePortfolio
 }) => {
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
   const [localPortfolios, setLocalPortfolios] = useState<any[]>([]);
 
   React.useEffect(() => {
-    setLocalPortfolios(portfolios);
+    setLocalPortfolios(Array.isArray(portfolios) ? portfolios : []);
   }, [portfolios]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     setDeleting(true);
     try {
       await onDeletePortfolio(id);
@@ -45,7 +45,7 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
     }
   };
 
-  const handleLocalAssignmentChange = (portfolioId: string, userId: number, role: string, isChecked: boolean) => {
+  const handleLocalAssignmentChange = (portfolioId: number, userId: number, role: string, isChecked: boolean) => {
     setLocalPortfolios(prev => prev.map(p => {
       if (p.id !== portfolioId) return p;
       const newP = { ...p };
@@ -62,7 +62,7 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
     }));
   };
 
-  const handleSave = async (portfolioId: string) => {
+  const handleSave = async (portfolioId: number) => {
     const p = localPortfolios.find(p => p.id === portfolioId);
     if (!p) return;
     setSavingId(portfolioId);
@@ -112,9 +112,9 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
       </div>
 
       {isAddingPortfolio && (
-        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(79,125,255,0.05)', border: '1px dashed var(--acc)', padding: '12px 16px', borderRadius: 8, gap: 10, marginBottom: 15 }}>
-          <input className="finp" placeholder="Portfolio ID (e.g. P4)" style={{ width: 150 }} value={newPortfolio.id} onChange={e => setNewPortfolio({ ...newPortfolio, id: e.target.value })} />
-          <input className="finp" placeholder="Portfolio Name (e.g. Credit Cards)" style={{ flex: 1 }} value={newPortfolio.name} onChange={e => setNewPortfolio({ ...newPortfolio, name: e.target.value })} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', background: 'rgba(79,125,255,0.05)', border: '1px dashed var(--acc)', padding: '12px 16px', borderRadius: 8, gap: 10, marginBottom: 15 }}>
+          <input className="finp" placeholder="Bank (e.g. Axis)" style={{ width: 150 }} value={newPortfolio.bank || ''} onChange={e => setNewPortfolio({ ...newPortfolio, bank: e.target.value })} />
+          <input className="finp" placeholder="Portfolio Name (e.g. Credit Cards)" style={{ flex: 1, minWidth: 200 }} value={newPortfolio.name} onChange={e => setNewPortfolio({ ...newPortfolio, name: e.target.value })} />
           <button className="btn pr" onClick={handleAddPortfolio}>Save</button>
           <button className="btn sm" onClick={() => setIsAddingPortfolio(false)}>Cancel</button>
         </div>
@@ -126,9 +126,12 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
             {/* Header */}
             <div style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 32, height: 32, background: 'var(--accbg)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: 'var(--acc2)' }}>{p.id}</div>
+                <div style={{ width: 32, height: 32, background: 'var(--accbg)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: 'var(--acc2)' }}>#{p.id}</div>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)' }}>{p.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)' }}>{p.name}</div>
+                    {p.bank && <span style={{ fontSize: 10, padding: '2px 6px', background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', borderRadius: 4, fontWeight: 600 }}>{p.bank}</span>}
+                  </div>
                   <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 1 }}>{p.agents?.length || 0} Agents • {p.managers?.length || 0} Managers</div>
                 </div>
               </div>

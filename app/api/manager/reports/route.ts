@@ -3,13 +3,16 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-type ReportType = 'payments' | 'ptps' | 'leads' | 'call_logs' | 'disputes';
+type ReportType = 'payments' | 'ptps' | 'leads' | 'call_logs' | 'disputes' | 'settlements';
 
 // ── Fetch functions (using actual Prisma schema field names) ──────────────
 
-async function fetchPayments(from: string, to: string) {
+async function fetchPayments(from: string, to: string, agentIds: number[]) {
   return prisma.payment.findMany({
-    where: { date: { gte: from, lte: to } },
+    where: { 
+      date: { gte: from, lte: to },
+      agentId: { in: agentIds }
+    },
     include: {
       customer: { select: { name: true, account_no: true, mobile: true, product: true, bank: true } },
       agent:    { select: { name: true, empId: true } },
@@ -18,12 +21,13 @@ async function fetchPayments(from: string, to: string) {
   });
 }
 
-async function fetchPTPs(from: string, to: string) {
+async function fetchPTPs(from: string, to: string, agentIds: number[]) {
   // PTP model fields: id, customerId, amount, date (PTP date), status, agentId, voc, remarks, flag, flagComment, rejectionReason, created
   return prisma.pTP.findMany({
     where: {
       // Filter by ptp date range (field: `date`) OR created date
       date: { gte: from, lte: to },
+      agentId: { in: agentIds }
     },
     include: {
       customer: { select: { name: true, account_no: true, mobile: true } },
@@ -33,7 +37,7 @@ async function fetchPTPs(from: string, to: string) {
   });
 }
 
-async function fetchLeads(from: string, to: string) {
+async function fetchLeads(from: string, to: string, agentIds: number[]) {
   // Customer model: createdAt (DateTime), no created_at
   return prisma.customer.findMany({
     where: {
@@ -41,6 +45,7 @@ async function fetchLeads(from: string, to: string) {
         gte: new Date(from + 'T00:00:00Z'),
         lte: new Date(to   + 'T23:59:59Z'),
       },
+      assignedAgentId: { in: agentIds }
     },
     include: {
       assignedAgent: { select: { name: true, empId: true } },
@@ -50,13 +55,14 @@ async function fetchLeads(from: string, to: string) {
   });
 }
 
-async function fetchCallLogs(from: string, to: string) {
+async function fetchCallLogs(from: string, to: string, agentIds: number[]) {
   // AuditLog stores call/disposition logs with action='LEAD_DISPOSITION' and entityType='Customer'
   // The `timestamp` field is used (not `createdAt`)
   const logs = await prisma.auditLog.findMany({
     where: {
       action: 'LEAD_DISPOSITION',
       entityType: 'Customer',
+      userId: { in: agentIds },
       timestamp: {
         gte: new Date(from + 'T00:00:00Z'),
         lte: new Date(to   + 'T23:59:59Z'),
@@ -78,20 +84,38 @@ async function fetchCallLogs(from: string, to: string) {
     : [];
   const custMap = Object.fromEntries(customers.map(c => [c.id, c]));
 
-  return logs.map(l => ({ ...l, customerInfo: custMap[parseInt(l.entityId)] || null }));
+  return logs.map(l => ({ ...l, customerInfo: (custMap as any)[parseInt(l.entityId)] || null }));
 }
 
-async function fetchDisputes(from: string, to: string) {
+async function fetchDisputes(from: string, to: string, agentIds: number[]) {
   // Dispute model: raisedDate (String), type, status, description, resolution
   return prisma.dispute.findMany({
     where: {
       raisedDate: { gte: from, lte: to },
+      agentId: { in: agentIds }
     },
     include: {
       customer: { select: { name: true, account_no: true } },
       agent:    { select: { name: true, empId: true } },
     },
     orderBy: { raisedDate: 'desc' },
+  });
+}
+
+async function fetchSettlements(from: string, to: string, agentIds: number[]) {
+  return prisma.settlement.findMany({
+    where: {
+      createdAt: {
+        gte: new Date(from + 'T00:00:00Z'),
+        lte: new Date(to   + 'T23:59:59Z'),
+      },
+      agentId: { in: agentIds }
+    },
+    include: {
+      customer: { select: { name: true, account_no: true, mobile: true } },
+      agent:    { select: { name: true, empId: true } },
+    },
+    orderBy: { createdAt: 'desc' },
   });
 }
 
@@ -204,6 +228,24 @@ function flattenDisputes(records: any[]) {
   }));
 }
 
+function flattenSettlements(records: any[]) {
+  return records.map(s => ({
+    'Request Date':      s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : s.created,
+    'Customer Name':     s.customer?.name         || '',
+    'Account No':        s.customer?.account_no   || '',
+    'Mobile':            s.customer?.mobile       || '',
+    'Settlement Amount': s.amount,
+    'Reason':            s.reason                 || '',
+    'Sub-Reason':        s.subReason              || '',
+    'Justification':     s.justification          || '',
+    'Status':            s.status                 || '',
+    'Rejection Reason':  s.rejectionReason        || '',
+    'Manager Remarks':   s.remarks                || '',
+    'Agent':             s.agent?.name            || '',
+    'Agent EmpID':       s.agent?.empId           || '',
+  }));
+}
+
 // ── GET handler ───────────────────────────────────────────────────────────
 
 export async function GET(request: Request) {
@@ -211,16 +253,28 @@ export async function GET(request: Request) {
   const type = (searchParams.get('type') || 'payments') as ReportType;
   const from = searchParams.get('from') || new Date().toISOString().split('T')[0];
   const to   = searchParams.get('to')   || new Date().toISOString().split('T')[0];
+  const managerId = searchParams.get('managerId');
 
   try {
+    if (!managerId) {
+       return NextResponse.json({ message: 'Manager ID is required' }, { status: 400 });
+    }
+
+    const agents = await prisma.user.findMany({
+      where: { managerId: Number(managerId) },
+      select: { id: true }
+    });
+    const agentIds = agents.map(a => a.id);
+
     let rows: any[] = [];
 
     switch (type) {
-      case 'payments':  rows = flattenPayments(await fetchPayments(from, to));   break;
-      case 'ptps':      rows = flattenPTPs(await fetchPTPs(from, to));           break;
-      case 'leads':     rows = flattenLeads(await fetchLeads(from, to));         break;
-      case 'call_logs': rows = flattenCallLogs(await fetchCallLogs(from, to));   break;
-      case 'disputes':  rows = flattenDisputes(await fetchDisputes(from, to));   break;
+      case 'payments':  rows = flattenPayments(await fetchPayments(from, to, agentIds));   break;
+      case 'ptps':      rows = flattenPTPs(await fetchPTPs(from, to, agentIds));           break;
+      case 'leads':     rows = flattenLeads(await fetchLeads(from, to, agentIds));         break;
+      case 'call_logs': rows = flattenCallLogs(await fetchCallLogs(from, to, agentIds));   break;
+      case 'disputes':  rows = flattenDisputes(await fetchDisputes(from, to, agentIds));   break;
+      case 'settlements': rows = flattenSettlements(await fetchSettlements(from, to, agentIds)); break;
       default:
         return NextResponse.json({ message: 'Invalid report type' }, { status: 400 });
     }
