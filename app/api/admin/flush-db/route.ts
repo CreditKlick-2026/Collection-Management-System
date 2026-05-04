@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
+import crypto from 'crypto';
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +13,10 @@ export async function POST(request: Request) {
       where: { id: Number(userId) }
     });
 
-    if (!admin || admin.role !== 'admin' || admin.password !== password) {
+    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+    const isCorrect = admin?.password === hashedPassword || admin?.password === password;
+
+    if (!admin || admin.role !== 'admin' || !isCorrect) {
       return NextResponse.json({ message: 'Unauthorized: Invalid admin password' }, { status: 401 });
     }
 

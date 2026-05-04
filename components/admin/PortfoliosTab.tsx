@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FolderPlus } from 'lucide-react';
 
 interface PortfoliosTabProps {
   loading: boolean;
@@ -92,7 +93,22 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 15 }}>
-        <button className="btn pr" style={{ borderRadius: 6, padding: '7px 15px', fontSize: 11 }} onClick={() => setIsAddingPortfolio(true)}>+ Add Portfolio</button>
+        <button 
+          className="btn pr" 
+          style={{ 
+            borderRadius: 6, 
+            padding: '8px 16px', 
+            fontSize: '12px', 
+            fontWeight: 600, 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 6,
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+          }} 
+          onClick={() => setIsAddingPortfolio(true)}
+        >
+          <FolderPlus size={14} /> Add Portfolio
+        </button>
       </div>
 
       {isAddingPortfolio && (

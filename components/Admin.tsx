@@ -1,6 +1,17 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import { 
+  Users, 
+  Briefcase, 
+  LayoutGrid, 
+  UploadCloud, 
+  ListOrdered, 
+  Lock, 
+  BarChart3, 
+  History, 
+  Settings 
+} from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import SystemTab from './admin/SystemTab';
 import UsersTab from './admin/UsersTab';
@@ -302,11 +313,11 @@ const Admin = () => {
   const fetchData = async () => {
     setLoading(true);
     if (activeTab === 'users' || activeTab === 'bulk') {
-      const res = await fetch('/api/admin/users');
+      const res = await fetch(`/api/admin/users?requesterId=${user?.id}`);
       setUsers(await res.json());
     }
     if (activeTab === 'portfolios' || activeTab === 'bulk') {
-      const res = await fetch('/api/admin/portfolios');
+      const res = await fetch(`/api/admin/portfolios?requesterId=${user?.id}`);
       setPortfolios(await res.json());
     }
     if (activeTab === 'columns' || activeTab === 'bulk') {
@@ -320,7 +331,7 @@ const Admin = () => {
       setUploadFields({ staticFields: data.staticFields || [], customFields: data.customFields || [] });
     }
     if (activeTab === 'audit') {
-      const res = await fetch('/api/admin/audit-logs');
+      const res = await fetch(`/api/admin/audit-logs?requesterId=${user?.id}`);
       setAuditLogs(await res.json());
     }
     if (activeTab === 'lists') {
@@ -813,15 +824,15 @@ const Admin = () => {
   };
 
   const tabs = [
-    { id: 'users', label: 'Users', icon: '👤' },
-    { id: 'portfolios', label: 'Portfolios', icon: '📁' },
-    { id: 'columns', label: 'Columns', icon: '▦' },
-    { id: 'bulk', label: 'Bulk Upload', icon: '↑' },
-    { id: 'lists', label: 'Master Lists', icon: '☰' },
-    { id: 'role', label: 'Role Access', icon: '🔒' },
-    { id: 'report', label: 'Report Access', icon: '📊' },
-    { id: 'audit', label: 'Audit Logs', icon: '📜' },
-    { id: 'system', label: 'System', icon: '⚙' },
+    { id: 'users', label: 'Users', icon: <Users size={16} /> },
+    { id: 'portfolios', label: 'Portfolios', icon: <Briefcase size={16} /> },
+    { id: 'columns', label: 'Columns', icon: <LayoutGrid size={16} /> },
+    { id: 'bulk', label: 'Bulk Upload', icon: <UploadCloud size={16} /> },
+    { id: 'lists', label: 'Master Lists', icon: <ListOrdered size={16} /> },
+    { id: 'role', label: 'Role Access', icon: <Lock size={16} /> },
+    { id: 'report', label: 'Report Access', icon: <BarChart3 size={16} /> },
+    { id: 'audit', label: 'Audit Logs', icon: <History size={16} /> },
+    { id: 'system', label: 'System', icon: <Settings size={16} /> },
   ];
 
   return (
@@ -841,12 +852,47 @@ const Admin = () => {
         setDeleteProgress={setDeleteProgress}
       />
 
-      <div className="admin-nav" style={{ padding: '8px 20px', background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)', display: 'flex', gap: 5, overflowX: 'auto' }}>
-        {tabs.map(t => (
-          <div key={t.id} className={`admin-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: activeTab === t.id ? 'rgba(79,125,255,0.1)' : 'transparent', color: activeTab === t.id ? 'var(--acc2)' : 'var(--txt3)' }}>
-            <span>{t.icon}</span> {t.label}
-          </div>
-        ))}
+      <div className="admin-nav" style={{ 
+        padding: '0 20px', 
+        background: 'var(--bg2)', 
+        borderBottom: '1px solid var(--bdr)', 
+        display: 'flex', 
+        gap: 4, 
+        overflowX: 'auto',
+        height: '48px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+        scrollbarWidth: 'none'
+      }}>
+        {tabs.map(t => {
+          const isActive = activeTab === t.id;
+          return (
+            <div 
+              key={t.id} 
+              className={`admin-tab ${isActive ? 'active' : ''}`} 
+              onClick={() => setActiveTab(t.id)} 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 8, 
+                padding: '0 16px', 
+                fontSize: '12.5px', 
+                fontWeight: isActive ? 600 : 500, 
+                cursor: 'pointer', 
+                height: '100%',
+                color: isActive ? 'var(--acc2)' : 'var(--txt3)',
+                borderBottom: isActive ? '2px solid var(--acc2)' : '2px solid transparent',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+                opacity: isActive ? 1 : 0.8
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center' }}>{t.icon}</span> 
+              <span>{t.label}</span>
+            </div>
+          );
+        })}
       </div>
 
       <div className="page-body" style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
@@ -862,6 +908,8 @@ const Admin = () => {
             setIsPasswordModalOpen={setIsPasswordModalOpen}
             handleDeactivateClick={handleDeactivateClick}
             handleDeleteUser={handleDeleteUser}
+            onRefresh={fetchData}
+            toast={toast}
           />
         )}
 

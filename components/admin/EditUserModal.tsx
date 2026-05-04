@@ -1,4 +1,15 @@
 import React from 'react';
+import { 
+  User, 
+  Mail, 
+  Shield, 
+  Key, 
+  CheckCircle2, 
+  X,
+  Briefcase,
+  Contact,
+  UserCircle
+} from 'lucide-react';
 
 interface EditUserModalProps {
   isEditModalOpen: boolean;
@@ -19,50 +30,262 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
 }) => {
   if (!isEditModalOpen || !editUser) return null;
 
+  const isEditing = !!editUser.id;
+
   return (
-    <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="modal-content" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 12, width: '100%', maxWidth: '750px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--bdr)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>{editUser.id ? 'Edit User' : 'Add New User'} {editUser.name && `— ${editUser.name}`}</div>
-          <button style={{ background: 'transparent', border: 'none', color: 'var(--txt3)', fontSize: 20, cursor: 'pointer' }} onClick={() => setIsEditModalOpen(false)}>✕</button>
+    <div className="modal-overlay" style={{ 
+      position: 'fixed', 
+      top: 0, 
+      left: 0, 
+      width: '100%', 
+      height: '100%', 
+      background: 'rgba(0,0,0,0.85)', 
+      backdropFilter: 'blur(8px)',
+      zIndex: 1000, 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      padding: '20px'
+    }}>
+      <div className="modal-content" style={{ 
+        background: 'var(--bg2)', 
+        border: '1px solid var(--bdr)', 
+        borderRadius: 20, 
+        width: '100%', 
+        maxWidth: '800px', 
+        maxHeight: '90vh', 
+        overflow: 'hidden', 
+        display: 'flex', 
+        flexDirection: 'column',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+      }}>
+        {/* Header */}
+        <div style={{ 
+          padding: '24px 28px', 
+          borderBottom: '1px solid var(--bdr)', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          background: 'rgba(255,255,255,0.02)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ 
+              width: 40, 
+              height: 40, 
+              borderRadius: 12, 
+              background: 'var(--accbg)', 
+              color: 'var(--acc2)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}>
+              {isEditing ? <User size={20} /> : <UserCircle size={20} />}
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--txt)' }}>
+                {isEditing ? 'Update User Profile' : 'Create New User'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
+                {isEditing ? `Modifying settings for ${editUser.name}` : 'Fill in the details to register a new team member'}
+              </div>
+            </div>
+          </div>
+          <button 
+            style={{ 
+              background: 'rgba(255,255,255,0.05)', 
+              border: 'none', 
+              color: 'var(--txt3)', 
+              width: 32, 
+              height: 32, 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }} 
+            onClick={() => setIsEditModalOpen(false)}
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-            <div className="ff"><label>Full Name</label><input className="finp" value={editUser.name} onChange={e => setEditUser({ ...editUser, name: e.target.value })} /></div>
-            <div className="ff"><label>Username</label><input className="finp" value={editUser.username} onChange={e => setEditUser({ ...editUser, username: e.target.value })} /></div>
-            <div className="ff"><label>Employee ID</label><input className="finp" value={editUser.empId} onChange={e => setEditUser({ ...editUser, empId: e.target.value })} /></div>
-            <div className="ff"><label>Role</label>
-              <select className="finp" value={editUser.role} onChange={e => setEditUser({ ...editUser, role: e.target.value, ...(e.target.value !== 'agent' && { managerId: null }) })}>
-                <option>admin</option><option>manager</option><option>agent</option>
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '32px 28px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            
+            {/* Full Name */}
+            <div className="ff">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                <User size={12} /> Full Name
+              </label>
+              <input 
+                className="finp" 
+                style={{ borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--bdr)' }}
+                placeholder="e.g. John Doe"
+                value={editUser.name} 
+                onChange={e => setEditUser({ ...editUser, name: e.target.value })} 
+              />
+            </div>
+
+            {/* Username */}
+            <div className="ff">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                <Contact size={12} /> Username
+              </label>
+              <input 
+                className="finp" 
+                style={{ borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--bdr)' }}
+                placeholder="johndoe123"
+                value={editUser.username} 
+                onChange={e => setEditUser({ ...editUser, username: e.target.value })} 
+              />
+            </div>
+
+            {/* Employee ID */}
+            <div className="ff">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                <Briefcase size={12} /> Employee ID
+              </label>
+              <input 
+                className="finp" 
+                style={{ borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--bdr)' }}
+                placeholder="IMS1001"
+                value={editUser.empId} 
+                onChange={e => setEditUser({ ...editUser, empId: e.target.value })} 
+              />
+            </div>
+
+            {/* Role */}
+            <div className="ff">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                <Shield size={12} /> User Role
+              </label>
+              <select 
+                className="finp" 
+                style={{ borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--bdr)', cursor: 'pointer' }}
+                value={editUser.role} 
+                onChange={e => setEditUser({ ...editUser, role: e.target.value })}
+              >
+                <option value="admin">Admin</option>
+                <option value="manager">Supervisor</option>
+                <option value="agent">Agent</option>
               </select>
             </div>
-            {editUser.role === 'agent' && (
-              <div className="ff"><label>Reports To</label>
-                <select className="finp" value={editUser.managerId || ''} onChange={e => setEditUser({ ...editUser, managerId: e.target.value })}>
-                  <option value="">— None —</option>
+
+            {/* Reports To */}
+            {(editUser.role === 'agent' || editUser.role === 'manager') && (
+              <div className="ff">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                  <UserCircle size={12} /> Reporting To (Optional)
+                </label>
+                <select 
+                  className="finp" 
+                  style={{ borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--bdr)', cursor: 'pointer' }}
+                  value={editUser.managerId || ''} 
+                  onChange={e => setEditUser({ ...editUser, managerId: e.target.value })}
+                >
+                  <option value="">— Select Manager —</option>
                   {users.filter(x => (x.role === 'manager' || x.role === 'admin') && x.id !== editUser.id).map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.empId})</option>
                   ))}
                 </select>
               </div>
             )}
-            <div className="ff"><label>Email</label><input className="finp" value={editUser.email || ''} onChange={e => setEditUser({ ...editUser, email: e.target.value })} /></div>
-            <div className="ff"><label>Contact</label><input className="finp" value={editUser.contact || ''} onChange={e => setEditUser({ ...editUser, contact: e.target.value })} /></div>
-            <div className="ff"><label>DOB</label><input className="finp" value={editUser.dob || ''} onChange={e => setEditUser({ ...editUser, dob: e.target.value })} /></div>
-            <div className="ff"><label>DOJ</label><input className="finp" value={editUser.doj || ''} onChange={e => setEditUser({ ...editUser, doj: e.target.value })} /></div>
-            {!editUser.id && (
+
+            {/* Email */}
+            <div className="ff">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                <Mail size={12} /> Email Address
+              </label>
+              <input 
+                className="finp" 
+                style={{ borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--bdr)' }}
+                placeholder="john@example.com"
+                value={editUser.email || ''} 
+                onChange={e => setEditUser({ ...editUser, email: e.target.value })} 
+              />
+            </div>
+
+            {/* Password Section */}
+            {!isEditing && (
               <>
-                <div className="ff"><label>Password *</label><input className="finp" type="password" value={editUser.password || ''} onChange={e => setEditUser({ ...editUser, password: e.target.value })} /></div>
-                <div className="ff"><label>Confirm Password *</label><input className="finp" type="password" value={editUser.confirmPassword || ''} onChange={e => setEditUser({ ...editUser, confirmPassword: e.target.value })} /></div>
+                <div className="ff">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                    <Key size={12} /> Password
+                  </label>
+                  <input 
+                    className="finp" 
+                    type="password" 
+                    style={{ borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--bdr)' }}
+                    placeholder="••••••••"
+                    value={editUser.password || ''} 
+                    onChange={e => setEditUser({ ...editUser, password: e.target.value })} 
+                  />
+                </div>
+                <div className="ff">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                    <Key size={12} /> Confirm Password
+                  </label>
+                  <input 
+                    className="finp" 
+                    type="password" 
+                    style={{ borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--bdr)' }}
+                    placeholder="••••••••"
+                    value={editUser.confirmPassword || ''} 
+                    onChange={e => setEditUser({ ...editUser, confirmPassword: e.target.value })} 
+                  />
+                </div>
               </>
             )}
           </div>
-          <div className="ff" style={{ marginTop: 15 }}><label>Address</label><input className="finp" value={editUser.address || ''} onChange={e => setEditUser({ ...editUser, address: e.target.value })} /></div>
         </div>
-        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--bdr)', display: 'flex', gap: 10 }}>
-          <button className="btn pr" style={{ flex: 4, padding: 12, fontSize: 13, background: 'var(--acc)' }} onClick={handleSave}>✓ Save</button>
-          <button className="btn" style={{ flex: 1, padding: 12, fontSize: 13, background: '#2e2e2e', color: '#ff4d4d', border: '1px solid #444' }} onClick={() => setIsEditModalOpen(false)}>Cancel</button>
+
+        {/* Footer */}
+        <div style={{ 
+          padding: '24px 28px', 
+          borderTop: '1px solid var(--bdr)', 
+          display: 'flex', 
+          gap: 12,
+          background: 'rgba(0,0,0,0.1)'
+        }}>
+          <button 
+            className="btn pr" 
+            style={{ 
+              flex: 1, 
+              padding: '12px', 
+              fontSize: 14, 
+              fontWeight: 600,
+              background: 'var(--acc)', 
+              borderRadius: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(79, 125, 255, 0.3)'
+            }} 
+            onClick={handleSave}
+          >
+            <CheckCircle2 size={18} /> {isEditing ? 'Save Changes' : 'Create User'}
+          </button>
+          <button 
+            className="btn" 
+            style={{ 
+              padding: '12px 24px', 
+              fontSize: 14, 
+              fontWeight: 600,
+              background: 'rgba(255,255,255,0.05)', 
+              color: 'var(--txt)', 
+              borderRadius: 12,
+              border: '1px solid var(--bdr)',
+              cursor: 'pointer'
+            }} 
+            onClick={() => setIsEditModalOpen(false)}
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>

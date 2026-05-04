@@ -3,9 +3,23 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const requesterId = searchParams.get('requesterId');
+
+    let where: any = {};
+    if (requesterId) {
+      const requester = await prisma.user.findUnique({
+        where: { id: Number(requesterId) }
+      });
+      if (requester && requester.role === 'manager') {
+        where = { managers: { some: { id: Number(requesterId) } } };
+      }
+    }
+
     const portfolios = await prisma.portfolio.findMany({
+      where,
       include: {
         agents: { select: { id: true, name: true } },
         managers: { select: { id: true, name: true } }

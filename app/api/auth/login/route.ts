@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,8 +14,23 @@ export async function POST(req: NextRequest) {
       where: { username }
     });
 
-    if (!user || user.password !== password) {
+    if (!user) {
       return NextResponse.json({ message: 'Invalid username or password' }, { status: 401 });
+    }
+
+    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+    const isCorrect = user.password === hashedPassword || user.password === password;
+
+    if (!isCorrect) {
+      return NextResponse.json({ message: 'Invalid username or password' }, { status: 401 });
+    }
+
+    // Auto-migrate to hashed password if it was plain text
+    if (user.password === password && user.password !== hashedPassword) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword }
+      });
     }
 
     // Role check (Supervisor maps to manager)

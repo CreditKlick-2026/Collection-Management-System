@@ -19,18 +19,25 @@ export async function GET(request: Request) {
 
   try {
     let portfolioIds: string[] = [];
+    let subordinateIds: number[] = [];
     let isAdmin = false;
+    let isManager = false;
 
     if (userId) {
       const user = await prisma.user.findUnique({
         where: { id: Number(userId) },
         include: {
           portfoliosManaged: { select: { id: true } },
-          portfoliosAgent: { select: { id: true } }
+          portfoliosAgent: { select: { id: true } },
+          subordinates: { select: { id: true } }
         }
       });
       if (user) {
         isAdmin = user.role === 'admin';
+        isManager = user.role === 'manager';
+        if (isManager) {
+          subordinateIds = user.subordinates.map(s => s.id);
+        }
         if (!isAdmin) {
           portfolioIds = [
             ...user.portfoliosManaged.map(p => p.id),
@@ -89,19 +96,30 @@ export async function GET(request: Request) {
       ]
     };
 
-    // Portfolio access control
+    // Access control: Portfolios + Manager/Agent scoping
     if (!isAdmin) {
+      // 1. Portfolio Filter
       if (portfolio) {
-        // If user is filtering by a specific portfolio, check if they have access
         if (portfolioIds.includes(portfolio)) {
           where.AND.push({ portfolioId: portfolio });
         } else {
-          // No access to requested portfolio
-          where.AND.push({ id: -1 }); // Force zero results
+          where.AND.push({ id: -1 }); // No access
         }
       } else {
-        // Show all assigned portfolios
         where.AND.push({ portfolioId: { in: portfolioIds } });
+      }
+
+      // 2. Role-based scoping (Manager see subordinates + portfolio leads, Agent see self)
+      if (isManager) {
+        where.AND.push({
+          OR: [
+            { assignedAgentId: { in: [...subordinateIds, Number(userId)] } },
+            { portfolioId: { in: portfolioIds } }
+          ]
+        });
+      } else {
+        // Assume Agent or other role — see only self
+        where.AND.push({ assignedAgentId: Number(userId) });
       }
     } else if (portfolio) {
       // Admin filtering by specific portfolio
