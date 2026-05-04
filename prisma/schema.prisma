@@ -78,6 +78,8 @@ model Customer {
   portfolioId   String?
   portfolio     Portfolio? @relation(fields: [portfolioId], references: [id])
   
+  bulkUploadJobId String?  // To track which upload job created/updated this customer
+  
   payments      Payment[]
   ptps          PTP[]
   disputes      Dispute[]
@@ -97,8 +99,13 @@ model LeadColumn {
 
 model Payment {
   id              Int       @id @default(autoincrement())
-  customerId      Int
-  customer        Customer  @relation(fields: [customerId], references: [id])
+  customerId      Int?
+  customer        Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  // Historical tracking fields in case Customer is deleted
+  account_no      String?
+  customer_name   String?
+  
   amount          Float
   mode            String
   ref             String?

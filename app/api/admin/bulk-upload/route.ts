@@ -1,251 +1,346 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Worker } from 'worker_threads';
+import uploadEventBus, { skippedStore } from '@/lib/upload-events';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export const dynamic = 'force-dynamic';
 
-const FIELD_MAP: Record<string, string> = {
-  // Account
-  'account number': 'account_no',
-  'account_no': 'account_no',
-  'account no': 'account_no',
-  'loan account': 'account_no',
-  // Name
-  'customer name': 'name',
-  'name': 'name',
-  'borrower name': 'name',
-  // Mobile
-  'mobile number': 'mobile',
-  'mobile': 'mobile',
-  'phone': 'mobile',
-  // Alt mobiles
-  'alt mobile': 'alt_mobile',
-  'alt_mobile': 'alt_mobile',
-  'alt mobile 2': 'alt_mobile_2',
-  'alt mobile 3': 'alt_mobile_3',
-  'alt mobile 4': 'alt_mobile_4',
-  // PAN
-  'pan number': 'pan',
-  'pan': 'pan',
-  // Email
-  'email': 'email',
-  // Product
-  'product type': 'product',
-  'product': 'product',
-  // Bank
-  'bank / lender': 'bank',
-  'bank': 'bank',
-  'lender': 'bank',
-  // Financials
-  'total outstanding': 'outstanding',
-  'outstanding': 'outstanding',
-  'outstanding amount': 'outstanding',
-  'principle outstanding': 'principle_outstanding',
-  'principal outstanding': 'principle_outstanding',
-  'min amount due': 'min_amt_due',
-  'minimum amount due': 'min_amt_due',
-  // DPD
-  'dpd': 'dpd',
-  'days past due': 'dpd',
-  // Bucket
-  'bucket': 'bkt_2',
-  'bkt_2': 'bkt_2',
-  // NPA
-  'product npa': 'product_npa',
-  'date of npa': 'date_of_npa',
-  // Status
-  'status': 'status',
-  // Location
-  'city': 'city',
-  'state': 'state',
-  'address': 'address',
-  // Personal
-  'dob': 'dob',
-  'gender': 'gender',
-  'employer': 'employer',
-  'salary': 'salary',
-  // Assignment
-  'portfolio': 'portfolioId',
-  'assigned agent': 'agentUsername',
-  'agent': 'agentUsername',
-  // Dates
-  'created date': 'createdAt',
-  'createdat': 'createdAt',
-  'eligible_for_update': 'eligible_for_update',
-  'eligible for update': 'eligible_for_update',
-  'pincode': 'pincode',
-};
+// ─── Worker Thread Script ──────────────────────────────────────────────────────
+// NOTE: Uses Prisma ORM methods (NOT raw SQL) — avoids column-name casing issues.
+const WORKER_SCRIPT = `
+const { workerData, parentPort } = require('worker_threads');
+const { PrismaClient }           = require('@prisma/client');
+const fs                         = require('fs');
 
-const NUMBER_FIELDS = new Set(['outstanding', 'principle_outstanding', 'min_amt_due', 'dpd', 'salary']);
-const STRING_FIELDS = new Set([
-  'account_no', 'name', 'mobile', 'alt_mobile', 'alt_mobile_2', 'alt_mobile_3', 'alt_mobile_4',
-  'email', 'pan', 'product', 'bank', 'bkt_2', 'product_npa', 'date_of_npa', 'status',
-  'city', 'state', 'address', 'dob', 'gender', 'employer', 'linkage', 'upgrade_reason',
-  'eligible_upgrade', 'portfolioId', 'agentUsername', 'createdAt'
+const FIELD_MAP = {
+  'account number':'account_no','account_no':'account_no','account no':'account_no','loan account':'account_no',
+  'customer name':'name','name':'name','borrower name':'name',
+  'mobile number':'mobile','mobile':'mobile','phone':'mobile',
+  'alt mobile':'alt_mobile','alt_mobile':'alt_mobile',
+  'alt mobile 2':'alt_mobile_2','alt mobile 3':'alt_mobile_3','alt mobile 4':'alt_mobile_4',
+  'pan number':'pan','pan':'pan','email':'email',
+  'product type':'product','product':'product',
+  'bank / lender':'bank','bank':'bank','lender':'bank',
+  'total outstanding':'outstanding','outstanding':'outstanding','outstanding amount':'outstanding',
+  'principle outstanding':'principle_outstanding','principal outstanding':'principle_outstanding',
+  'min amount due':'min_amt_due','minimum amount due':'min_amt_due',
+  'dpd':'dpd','days past due':'dpd',
+  'bucket':'bkt_2','bkt_2':'bkt_2',
+  'product npa':'product_npa','date of npa':'date_of_npa',
+  'status':'status','city':'city','state':'state','address':'address',
+  'dob':'dob','gender':'gender','employer':'employer','salary':'salary',
+  'portfolio':'portfolioId','assigned agent':'agentUsername','agent':'agentUsername',
+  'eligible_for_update':'eligible_for_update','eligible for update':'eligible_for_update',
+  // NOTE: 'created date' / 'createdAt' intentionally NOT mapped — it is DB-managed (@default(now()))
+};
+const NUMBER_FIELDS = new Set(['outstanding','principle_outstanding','min_amt_due','dpd','salary']);
+// Fields that exist in Customer table (used to separate from metadata)
+const CUSTOMER_FIELDS = new Set([
+  'account_no','name','mobile','alt_mobile','alt_mobile_2','alt_mobile_3','alt_mobile_4',
+  'email','pan','product','bank','outstanding','principle_outstanding','min_amt_due','dpd',
+  'bkt_2','product_npa','date_of_npa','status','city','state','address',
+  'dob','gender','employer','salary','eligible_for_update',
+  'portfolioId','assignedAgentId'
 ]);
 
-function normalizeKey(key: string): string {
-  return key.toLowerCase().trim().replace(/\s+/g, ' ');
-}
+function normalizeKey(k) { return k.toLowerCase().trim().replace(/\\s+/g, ' '); }
 
-function mapRow(row: Record<string, any>): Record<string, any> {
-  const mapped: Record<string, any> = {};
-  for (const [rawKey, rawValue] of Object.entries(row)) {
-    const normalized = normalizeKey(rawKey);
-    const field = FIELD_MAP[normalized];
-    if (!field || rawValue === null || rawValue === undefined || rawValue === '') continue;
-
-    if (NUMBER_FIELDS.has(field)) {
-      const num = Number(rawValue);
-      if (!isNaN(num)) mapped[field] = num;
-    } else if (field === 'eligible_for_update') {
-      const val = String(rawValue).toLowerCase().trim();
-      if (!val || val === 'no' || val === 'n' || val === 'false') {
-        mapped[field] = 'N';
-      } else {
-        mapped[field] = 'Y';
-      }
-    } else {
-      mapped[field] = String(rawValue).trim();
+function mapRow(row, dynamicFieldMap) {
+  const out  = {};
+  const meta = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (v === null || v === undefined || v === '') continue;
+    const nk    = normalizeKey(k);
+    const field = FIELD_MAP[nk];
+    if (field) {
+      if (NUMBER_FIELDS.has(field)) { const n = Number(v); if (!isNaN(n)) out[field] = n; }
+      else if (field === 'eligible_for_update') {
+        const s = String(v).toLowerCase().trim();
+        out[field] = (!s || s === 'no' || s === 'n' || s === 'false') ? 'N' : 'Y';
+      } else { out[field] = String(v).trim(); }
+    } else if (dynamicFieldMap && dynamicFieldMap[nk]) {
+      const { key, type } = dynamicFieldMap[nk];
+      if (type === 'number') { const n = Number(v); if (!isNaN(n)) meta[key] = n; }
+      else { meta[key] = String(v).trim(); }
     }
   }
-  return mapped;
+  if (Object.keys(meta).length > 0) out['_meta'] = meta;
+  return out;
 }
+
+// ── Safe batch upsert using Prisma ORM (no raw SQL column-name issues) ─────────
+async function upsertBatch(prisma, rows, duplicateHandling, jobId) {
+  if (!rows.length) return { inserted: 0, updated: 0, skipped: 0, skippedRecords: [] };
+
+  const accountNos = rows.map(r => r.account_no);
+
+  // 1. One query: find which account_nos already exist
+  const existing = await prisma.customer.findMany({
+    where:  { account_no: { in: accountNos } },
+    select: { account_no: true }
+  });
+  const existingSet = new Set(existing.map(e => e.account_no));
+
+  const toCreate = [];
+  const toUpdate = [];
+  const skippedRecords = [];
+
+  for (const row of rows) {
+    const { account_no, agentUsername, _meta, ...rest } = row;
+    const customerData = { ...rest, bulkUploadJobId: jobId };
+    if (_meta) customerData.metadata = _meta;
+
+    // Strip DB-managed fields
+    delete customerData.createdAt;
+    delete customerData.updatedAt;
+    delete customerData.id;
+
+    if (existingSet.has(account_no)) {
+      if (duplicateHandling === 'Skip Duplicates') {
+        skippedRecords.push({ account_no, name: customerData.name || 'Unknown', reason: 'Duplicate — account already exists in DB' });
+      }
+      else { toUpdate.push({ account_no, customerData }); }
+    } else {
+      if (!customerData.name)   customerData.name   = 'Unknown';
+      if (!customerData.mobile) customerData.mobile = '0000000000';
+      toCreate.push({ account_no, ...customerData });
+    }
+  }
+
+  let inserted = 0, updated = 0;
+
+  // 2. Batch create new records
+  if (toCreate.length > 0) {
+    try {
+      const r = await prisma.customer.createMany({ data: toCreate, skipDuplicates: true });
+      inserted = r.count;
+    } catch (e) {
+      for (const row of toCreate) {
+        try { await prisma.customer.create({ data: row }); inserted++; }
+        catch {}
+      }
+    }
+  }
+
+  // 3. Parallel updates for existing records
+  if (toUpdate.length > 0) {
+    const results = await Promise.allSettled(
+      toUpdate.map(r => prisma.customer.update({ where: { account_no: r.account_no }, data: r.customerData }))
+    );
+    updated = results.filter(r => r.status === 'fulfilled').length;
+  }
+
+  return { inserted, updated, skipped: skippedRecords.length, skippedRecords };
+}
+
+// ── Main job processor ────────────────────────────────────────────────────────
+async function processJob() {
+  const { jobId, tempFile, agentId, portfolioId, duplicateHandling } = workerData;
+  const prisma = new PrismaClient();
+
+  try {
+    await prisma.bulkUploadJob.update({ where: { id: jobId }, data: { status: 'processing' } });
+    parentPort && parentPort.postMessage({ type: 'status', status: 'processing' });
+
+    // Read + delete temp file immediately to free disk
+    let rawData;
+    try {
+      rawData = JSON.parse(fs.readFileSync(tempFile, 'utf-8'));
+      fs.unlinkSync(tempFile);
+    } catch(e) { throw new Error('Temp file read failed: ' + e.message); }
+
+    // Pre-load lookup tables once
+    const allAgents     = await prisma.user.findMany({ select: { id: true, username: true, empId: true } });
+    const byUser        = new Map(allAgents.map(a => [a.username.toLowerCase(), a.id]));
+    const byEmp         = new Map(allAgents.map(a => [a.empId.toLowerCase(), a.id]));
+
+    const allPortfolios = await prisma.portfolio.findMany({ select: { id: true, name: true } });
+    const byPName       = new Map(allPortfolios.map(p => [p.name.toLowerCase(), p.id]));
+    const byPId         = new Map(allPortfolios.map(p => [p.id.toLowerCase(), p.id]));
+
+    // Dynamic columns from LeadColumn
+    const leadColumns   = await prisma.leadColumn.findMany({ select: { key: true, label: true, type: true } });
+    const dynamicFieldMap = {};
+    for (const col of leadColumns) {
+      const entry = { key: col.key, type: col.type || 'text' };
+      dynamicFieldMap[col.key.toLowerCase().trim()]                           = entry;
+      dynamicFieldMap[col.label.toLowerCase().trim().replace(/\\s+/g, ' ')] = entry;
+    }
+
+    // Map ALL rows (CPU only)
+    const mapped = [];
+    let   skippedNoAccount = 0;
+    const errors = [];
+
+    for (const row of rawData) {
+      try {
+        const m = mapRow(row, dynamicFieldMap);
+        if (!m['account_no']) { skippedNoAccount++; continue; }
+
+        if (m['agentUsername']) {
+          const u = m['agentUsername'].toLowerCase();
+          m['assignedAgentId'] = byUser.get(u) ?? byEmp.get(u) ?? null;
+          delete m['agentUsername'];
+        } else if (agentId) {
+          m['assignedAgentId'] = parseInt(agentId) || null;
+        }
+
+        if (m['portfolioId']) {
+          const p = m['portfolioId'].toLowerCase();
+          m['portfolioId'] = byPId.get(p) ?? byPName.get(p) ?? null;
+        } else if (portfolioId) {
+          m['portfolioId'] = portfolioId;
+        }
+
+        mapped.push(m);
+      } catch(e) {
+        if (errors.length < 50) errors.push('Map: ' + e.message);
+      }
+    }
+
+    // Process in batches of 200
+    const BATCH_SIZE  = 200;
+    const CONCURRENCY = 3;
+    const chunks = [];
+    for (let i = 0; i < mapped.length; i += BATCH_SIZE) {
+      chunks.push(mapped.slice(i, i + BATCH_SIZE));
+    }
+
+    let successCount = 0, updatedCount = 0, skippedCount = skippedNoAccount, errorCount = errors.length;
+
+    for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+      const wave = chunks.slice(i, i + CONCURRENCY);
+
+      const results = await Promise.allSettled(
+        wave.map(chunk => upsertBatch(prisma, chunk, duplicateHandling, jobId))
+      );
+
+      for (const res of results) {
+        if (res.status === 'fulfilled') {
+          successCount += res.value.inserted;
+          updatedCount += res.value.updated;
+          skippedCount += res.value.skipped;
+          // Send skipped record details to parent for storage
+          if (res.value.skippedRecords && res.value.skippedRecords.length > 0) {
+            parentPort && parentPort.postMessage({ type: 'skipped_batch', records: res.value.skippedRecords });
+          }
+        } else {
+          errorCount++;
+          if (errors.length < 50) errors.push('Batch: ' + res.reason?.message);
+        }
+      }
+
+      const processed = Math.min((i + CONCURRENCY) * BATCH_SIZE, mapped.length);
+
+      // Update DB progress
+      await prisma.bulkUploadJob.update({
+        where: { id: jobId },
+        data:  { processedRows: processed, successCount, updatedCount, skippedCount, errorCount, errors }
+      });
+
+      // Push real-time progress event to parent (→ EventBus → SSE client)
+      parentPort && parentPort.postMessage({
+        type: 'progress',
+        processed,
+        total:        rawData.length,
+        successCount,
+        updatedCount,
+        skippedCount,
+        errorCount,
+        errors:       errors.slice(-3)
+      });
+    }
+
+    // Finalize
+    await prisma.bulkUploadJob.update({
+      where: { id: jobId },
+      data:  { status: 'completed', completedAt: new Date() }
+    });
+
+    parentPort && parentPort.postMessage({ type: 'done', successCount, updatedCount, skippedCount, errorCount });
+
+  } catch(fatal) {
+    console.error('[BulkUpload Worker] Fatal:', fatal.message);
+    await prisma.bulkUploadJob.update({
+      where: { id: jobId },
+      data:  { status: 'failed', errors: [fatal.message] }
+    }).catch(() => {});
+    parentPort && parentPort.postMessage({ type: 'error', message: fatal.message });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+processJob();
+`;
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
   try {
     const { data, agentId, portfolioId, duplicateHandling, fileName } = await request.json();
 
-    if (!data || !Array.isArray(data) || data.length === 0) {
+    if (!data?.length) {
       return NextResponse.json({ error: 'No data provided' }, { status: 400 });
     }
 
-    // Create a new Background Job
+    const tempFile = path.join(os.tmpdir(), `bulk-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+    fs.writeFileSync(tempFile, JSON.stringify(data), 'utf-8');
+
     const job = await prisma.bulkUploadJob.create({
-      data: {
-        status: 'processing',
-        totalRows: data.length,
-        fileName: fileName || 'unknown_file.csv'
-      }
+      data: { status: 'pending', totalRows: data.length, fileName: fileName || 'upload.xlsx' }
     });
 
-    // Start background processing (Fire and forget)
-    processJobInBackground(job.id, data, agentId, portfolioId, duplicateHandling);
+    spawnWorker(job.id, tempFile, agentId, portfolioId, duplicateHandling);
 
-    return NextResponse.json({ 
-      success: true, 
-      jobId: job.id,
-      message: 'Upload started in background' 
-    });
-  } catch (error: any) {
-    console.error('Bulk upload error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to start bulk upload' }, { status: 500 });
+    return NextResponse.json({ success: true, jobId: job.id });
+
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// Background processing function
-async function processJobInBackground(jobId: string, data: any[], agentId: string, portfolioId: string, duplicateHandling: string) {
-  try {
-    const allAgents = await prisma.user.findMany({ select: { id: true, username: true, empId: true } });
-    const agentByUsername = new Map(allAgents.map(a => [a.username.toLowerCase(), a.id]));
-    const agentByEmpId = new Map(allAgents.map(a => [a.empId.toLowerCase(), a.id]));
+function spawnWorker(jobId: string, tempFile: string, agentId: string, portfolioId: string, duplicateHandling: string) {
+  const worker = new Worker(WORKER_SCRIPT, {
+    eval: true,
+    workerData: { jobId, tempFile, agentId, portfolioId, duplicateHandling }
+  });
 
-    const allPortfolios = await prisma.portfolio.findMany({ select: { id: true, name: true } });
-    const portfolioByName = new Map(allPortfolios.map(p => [p.name.toLowerCase(), p.id]));
-    const portfolioById = new Map(allPortfolios.map(p => [p.id.toLowerCase(), p.id]));
-
-    let successCount = 0;
-    let updatedCount = 0;
-    let skippedCount = 0;
-    let errorCount = 0;
-    const errors: string[] = [];
-
-    // Process in batches to avoid locking the DB too long and update progress
-    const BATCH_SIZE = 50;
-    for (let i = 0; i < data.length; i += BATCH_SIZE) {
-      const batch = data.slice(i, i + BATCH_SIZE);
-      
-      for (const row of batch) {
-        try {
-          const mapped = mapRow(row);
-          const account_no = mapped['account_no'];
-
-          if (!account_no) {
-            skippedCount++;
-            continue;
-          }
-
-          let resolvedAgentId: number | null = null;
-          if (mapped['agentUsername']) {
-            const uname = mapped['agentUsername'].toLowerCase();
-            resolvedAgentId = agentByUsername.get(uname) ?? agentByEmpId.get(uname) ?? null;
-            delete mapped['agentUsername'];
-          } else if (agentId) {
-            resolvedAgentId = parseInt(agentId) || null;
-          }
-
-          let resolvedPortfolioId: string | null = null;
-          if (mapped['portfolioId']) {
-            const pid = mapped['portfolioId'].toLowerCase();
-            resolvedPortfolioId = portfolioById.get(pid) ?? portfolioByName.get(pid) ?? null;
-            delete mapped['portfolioId'];
-          } else if (portfolioId) {
-            resolvedPortfolioId = portfolioId;
-          }
-
-          const { account_no: _acc, ...rest } = mapped;
-          const customerData: any = { ...rest };
-          if (resolvedAgentId) customerData.assignedAgentId = resolvedAgentId;
-          if (resolvedPortfolioId) customerData.portfolioId = resolvedPortfolioId;
-
-          const existing = await prisma.customer.findUnique({ where: { account_no } });
-
-          if (existing) {
-            if (duplicateHandling === 'Skip Duplicates') {
-              skippedCount++;
-            } else {
-              await prisma.customer.update({ where: { account_no }, data: customerData });
-              updatedCount++;
-            }
-          } else {
-            if (!customerData.name) customerData.name = 'Unknown';
-            if (!customerData.mobile) customerData.mobile = '0000000000';
-            await prisma.customer.create({ data: { account_no, ...customerData } });
-            successCount++;
-          }
-        } catch (rowErr: any) {
-          errorCount++;
-          if (errors.length < 50) errors.push(`Row ${i + 1}: ${rowErr.message}`);
-        }
-      }
-
-      // Update progress in DB every batch
-      await prisma.bulkUploadJob.update({
-        where: { id: jobId },
-        data: {
-          processedRows: Math.min(i + BATCH_SIZE, data.length),
-          successCount,
-          updatedCount,
-          skippedCount,
-          errorCount,
-          errors: errors as any
-        }
-      });
+  // Forward all worker messages → global EventBus → SSE clients
+  worker.on('message', (msg) => {
+    // Collect skipped records into process-level store
+    if (msg.type === 'skipped_batch' && msg.records) {
+      const existing = skippedStore.get(jobId) || [];
+      existing.push(...msg.records);
+      skippedStore.set(jobId, existing);
+      return; // don't forward raw skipped data to SSE (too large)
     }
 
-    // Finalize Job
-    await prisma.bulkUploadJob.update({
-      where: { id: jobId },
-      data: {
-        status: 'completed',
-        completedAt: new Date()
-      }
-    });
+    uploadEventBus.emit(`job:${jobId}`, msg);
+    if (msg.type === 'done') {
+      console.log(`[Job ${jobId}] Done — +${msg.successCount} new, ~${msg.updatedCount} updated, ${skippedStore.get(jobId)?.length || 0} skipped`);
+      // Auto-cleanup skipped store after 1 hour
+      setTimeout(() => { skippedStore.delete(jobId); }, 60 * 60 * 1000);
+    }
+    if (msg.type === 'error') {
+      console.error(`[Job ${jobId}] Failed:`, msg.message);
+      skippedStore.delete(jobId);
+    }
+  });
 
-  } catch (globalErr: any) {
-    console.error('Job failure:', globalErr);
+  worker.on('error', async (err) => {
+    console.error(`[Job ${jobId}] Worker crash:`, err);
+    try { fs.unlinkSync(tempFile); } catch {}
+    uploadEventBus.emit(`job:${jobId}`, { type: 'error', message: `Worker crash: ${err.message}` });
     await prisma.bulkUploadJob.update({
       where: { id: jobId },
-      data: { status: 'failed', errors: [globalErr.message] as any }
-    });
-  }
+      data:  { status: 'failed', errors: [`Worker crash: ${err.message}`] as any }
+    }).catch(() => {});
+  });
+
+  worker.on('exit', (code) => {
+    if (code !== 0) console.error(`[Job ${jobId}] Worker exited code ${code}`);
+  });
 }

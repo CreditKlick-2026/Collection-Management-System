@@ -49,17 +49,33 @@ export async function POST(request: Request) {
         ...ptps.map(p => p.customerId)
       ]);
 
-      const allIds = Array.from(allCustomerIds);
+      // Filter out nulls since customerId is now optional
+      const allIds = Array.from(allCustomerIds).filter((id): id is number => id !== null);
       const totalFound = allIds.length;
       
       if (totalFound === 0) return NextResponse.json({ message: 'No data found for this period', totalFound: 0, deletedCount: 0 });
 
-      // 2. WIPE EVERYTHING for these IDs
+      // 2. Preserve Payments by copying Customer Data into them before deletion
+      const customersToWipe = await prisma.customer.findMany({
+        where: { id: { in: allIds } },
+        select: { id: true, account_no: true, name: true }
+      });
+
+      for (const cust of customersToWipe) {
+        await prisma.payment.updateMany({
+          where: { customerId: cust.id },
+          data: {
+            account_no: cust.account_no,
+            customer_name: cust.name
+          }
+        });
+      }
+
+      // 3. WIPE EVERYTHING EXCEPT PAYMENTS
       await prisma.$transaction([
         prisma.settlement.deleteMany({ where: { customerId: { in: allIds } } }),
         prisma.dispute.deleteMany({ where: { customerId: { in: allIds } } }),
         prisma.pTP.deleteMany({ where: { customerId: { in: allIds } } }),
-        prisma.payment.deleteMany({ where: { customerId: { in: allIds } } }),
         prisma.auditLog.deleteMany({ where: { entityType: 'Customer', entityId: { in: allIds.map(String) } } }),
         prisma.customer.deleteMany({ where: { id: { in: allIds } } }),
       ]);
