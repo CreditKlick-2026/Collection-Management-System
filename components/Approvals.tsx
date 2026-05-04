@@ -426,7 +426,12 @@ const Approvals = () => {
       } else if (activeTab === 'settlements') {
         q.append('status', settlementStatus);
         const res = await fetch(`/api/settlements?${q.toString()}`);
-        if (res.ok) { const data = await res.json(); setPending(data || []); setTotal(data.length || 0); setTotalPages(1); }
+        if (res.ok) { 
+          const data = await res.json(); 
+          setPending(data.data || []); 
+          setTotal(data.total || 0); 
+          setTotalPages(data.totalPages || 1); 
+        }
       }
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -501,7 +506,7 @@ const Approvals = () => {
               <div>
                 <div style={{ fontSize: 11, color: 'var(--grn)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' }}>Pending Amount</div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--txt)' }}>
-                  ₹{pending.reduce((acc, p) => acc + (p.amount || p.ptp_amount || 0), 0).toLocaleString('en-IN')}
+                  ₹{(Array.isArray(pending) ? pending.reduce((acc, p) => acc + (Number(p.amount) || Number(p.ptp_amount) || 0), 0) : 0).toLocaleString('en-IN')}
                 </div>
               </div>
               <div style={{ fontSize: 24, opacity: 0.5 }}>💰</div>
@@ -513,7 +518,7 @@ const Approvals = () => {
               <div>
                 <div style={{ fontSize: 11, color: 'var(--amb)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' }}>Avg Value</div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--txt)' }}>
-                  ₹{pending.length > 0 ? Math.round(pending.reduce((acc, p) => acc + (p.amount || p.ptp_amount || 0), 0) / pending.length).toLocaleString('en-IN') : 0}
+                  ₹{(Array.isArray(pending) && pending.length > 0) ? Math.round(pending.reduce((acc, p) => acc + (Number(p.amount) || Number(p.ptp_amount) || 0), 0) / pending.length).toLocaleString('en-IN') : 0}
                 </div>
               </div>
               <div style={{ fontSize: 24, opacity: 0.5 }}>📈</div>
