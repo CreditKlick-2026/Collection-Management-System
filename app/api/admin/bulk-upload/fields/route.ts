@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 const STATIC_FIELD_DEFS = [
   { label: 'Account Number',        field: 'account_no',            required: true,  keys: ['account number','account_no','account no','loan account','accno','accountnumber','loanid','customerid'] },
   { label: 'Customer Name',         field: 'name',                  required: false, keys: ['customer name','name','borrower name','customername','borrowername'] },
-  { label: 'Mobile Number',         field: 'mobile',                required: false, keys: ['mobile number','mobile','phone','mobilenumber'] },
+  { label: 'Mobile Number',         field: 'mobile',                required: false, keys: ['mobile number','mobile','phone','phone number','mobilenumber','phonenumber'] },
   { label: 'Alt Mobile',            field: 'alt_mobile',            required: false, keys: ['alt mobile','alt_mobile','altmobile'] },
   { label: 'Alt Mobile 2',          field: 'alt_mobile_2',          required: false, keys: ['alt mobile 2','alt_mobile_2','altmobile2'] },
   { label: 'Alt Mobile 3',          field: 'alt_mobile_3',          required: false, keys: ['alt mobile 3','alt_mobile_3','altmobile3'] },

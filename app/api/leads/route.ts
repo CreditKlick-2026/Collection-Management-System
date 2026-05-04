@@ -24,25 +24,28 @@ export async function GET(request: Request) {
     let isManager = false;
 
     if (userId) {
-      const user = await prisma.user.findUnique({
-        where: { id: Number(userId) },
-        include: {
-          portfoliosManaged: { select: { id: true } },
-          portfoliosAgent: { select: { id: true } },
-          subordinates: { select: { id: true } }
-        }
-      });
-      if (user) {
-        isAdmin = user.role === 'admin';
-        isManager = user.role === 'manager';
-        if (isManager) {
-          subordinateIds = user.subordinates.map(s => s.id);
-        }
-        if (!isAdmin) {
-          portfolioIds = [
-            ...user.portfoliosManaged.map(p => p.id),
-            ...user.portfoliosAgent.map(p => p.id)
-          ];
+      const uId = Number(userId);
+      if (!isNaN(uId) && uId > 0) {
+        const user = await prisma.user.findUnique({
+          where: { id: uId },
+          include: {
+            portfoliosManaged: { select: { id: true } },
+            portfoliosAgent: { select: { id: true } },
+            subordinates: { select: { id: true } }
+          }
+        });
+        if (user) {
+          isAdmin = user.role === 'admin';
+          isManager = user.role === 'manager';
+          if (isManager) {
+            subordinateIds = user.subordinates.map(s => s.id);
+          }
+          if (!isAdmin) {
+            portfolioIds = [
+              ...user.portfoliosManaged.map(p => p.id),
+              ...user.portfoliosAgent.map(p => p.id)
+            ];
+          }
         }
       }
     }
@@ -98,28 +101,35 @@ export async function GET(request: Request) {
 
     // Access control: Portfolios + Manager/Agent scoping
     if (!isAdmin) {
-      // 1. Portfolio Filter
+      // 1. Portfolio filter
       if (portfolio) {
         const pId = Number(portfolio);
         if (portfolioIds.includes(pId)) {
           where.AND.push({ portfolioId: pId });
         } else {
-          where.AND.push({ id: -1 }); // No access
+          // User doesn't have access to this portfolio — return nothing
+          where.AND.push({ id: -1 });
         }
-      } else {
+      } else if (portfolioIds.length > 0) {
+        // Only restrict to assigned portfolios if user actually has some
         where.AND.push({ portfolioId: { in: portfolioIds } });
       }
+      // If portfolioIds is empty AND no portfolio filter → do NOT restrict by portfolio
+      // (user might just have leads assigned directly to them)
 
-      // 2. Role-based scoping (Manager see subordinates + portfolio leads, Agent see self)
+      // 2. Role-based scoping
       if (isManager) {
-        where.AND.push({
-          OR: [
-            { assignedAgentId: { in: [...subordinateIds, Number(userId)] } },
-            { portfolioId: { in: portfolioIds } }
-          ]
-        });
+        // Manager sees leads in their portfolios OR assigned to their agents
+        if (portfolioIds.length > 0 || subordinateIds.length > 0) {
+          where.AND.push({
+            OR: [
+              ...(subordinateIds.length > 0 ? [{ assignedAgentId: { in: [...subordinateIds, Number(userId)] } }] : []),
+              ...(portfolioIds.length > 0 ? [{ portfolioId: { in: portfolioIds } }] : [])
+            ]
+          });
+        }
       } else {
-        // Assume Agent or other role — see only self
+        // Agent — see only leads assigned to themselves
         where.AND.push({ assignedAgentId: Number(userId) });
       }
     } else if (portfolio) {
@@ -129,6 +139,7 @@ export async function GET(request: Request) {
 
     const paginate = searchParams.get('paginate') === 'true';
     const page = parseInt(searchParams.get('page') || '1');
+
     const limit = parseInt(searchParams.get('limit') || '25');
 
     const queryOptions: any = {

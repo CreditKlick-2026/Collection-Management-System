@@ -314,7 +314,8 @@ const Admin = () => {
     setLoading(true);
     if (activeTab === 'users' || activeTab === 'bulk') {
       const res = await fetch(`/api/admin/users?requesterId=${user?.id}`);
-      setUsers(await res.json());
+      const data = await res.json();
+      setUsers(Array.isArray(data) ? data : []);
     }
     if (activeTab === 'portfolios' || activeTab === 'bulk') {
       const res = await fetch(`/api/admin/portfolios?requesterId=${user?.id}`);
@@ -323,7 +324,8 @@ const Admin = () => {
     }
     if (activeTab === 'columns' || activeTab === 'bulk') {
       const res = await fetch('/api/admin/columns');
-      setColumns(await res.json());
+      const data = await res.json();
+      setColumns(Array.isArray(data) ? data : []);
     }
     if (activeTab === 'bulk') {
       // Fetch all accepted fields (static schema + dynamic custom) from backend
@@ -333,7 +335,8 @@ const Admin = () => {
     }
     if (activeTab === 'audit') {
       const res = await fetch(`/api/admin/audit-logs?requesterId=${user?.id}`);
-      setAuditLogs(await res.json());
+      const data = await res.json();
+      setAuditLogs(Array.isArray(data) ? data : []);
     }
     if (activeTab === 'lists') {
       const res = await fetch('/api/admin/master-lists');
@@ -536,7 +539,7 @@ const Admin = () => {
 
   const handleDownloadSample = () => {
     // Standard system fields
-    const baseHeaders = ['Account No', 'Customer Name', 'Portfolio', 'Bucket', 'DPD', 'Outstanding', 'Mobile', 'Alt Mobile', 'Email', 'Address', 'Pincode', 'City', 'State'];
+    const baseHeaders = ['Account No', 'Customer Name', 'Portfolio', 'Bucket', 'DPD', 'Outstanding', 'Mobile', 'Phone', 'Alt Mobile', 'Email', 'Address', 'Pincode', 'City', 'State'];
     // Merge with any dynamic columns defined, but filter out internal fields
     const dynamicHeaders = columns
       .map(c => c.label)

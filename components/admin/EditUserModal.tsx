@@ -8,7 +8,8 @@ import {
   X,
   Briefcase,
   Contact,
-  UserCircle
+  UserCircle,
+  Phone
 } from 'lucide-react';
 
 interface EditUserModalProps {
@@ -204,6 +205,20 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
                 placeholder="john@example.com"
                 value={editUser.email || ''} 
                 onChange={e => setEditUser({ ...editUser, email: e.target.value })} 
+              />
+            </div>
+
+            {/* Phone Number */}
+            <div className="ff">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                <Phone size={12} /> Phone Number
+              </label>
+              <input 
+                className="finp" 
+                style={{ borderRadius: 10, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--bdr)' }}
+                placeholder="e.g. 9876543210"
+                value={editUser.contact || ''} 
+                onChange={e => setEditUser({ ...editUser, contact: e.target.value })} 
               />
             </div>
 

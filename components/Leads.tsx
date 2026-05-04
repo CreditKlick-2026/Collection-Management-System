@@ -902,8 +902,8 @@ const Leads = () => {
   const [dpdMin, setDpdMin] = useState('');
   const [dpdMax, setDpdMax] = useState('');
   const [outMin, setOutMin] = useState('');
-  const [filterMonth, setFilterMonth] = useState(String(new Date().getMonth() + 1));
-  const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterYear, setFilterYear] = useState('');
   const [isTableMaximized, setIsTableMaximized] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
@@ -946,7 +946,7 @@ const Leads = () => {
       fetchLeads();
     }, 300);
     return () => clearTimeout(timer);
-  }, [search, filterTab, statusFilter, portfolioFilter, dpdMin, dpdMax, outMin, filterMonth, filterYear, page, limit]);
+  }, [search, filterTab, statusFilter, portfolioFilter, dpdMin, dpdMax, outMin, filterMonth, filterYear, page, limit, user?.id]);
 
   const fetchMetadata = async () => {
     try {

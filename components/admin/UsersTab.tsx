@@ -36,10 +36,10 @@ const UsersTab: React.FC<UsersTabProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDownloadSample = () => {
-    const headers = ["Full Name", "Username", "Employee ID", "Role", "Reports To (Emp ID)", "Email Address", "Password", "Confirm Password"];
+    const headers = ["Full Name", "Username", "Employee ID", "Phone Number", "Role", "Reports To (Emp ID)", "Email Address", "Password", "Confirm Password"];
     const sampleData = [
-      ["John Doe", "johndoe123", "IMS1001", "agent", "IMS1002", "john@example.com", "Pass@123", "Pass@123"],
-      ["Jane Manager", "janem", "IMS1002", "manager", "", "jane@example.com", "Admin@456", "Admin@456"],
+      ["John Doe", "johndoe123", "IMS1001", "9876543210", "agent", "IMS1002", "john@example.com", "Pass@123", "Pass@123"],
+      ["Jane Manager", "janem", "IMS1002", "9988776655", "manager", "", "jane@example.com", "Admin@456", "Admin@456"],
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
     const wb = XLSX.utils.book_new();
@@ -90,6 +90,7 @@ const UsersTab: React.FC<UsersTabProps> = ({
             name: row["Full Name"],
             username: row["Username"],
             empId: row["Employee ID"],
+            contact: String(row["Phone Number"] || ""),
             email: row["Email Address"] || "",
             role: row["Role"].toLowerCase(),
             password: row["Password"],
@@ -214,6 +215,7 @@ const UsersTab: React.FC<UsersTabProps> = ({
             <tr style={{ background: 'transparent' }}>
               <th style={{ background: 'transparent', border: 'none' }}>NAME</th>
               <th style={{ background: 'transparent', border: 'none' }}>EMP ID</th>
+              <th style={{ background: 'transparent', border: 'none' }}>CONTACT</th>
               <th style={{ background: 'transparent', border: 'none' }}>ROLE</th>
               <th style={{ background: 'transparent', border: 'none' }}>MANAGER</th>
               <th style={{ background: 'transparent', border: 'none' }}>PORTFOLIO</th>
@@ -236,6 +238,7 @@ const UsersTab: React.FC<UsersTabProps> = ({
                     </div>
                   </td>
                   <td><div className="skel" style={{ width: 60, height: 14 }} /></td>
+                  <td><div className="skel" style={{ width: 85, height: 14 }} /></td>
                   <td><div className="skel" style={{ width: 50, height: 18, borderRadius: 12 }} /></td>
                   <td>
                     <div className="skel" style={{ width: 80, height: 14, marginBottom: 4 }} />
@@ -256,7 +259,7 @@ const UsersTab: React.FC<UsersTabProps> = ({
               ))
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--txt3)' }}>
+                <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--txt3)' }}>
                   <div style={{ fontSize: 24, marginBottom: 10 }}>👤</div>
                   No users found.
                 </td>
@@ -274,12 +277,27 @@ const UsersTab: React.FC<UsersTabProps> = ({
                   </div>
                 </td>
                 <td className="mn">{u.empId}</td>
+                <td className="mn" style={{ fontSize: 11, color: 'var(--txt2)' }}>{u.contact || '—'}</td>
                 <td><span className="badge" style={{ background: u.role === 'admin' ? 'var(--redbg)' : u.role === 'manager' ? 'var(--ambbg)' : 'var(--accbg)', color: u.role === 'admin' ? 'var(--red)' : u.role === 'manager' ? 'var(--amb)' : 'var(--acc2)', border: 'none' }}>{u.role === 'manager' ? 'supervisor' : u.role}</span></td>
                 <td style={{ fontSize: 12 }}>
                   {u.manager ? <><div style={{ color: 'var(--txt)' }}>{u.manager.name}</div><div style={{ fontSize: 10, color: 'var(--txt3)' }}>{u.manager.empId}</div></> : <span style={{ color: 'var(--txt3)' }}>—</span>}
                 </td>
-                <td style={{ color: 'var(--pur)', fontSize: 11, maxWidth: 250, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {u.portfolios || '—'}
+                <td style={{ maxWidth: 250 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {u.portfolios ? u.portfolios.split(', ').map((pName: string, idx: number) => (
+                      <span key={idx} style={{ 
+                        fontSize: 9, 
+                        padding: '2px 6px', 
+                        background: 'rgba(147,112,219,0.1)', 
+                        color: 'var(--pur)', 
+                        borderRadius: 4, 
+                        fontWeight: 600,
+                        border: '1px solid rgba(147,112,219,0.2)'
+                      }}>
+                        {pName}
+                      </span>
+                    )) : <span style={{ color: 'var(--txt3)', fontSize: 11 }}>—</span>}
+                  </div>
                 </td>
                 <td className="mn" style={{ color: 'var(--txt3)' }}>{u.doj || '—'}</td>
                 <td><span className={`badge ${u.active ? 'grn' : 'red'}`} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${u.active ? 'rgba(46,204,138,0.2)' : 'rgba(226,75,74,0.2)'}`, background: 'transparent' }}>{u.active ? 'Active' : 'Inactive'}</span></td>
@@ -329,6 +347,7 @@ const UsersTab: React.FC<UsersTabProps> = ({
                     <th>NAME</th>
                     <th>USERNAME</th>
                     <th>EMP ID</th>
+                    <th>PHONE</th>
                     <th>ROLE</th>
                     <th>REPORTS TO</th>
                     <th>EMAIL</th>
@@ -342,6 +361,7 @@ const UsersTab: React.FC<UsersTabProps> = ({
                       <td>{row.name}</td>
                       <td className="mn">{row.username}</td>
                       <td className="mn">{row.empId}</td>
+                      <td className="mn">{row.contact}</td>
                       <td>
                         <span className="badge" style={{ 
                           background: row.role === 'admin' ? 'var(--redbg)' : row.role === 'manager' ? 'var(--ambbg)' : 'var(--accbg)', 
