@@ -301,7 +301,10 @@ const SettlementHistoryModal = ({ lead }: { lead: any }) => {
             return (
               <div key={s.id} style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: 15 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{s.reason}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>{s.reason}</span>
+                    {s.amount > 0 && <span style={{ color: 'var(--red)', background: 'rgba(239,68,68,0.06)', padding: '1px 6px', borderRadius: 4, fontSize: 10 }}>₹{s.amount.toLocaleString('en-IN')}</span>}
+                  </div>
                   <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: `${cfg.color}15`, padding: '2px 8px', borderRadius: 10, border: `1px solid ${cfg.color}30` }}>
                     {cfg.label}
                   </span>
@@ -738,7 +741,8 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
     date: new Date().toISOString().split('T')[0],
     remarks: '',
     upgradeFlag: '',
-    upgradeType: ''
+    upgradeType: '',
+    status: lead.status || 'ACTIVE'
   });
 
   const handleSubmit = async () => {
@@ -759,6 +763,15 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
           agentId: user?.id
         })
       });
+
+      // 1.5 Update Lead Status if changed
+      if (form.status !== lead.status) {
+        await fetch(`/api/leads/${lead.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: form.status })
+        });
+      }
 
       // 2. If Upgraded, update lead via disposition API
       if (lead.eligible_upgrade === 'Y' && form.upgradeFlag) {
@@ -823,12 +836,18 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
           <input className="finp" value={form.ref} onChange={e => setForm({...form, ref: e.target.value})} placeholder="UTR / Ref number" />
         </div>
         <div className="ff">
-          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>CURRENT STATUS</label>
-          <div style={{ height: '36px', display: 'flex', alignItems: 'center' }}>
-            <span style={{ background: 'var(--purbg)', color: 'var(--pur)', border: '1px solid rgba(167,139,250,0.3)', padding: '5px 14px', borderRadius: 16, fontSize: 11, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5 }}>
-              {lead.status || 'ACTIVE'}
-            </span>
-          </div>
+          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPDATE STATUS</label>
+          <select 
+            className="finp" 
+            style={{ height: '36px', borderRadius: 10, border: '1px solid var(--pur)', background: 'var(--purbg)', color: 'var(--pur)', fontWeight: 700 }}
+            value={form.status}
+            onChange={e => setForm({...form, status: e.target.value})}
+          >
+            {/* The user specifically wanted these 4 + current status */}
+            {Array.from(new Set([lead.status || 'ACTIVE', 'Rollback', 'Rollforward', 'Normilization', 'STAB'])).map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -1027,8 +1046,9 @@ const Leads = () => {
 
   const RaiseSettlementModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
     const { toast, closeModal, user } = useApp();
-    const [reason, setReason] = useState('Accident');
+    const [reason, setReason] = useState('');
     const [justification, setJustification] = useState('');
+    const [amount, setAmount] = useState('');
     const [loading, setLoading] = useState(false);
 
     const reasons = [
@@ -1042,6 +1062,8 @@ const Leads = () => {
     ];
 
     const handleSubmit = async () => {
+      if (!reason) { toast('Please select a reason for settlement'); return; }
+      if (!amount || Number(amount) <= 0) { toast('Please provide a valid settlement amount'); return; }
       if (!justification.trim()) { toast('Please provide justification'); return; }
       setLoading(true);
       try {
@@ -1052,6 +1074,7 @@ const Leads = () => {
             customerId: lead.id,
             agentId: user?.id,
             reason,
+            amount: Number(amount),
             justification
           })
         });
@@ -1074,8 +1097,14 @@ const Leads = () => {
         <div className="ff">
           <label>Reason for Settlement *</label>
           <select className="finp" style={{ borderRadius: 4 }} value={reason} onChange={e => setReason(e.target.value)}>
+            <option value="">— Select Reason —</option>
             {reasons.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
+        </div>
+
+        <div className="ff">
+          <label>Settlement Amount (₹) *</label>
+          <input type="number" className="finp" style={{ borderRadius: 4 }} value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g. 50000" />
         </div>
 
         <div className="ff">
@@ -1385,6 +1414,7 @@ const Leads = () => {
                       <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Mobile Number</th>
                       <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Outstanding</th>
                       <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
+                      <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Settlement</th>
                     </>
                   )}
                   <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Assigned To</th>
@@ -1394,7 +1424,7 @@ const Leads = () => {
                 {loading ? (
                   Array.from({ length: 15 }).map((_, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
-                      {Array.from({ length: (tableCols.length || 5) + 1 }).map((_, j) => (
+                      {Array.from({ length: (tableCols.length || 6) + 1 }).map((_, j) => (
                         <td key={j} style={{ padding: '8px 10px' }}>
                           <div className="skel" style={{ width: `${Math.floor(Math.random() * 40) + 40}%` }} />
                         </td>
@@ -1423,6 +1453,21 @@ const Leads = () => {
                         <td className="mn" style={{ padding: '8px 10px', color: 'var(--txt2)' }}>{lead.mobile}</td>
                         <td className="mn" style={{ padding: '8px 10px', color: 'var(--red)', fontWeight: 600 }}>₹{lead.outstanding?.toLocaleString('en-IN')}</td>
                         <td><span className="badge">{lead.status}</span></td>
+                        <td>
+                           {lead.settlements && lead.settlements.length > 0 ? (
+                             <span className="badge" style={{ 
+                               background: 'transparent', 
+                               border: `1px solid ${lead.settlements[0].status === 'Approve' ? 'rgba(34,197,94,0.3)' : lead.settlements[0].status === 'Rejected' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, 
+                               color: lead.settlements[0].status === 'Approve' ? 'var(--grn)' : lead.settlements[0].status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
+                               fontSize: 9,
+                               borderRadius: 12
+                             }}>
+                               {lead.settlements[0].status}
+                             </span>
+                           ) : (
+                             <span style={{ color: 'var(--txt3)', fontSize: 9, opacity: 0.5 }}>—</span>
+                           )}
+                         </td>
                       </>
                     )}
                     <td style={{ padding: '8px 10px', fontSize: 11, color: 'var(--txt2)' }}>{lead.assignedAgent?.name || 'Unassigned'}</td>

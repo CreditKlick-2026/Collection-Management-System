@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://neondb_owner:npg_jBHmp0hl3JrT@ep-empty-tree-angbicxg-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+  url      = "postgresql://neondb_owner:npg_jBHmp0hl3JrT@ep-empty-tree-angbicxg-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require&connection_limit=10&pool_timeout=10"
 }
 
 model User {
@@ -179,6 +179,7 @@ model Settlement {
   id              Int       @id @default(autoincrement())
   customerId      Int
   customer        Customer  @relation(fields: [customerId], references: [id])
+  amount          Float     @default(0)
   agentId         Int
   agent           User      @relation("SettlementAgent", fields: [agentId], references: [id])
   managerId       Int?

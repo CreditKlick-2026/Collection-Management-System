@@ -48,51 +48,38 @@ export async function GET(req: Request) {
         const BATCH_SIZE = 500;
         let deletedRecords = 0;
 
-        // Since we are deleting, we can keep fetching taking BATCH_SIZE until 0
         while (true) {
-          // Find records to delete (we need their IDs to delete dependencies if any, or we can just delete by bulkUploadJobId)
-          // Wait, customers have relations (payments, ptps, etc.). In the app, bulk uploaded records usually don't have payments immediately,
-          // but if they do, Prisma will block deletion unless we have Cascade delete or we manually delete them.
           const customers = await prisma.customer.findMany({
             where: { bulkUploadJobId: jobId },
-            select: { id: true, account_no: true, name: true },
+            select: { id: true },
             take: BATCH_SIZE
           });
 
           if (customers.length === 0) break;
 
-          // Preserve Payments by copying Customer Data into them before deletion
-          for (const cust of customers) {
-            await prisma.payment.updateMany({
-              where: { customerId: cust.id },
-              data: {
-                account_no: cust.account_no,
-                customer_name: cust.name
-              }
-            });
-          }
-
           const customerIds = customers.map(c => c.id);
 
-          // Delete related records first (Payments are PRESERVED via SetNull)
+          // Preserve payment data with a single raw SQL (no N+1 loop)
+          await prisma.$executeRawUnsafe(`
+            UPDATE "Payment" p
+            SET account_no = c.account_no, customer_name = c.name
+            FROM "Customer" c
+            WHERE p."customerId" = c.id AND c.id IN (${customerIds.join(',')})
+          `);
+
+          // Delete relations sequentially (NOT in $transaction) so we
+          // release the connection between each query — prevents pool starvation
           await prisma.pTP.deleteMany({ where: { customerId: { in: customerIds } } });
           await prisma.dispute.deleteMany({ where: { customerId: { in: customerIds } } });
           await prisma.settlement.deleteMany({ where: { customerId: { in: customerIds } } });
-
-          // Now delete customers
-          const delRes = await prisma.customer.deleteMany({
-            where: { id: { in: customerIds } }
-          });
+          const delRes = await prisma.customer.deleteMany({ where: { id: { in: customerIds } } });
 
           deletedRecords += delRes.count;
 
-          sendEvent('progress', { 
-            deletedRecords, 
-            totalRecords 
-          });
+          sendEvent('progress', { deletedRecords, totalRecords });
 
-          // Small delay to allow UI to update smoothly
-          await new Promise(r => setTimeout(r, 100));
+          // Yield time so other API calls can grab a connection
+          await new Promise(r => setTimeout(r, 200));
         }
 
         // Finally delete the job record

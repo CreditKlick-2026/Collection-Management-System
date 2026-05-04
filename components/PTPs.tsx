@@ -241,7 +241,9 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
 
 const PTPs = () => {
   const { openModal } = useApp();
+  const [subTab, setSubTab] = useState<'ptp' | 'settlement'>('ptp');
   const [ptps, setPtps] = useState<any[]>([]);
+  const [settlements, setSettlements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ date: '', agent: '', account: '' });
   const [page, setPage] = useState(1);
@@ -250,18 +252,21 @@ const PTPs = () => {
   const LIMIT = 25;
 
   useEffect(() => {
-    fetchPtps();
-  }, []);
+    if (subTab === 'ptp') fetchPtps();
+    else fetchSettlements();
+  }, [subTab, page]);
 
   useEffect(() => {
-    setPage(1);
-    const timer = setTimeout(() => fetchPtps(1), 400);
+    const timer = setTimeout(() => {
+      if (page === 1) {
+        if (subTab === 'ptp') fetchPtps(1);
+        else fetchSettlements(1);
+      } else {
+        setPage(1);
+      }
+    }, 500);
     return () => clearTimeout(timer);
-  }, [filters]);
-
-  useEffect(() => {
-    fetchPtps(page);
-  }, [page]);
+  }, [filters.date, filters.agent, filters.account]);
 
   const fetchPtps = async (pg = page) => {
     setLoading(true);
@@ -281,54 +286,100 @@ const PTPs = () => {
         setTotalRecords(json.total || dataArray.length);
         setTotalPages(json.totalPages || 1);
       }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  const fetchSettlements = async (pg = page) => {
+    setLoading(true);
+    try {
+      const q = new URLSearchParams({
+        status: 'all',
+        date: filters.date,
+        agent: filters.agent,
+        account: filters.account,
+        page: String(pg),
+        limit: String(LIMIT)
+      }).toString();
+      const res = await fetch(`/api/settlements?${q}`);
+      if (res.ok) {
+        const json = await res.json();
+        const dataArray = Array.isArray(json) ? json : (json.data || []);
+        setSettlements(dataArray);
+        setTotalRecords(json.total || dataArray.length);
+        setTotalPages(json.totalPages || 1);
+      }
+    } catch (e) { console.error(e); }
     setLoading(false);
   };
 
   return (
     <div id="pg-ptp" className="page on">
-      <div className="ph">
+      <div className="ph" style={{ borderBottom: 'none' }}>
         <div>
-          <div className="ph-t">₹ Promise to Pay</div>
-          <div className="ph-s">PTP records and tracking</div>
+          <div className="ph-t" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span>₹ {subTab === 'ptp' ? 'Promise to Pay' : 'Settlements'}</span>
+          </div>
+          <div className="ph-s">{subTab === 'ptp' ? 'PTP records and tracking' : 'Raised settlements for approval'}</div>
         </div>
-        <div className="ph-ml">
-          <SButton variant="primary" onClick={() => openModal('Record Promise to Pay', <NewPTPModal onDone={fetchPtps} />)}>+ New PTP</SButton>
+
+        <div style={{ display: 'flex', gap: 6, background: 'var(--bg3)', padding: 4, borderRadius: 10, border: '1px solid var(--bdr)', marginLeft: 40 }}>
+          <button 
+            onClick={() => setSubTab('ptp')}
+            style={{ 
+              padding: '6px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+              background: subTab === 'ptp' ? 'var(--acc2)' : 'transparent',
+              color: subTab === 'ptp' ? '#fff' : 'var(--txt3)',
+              border: 'none'
+            }}
+          >
+            PTPs
+          </button>
+          <button 
+            onClick={() => setSubTab('settlement')}
+            style={{ 
+              padding: '6px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+              background: subTab === 'settlement' ? 'var(--acc2)' : 'transparent',
+              color: subTab === 'settlement' ? '#fff' : 'var(--txt3)',
+              border: 'none',
+              display: 'flex', alignItems: 'center', gap: 6
+            }}
+          >
+            ⚖️ Settlements
+          </button>
+        </div>
+
+        <div className="ph-ml" style={{ marginLeft: 'auto' }}>
+          {subTab === 'ptp' && (
+            <SButton variant="primary" onClick={() => openModal('Record Promise to Pay', <NewPTPModal onDone={fetchPtps} />)}>+ New PTP</SButton>
+          )}
         </div>
       </div>
       <div className="page-body">
 
-        {/* Stats Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
-          <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
-            <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Total PTPs</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--txt)' }}>
-              {totalRecords}
+        {/* Stats Cards - Only for PTP */}
+        {subTab === 'ptp' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
+            <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+              <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Total PTPs</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--txt)' }}>{totalRecords}</div>
+            </div>
+            <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+              <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Pending</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--amb)' }}>{ptps.filter(p => p.status === 'pending').length}</div>
+            </div>
+            <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+              <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Paid / Kept</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--grn)' }}>{ptps.filter(p => p.status === 'paid' || p.status === 'kept').length}</div>
+            </div>
+            <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
+              <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Broken</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--red)' }}>{ptps.filter(p => p.status === 'broken').length}</div>
             </div>
           </div>
-          <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
-            <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Pending</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--amb)' }}>
-              {ptps.filter(p => p.status === 'pending').length}
-            </div>
-          </div>
-          <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
-            <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Paid / Kept</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--grn)' }}>
-              {ptps.filter(p => p.status === 'paid' || p.status === 'kept').length}
-            </div>
-          </div>
-          <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
-            <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Broken</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--red)' }}>
-              {ptps.filter(p => p.status === 'broken').length}
-            </div>
-          </div>
-        </div>
+        )}
 
-        {/* Filter Row */}
+        {/* Filter Row - Shared for PTP & Settlements */}
         <div style={{ marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
           <input className="finp" type="date" style={{ width: 'auto' }} value={filters.date} onChange={e => setFilters({ ...filters, date: e.target.value })} />
           <input className="finp" placeholder="Agent name..." style={{ width: 160 }} value={filters.agent} onChange={e => setFilters({ ...filters, agent: e.target.value })} />
@@ -338,73 +389,131 @@ const PTPs = () => {
 
         <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: '1px solid var(--bdr)' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--bdr)' }}>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Date</th>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Account</th>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer</th>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Amount</th>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Date</th>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Agent</th>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>VOC</th>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Flag Status</th>
-                  <th style={{ background: 'transparent', border: 'none', padding: '12px 10px' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
-                      <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px' }} /></td>
-                      <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100px' }} /></td>
-                      <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '150px' }} /></td>
-                      <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '70px' }} /></td>
-                      <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px' }} /></td>
-                      <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '60px', height: 18, borderRadius: 12 }} /></td>
-                      <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100px' }} /></td>
-                      <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '120px' }} /></td>
-                      <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px', height: 16 }} /></td>
-                      <td style={{ padding: '14px 10px', textAlign: 'right' }}><div className="skel" style={{ width: '45px', height: 26, borderRadius: 6, display: 'inline-block' }} /></td>
+            {subTab === 'ptp' ? (
+              <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--bdr)' }}>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Date</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Account</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Amount</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Date</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Agent</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>VOC</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Flag Status</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '150px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '70px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '60px', height: 18, borderRadius: 12 }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '120px' }} /></td>
+                        <td style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '80px', height: 16 }} /></td>
+                        <td style={{ padding: '14px 10px', textAlign: 'right' }}><div className="skel" style={{ width: '45px', height: 26, borderRadius: 6, display: 'inline-block' }} /></td>
+                      </tr>
+                    ))
+                  ) : ptps.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} style={{ padding: '40px', textAlign: 'center' }}>
+                        <div style={{ color: 'var(--txt3)', fontSize: 14 }}>
+                          <div style={{ fontSize: 24, marginBottom: 10 }}>📂</div>
+                          No PTP records found for the selected filters.
+                        </div>
+                      </td>
                     </tr>
-                  ))
-                ) : ptps.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} style={{ padding: '40px', textAlign: 'center' }}>
-                      <div style={{ color: 'var(--txt3)', fontSize: 14 }}>
-                        <div style={{ fontSize: 24, marginBottom: 10 }}>📂</div>
-                        No PTP records found for the selected filters.
-                      </div>
-                    </td>
+                  ) : ptps.map(p => (
+                    <tr key={p.id} style={{ borderBottom: '1px solid var(--faint)' }}>
+                      <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.created}</td>
+                      <td className="mn" style={{ padding: '12px 10px' }}>{p.account_no}</td>
+                      <td className="nm" style={{ padding: '12px 10px', color: 'var(--txt)' }}>{p.customer_name}</td>
+                      <td className="mn" style={{ padding: '12px 10px', color: 'var(--amb)', fontWeight: 700 }}>₹{p.ptp_amount?.toLocaleString('en-IN')}</td>
+                      <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.ptp_date}</td>
+                      <td style={{ padding: '12px 10px' }}>
+                        <span className="badge" style={{ background: 'transparent', border: `1px solid ${p.status === 'broken' ? 'rgba(226,75,74,0.3)' : (p.status === 'paid' || p.status === 'kept') ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', borderRadius: 12 }}>
+                          <span style={{ color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', fontSize: 8, marginRight: 5 }}>●</span> {p.status}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{p.agent_name}</td>
+                      <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.voc || '—'}</td>
+                      <td style={{ padding: '12px 10px', fontSize: 12, fontWeight: 600 }}>
+                        {p.flag === 'flagged' ? <span style={{ color: 'var(--amb)' }}>⚑ Flagged ↗</span> :
+                         p.flag === 'approved' ? <span style={{ color: 'var(--grn)' }}>✓ Approved</span> :
+                         p.flag === 'rejected' ? <span style={{ color: 'var(--red)' }}>✕ Rejected ↗</span> :
+                         <span style={{ color: 'var(--txt3)', fontWeight: 400 }}>—</span>}
+                      </td>
+                      <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                        <button className="btn sm" style={{ background: 'var(--faint)', border: '1px solid var(--faint)' }} onClick={() => openModal(`PTP — ${p.account_no}`, <EditPTPModal item={p} onDone={fetchPtps} />)}>Edit</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--bdr)' }}>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Date</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Account</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Settlement Amount</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Settlement Date</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Agent</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Reason</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Flag Status</th>
                   </tr>
-                ) : ptps.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid var(--faint)' }}>
-                    <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.created}</td>
-                    <td className="mn" style={{ padding: '12px 10px' }}>{p.account_no}</td>
-                    <td className="nm" style={{ padding: '12px 10px', color: 'var(--txt)' }}>{p.customer_name}</td>
-                    <td className="mn" style={{ padding: '12px 10px', color: 'var(--amb)', fontWeight: 700 }}>₹{p.ptp_amount?.toLocaleString('en-IN')}</td>
-                    <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.ptp_date}</td>
-                    <td style={{ padding: '12px 10px' }}>
-                      <span className="badge" style={{ background: 'transparent', border: `1px solid ${p.status === 'broken' ? 'rgba(226,75,74,0.3)' : (p.status === 'paid' || p.status === 'kept') ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', borderRadius: 12 }}>
-                        <span style={{ color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', fontSize: 8, marginRight: 5 }}>●</span> {p.status}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{p.agent_name}</td>
-                    <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.voc || '—'}</td>
-                    <td style={{ padding: '12px 10px', fontSize: 12, fontWeight: 600 }}>
-                      {p.flag === 'flagged' ? <span style={{ color: 'var(--amb)' }}>⚑ Flagged ↗</span> :
-                       p.flag === 'approved' ? <span style={{ color: 'var(--grn)' }}>✓ Approved</span> :
-                       p.flag === 'rejected' ? <span style={{ color: 'var(--red)' }}>✕ Rejected ↗</span> :
-                       <span style={{ color: 'var(--txt3)', fontWeight: 400 }}>—</span>}
-                    </td>
-                    <td style={{ padding: '12px 10px', textAlign: 'right' }}>
-                      <button className="btn sm" style={{ background: 'var(--faint)', border: '1px solid var(--faint)' }} onClick={() => openModal(`PTP — ${p.account_no}`, <EditPTPModal item={p} onDone={fetchPtps} />)}>Edit</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {loading ? (
+                     Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
+                        <td colSpan={9} style={{ padding: '14px 10px' }}><div className="skel" style={{ width: '100%' }} /></td>
+                      </tr>
+                    ))
+                  ) : settlements.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} style={{ padding: '40px', textAlign: 'center' }}>
+                        <div style={{ color: 'var(--txt3)', fontSize: 14 }}>
+                          <div style={{ fontSize: 24, marginBottom: 10 }}>⚖️</div>
+                          No settlements found.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : settlements.map(s => (
+                    <tr key={s.id} style={{ borderBottom: '1px solid var(--faint)' }}>
+                      <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{s.created}</td>
+                      <td className="mn" style={{ padding: '12px 10px' }}>{s.customer?.account_no}</td>
+                      <td className="nm" style={{ padding: '12px 10px' }}>{s.customer?.name}</td>
+                      <td className="mn" style={{ padding: '12px 10px', color: 'var(--acc2)', fontWeight: 700 }}>₹{s.amount?.toLocaleString('en-IN')}</td>
+                      <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{s.created}</td>
+                      <td style={{ padding: '12px 10px' }}>
+                        <span className="badge" style={{ background: 'transparent', border: `1px solid ${s.status === 'Rejected' ? 'rgba(226,75,74,0.3)' : s.status === 'Approve' ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, color: s.status === 'Rejected' ? 'var(--red)' : s.status === 'Approve' ? 'var(--grn)' : 'var(--amb)', borderRadius: 12 }}>
+                          <span style={{ color: s.status === 'Rejected' ? 'var(--red)' : s.status === 'Approve' ? 'var(--grn)' : 'var(--amb)', fontSize: 8, marginRight: 5 }}>●</span> {s.status}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{s.agent?.name}</td>
+                      <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.reason} {s.subReason ? `(${s.subReason})` : ''}
+                      </td>
+                      <td style={{ padding: '12px 10px', fontSize: 12, fontWeight: 600 }}>
+                        {s.status === 'Approve' ? <span style={{ color: 'var(--grn)' }}>✓ Approved</span> :
+                         s.status === 'Rejected' ? <span style={{ color: 'var(--red)' }}>✕ Rejected</span> :
+                         <span style={{ color: 'var(--amb)' }}>Pending</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* Pagination */}

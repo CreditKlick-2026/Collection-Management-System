@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface PortfoliosTabProps {
   loading: boolean;
@@ -9,7 +9,8 @@ interface PortfoliosTabProps {
   handleAddPortfolio: () => void;
   portfolios: any[];
   users: any[];
-  handleAssignmentChange: (portfolioId: string, userId: number, role: string, isChecked: boolean) => void;
+  onSavePortfolio: (portfolioId: string, agentIds: number[], managerIds: number[]) => Promise<void>;
+  onDeletePortfolio: (id: string) => Promise<void>;
 }
 
 const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
@@ -21,8 +22,58 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
   handleAddPortfolio,
   portfolios,
   users,
-  handleAssignmentChange
+  onSavePortfolio,
+  onDeletePortfolio
 }) => {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [localPortfolios, setLocalPortfolios] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    setLocalPortfolios(portfolios);
+  }, [portfolios]);
+
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    try {
+      await onDeletePortfolio(id);
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteId(null);
+    }
+  };
+
+  const handleLocalAssignmentChange = (portfolioId: string, userId: number, role: string, isChecked: boolean) => {
+    setLocalPortfolios(prev => prev.map(p => {
+      if (p.id !== portfolioId) return p;
+      const newP = { ...p };
+      if (role === 'agent') {
+        const currentAgents = newP.agents || [];
+        if (isChecked) newP.agents = [...currentAgents, { id: userId }];
+        else newP.agents = currentAgents.filter((a: any) => a.id !== userId);
+      } else {
+        const currentManagers = newP.managers || [];
+        if (isChecked) newP.managers = [...currentManagers, { id: userId }];
+        else newP.managers = currentManagers.filter((m: any) => m.id !== userId);
+      }
+      return newP;
+    }));
+  };
+
+  const handleSave = async (portfolioId: string) => {
+    const p = localPortfolios.find(p => p.id === portfolioId);
+    if (!p) return;
+    setSavingId(portfolioId);
+    try {
+      const agentIds = (p.agents || []).map((a: any) => a.id);
+      const managerIds = (p.managers || []).map((m: any) => m.id);
+      await onSavePortfolio(portfolioId, agentIds, managerIds);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div>
@@ -54,7 +105,7 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 20 }}>
-        {portfolios.map(p => (
+        {localPortfolios.map(p => (
           <div key={p.id} className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 14, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
             <div style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -65,7 +116,45 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
                   <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 1 }}>{p.agents?.length || 0} Agents • {p.managers?.length || 0} Managers</div>
                 </div>
               </div>
-              <button className="btn sm" style={{ background: 'rgba(226,75,74,0.05)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.1)', padding: '5px 10px' }}>Delete</button>
+
+              {confirmDeleteId === p.id ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, color: 'var(--red)', fontWeight: 600 }}>Sure?</span>
+                  <button
+                    className="btn sm"
+                    disabled={deleting}
+                    style={{ background: 'rgba(226,75,74,0.15)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)', padding: '4px 10px', fontSize: 10 }}
+                    onClick={() => handleDelete(p.id)}
+                  >
+                    {deleting ? '...' : '✓ Yes'}
+                  </button>
+                  <button
+                    className="btn sm"
+                    style={{ padding: '4px 10px', fontSize: 10 }}
+                    onClick={() => setConfirmDeleteId(null)}
+                  >
+                    ✕ No
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn sm pr"
+                    disabled={savingId === p.id}
+                    style={{ padding: '5px 12px' }}
+                    onClick={() => handleSave(p.id)}
+                  >
+                    {savingId === p.id ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    className="btn sm"
+                    style={{ background: 'rgba(226,75,74,0.05)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.1)', padding: '5px 10px' }}
+                    onClick={() => setConfirmDeleteId(p.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Body */}
@@ -84,7 +173,7 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
                           type="checkbox"
                           style={{ accentColor: 'var(--acc)' }}
                           checked={isAssigned}
-                          onChange={(e) => handleAssignmentChange(p.id, u.id, 'agent', e.target.checked)}
+                          onChange={(e) => handleLocalAssignmentChange(p.id, u.id, 'agent', e.target.checked)}
                         />
                         <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700, color: 'var(--txt2)' }}>{u.initials}</div>
                         <div style={{ flex: 1 }}>
@@ -111,7 +200,7 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
                           type="checkbox"
                           style={{ accentColor: 'var(--amb)' }}
                           checked={isAssigned}
-                          onChange={(e) => handleAssignmentChange(p.id, u.id, 'manager', e.target.checked)}
+                          onChange={(e) => handleLocalAssignmentChange(p.id, u.id, 'manager', e.target.checked)}
                         />
                         <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700, color: 'var(--txt2)' }}>{u.initials}</div>
                         <div style={{ flex: 1 }}>

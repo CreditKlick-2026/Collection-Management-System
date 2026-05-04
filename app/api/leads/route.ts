@@ -118,7 +118,12 @@ export async function GET(request: Request) {
         assignedAgent: {
           select: { id: true, name: true, empId: true }
         },
-        portfolio: true
+        portfolio: true,
+        settlements: {
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+          select: { status: true, amount: true, reason: true }
+        }
       },
       orderBy: { dpd: 'desc' }
     };

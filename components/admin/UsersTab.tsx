@@ -2,6 +2,7 @@ import React from 'react';
 
 interface UsersTabProps {
   users: any[];
+  loading?: boolean;
   setEditUser: (user: any) => void;
   setIsEditModalOpen: (open: boolean) => void;
   handleEditClick: (user: any) => void;
@@ -13,6 +14,7 @@ interface UsersTabProps {
 
 const UsersTab: React.FC<UsersTabProps> = ({
   users,
+  loading,
   setEditUser,
   setIsEditModalOpen,
   handleEditClick,
@@ -50,8 +52,47 @@ const UsersTab: React.FC<UsersTabProps> = ({
             </tr>
           </thead>
           <tbody style={{ background: 'transparent' }}>
-            {users.map(u => (
-              <tr key={u.id} style={{ background: 'rgba(255,255,255,0.02)' }}>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={`skel-${i}`} style={{ background: 'rgba(255,255,255,0.02)' }}>
+                  <td style={{ padding: '12px 10px', borderRadius: '8px 0 0 8px' }}>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <div className="skel" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                      <div>
+                        <div className="skel" style={{ width: 100, height: 14, marginBottom: 4 }} />
+                        <div className="skel" style={{ width: 150, height: 10 }} />
+                      </div>
+                    </div>
+                  </td>
+                  <td><div className="skel" style={{ width: 60, height: 14 }} /></td>
+                  <td><div className="skel" style={{ width: 50, height: 18, borderRadius: 12 }} /></td>
+                  <td>
+                    <div className="skel" style={{ width: 80, height: 14, marginBottom: 4 }} />
+                    <div className="skel" style={{ width: 60, height: 10 }} />
+                  </td>
+                  <td><div className="skel" style={{ width: 120, height: 14 }} /></td>
+                  <td><div className="skel" style={{ width: 70, height: 14 }} /></td>
+                  <td><div className="skel" style={{ width: 50, height: 22, borderRadius: 6 }} /></td>
+                  <td style={{ borderRadius: '0 8px 8px 0' }}>
+                    <div style={{ display: 'flex', gap: 5 }}>
+                      <div className="skel" style={{ width: 38, height: 26, borderRadius: 6 }} />
+                      <div className="skel" style={{ width: 28, height: 26, borderRadius: 6 }} />
+                      <div className="skel" style={{ width: 70, height: 26, borderRadius: 6 }} />
+                      <div className="skel" style={{ width: 48, height: 26, borderRadius: 6 }} />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : users.length === 0 ? (
+              <tr>
+                <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--txt3)' }}>
+                  <div style={{ fontSize: 24, marginBottom: 10 }}>👤</div>
+                  No users found.
+                </td>
+              </tr>
+            ) : (
+              users.map(u => (
+                <tr key={u.id} style={{ background: 'rgba(255,255,255,0.02)' }}>
                 <td style={{ padding: '12px 10px', borderRadius: '8px 0 0 8px' }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accbg)', color: 'var(--acc2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{u.initials}</div>
@@ -84,7 +125,8 @@ const UsersTab: React.FC<UsersTabProps> = ({
                   </div>
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>

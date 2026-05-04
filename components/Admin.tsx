@@ -331,18 +331,33 @@ const Admin = () => {
     setLoading(false);
   };
 
-  const handleAssignmentChange = async (portfolioId: string, userId: number, role: string, isChecked: boolean) => {
-    const action = isChecked ? 'connect' : 'disconnect';
+  const handleSavePortfolio = async (portfolioId: string, agentIds: number[], managerIds: number[]) => {
     const res = await fetch('/api/admin/portfolios', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: portfolioId, userId, role, action })
+      body: JSON.stringify({ id: portfolioId, action: 'bulk', agentIds, managerIds })
     });
     if (res.ok) {
       fetchData();
-      toast(isChecked ? 'Access Granted' : 'Access Removed');
+      toast('Portfolio saved successfully');
     } else {
-      toast('Failed to update assignment');
+      toast('Failed to save portfolio');
+    }
+  };
+
+  const handleDeletePortfolio = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/portfolios?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        const data = await res.json();
+        toast(`Portfolio deleted — ${data.stats?.agentsDisconnected || 0} agents, ${data.stats?.managersDisconnected || 0} managers disconnected, ${data.stats?.customersUnassigned || 0} customers unassigned`);
+        fetchData();
+      } else {
+        const err = await res.json();
+        toast(err.message || 'Failed to delete portfolio');
+      }
+    } catch {
+      toast('Error deleting portfolio');
     }
   };
 
@@ -801,7 +816,6 @@ const Admin = () => {
     { id: 'users', label: 'Users', icon: '👤' },
     { id: 'portfolios', label: 'Portfolios', icon: '📁' },
     { id: 'columns', label: 'Columns', icon: '▦' },
-    { id: 'dashboard', label: 'Dashboard Fields', icon: '▣' },
     { id: 'bulk', label: 'Bulk Upload', icon: '↑' },
     { id: 'lists', label: 'Master Lists', icon: '☰' },
     { id: 'role', label: 'Role Access', icon: '🔒' },
@@ -840,6 +854,7 @@ const Admin = () => {
         {activeTab === 'users' && (
           <UsersTab 
             users={users}
+            loading={loading}
             setEditUser={setEditUser}
             setIsEditModalOpen={setIsEditModalOpen}
             handleEditClick={handleEditClick}
@@ -860,7 +875,8 @@ const Admin = () => {
             handleAddPortfolio={handleAddPortfolio}
             portfolios={portfolios}
             users={users}
-            handleAssignmentChange={handleAssignmentChange}
+            onSavePortfolio={handleSavePortfolio}
+            onDeletePortfolio={handleDeletePortfolio}
           />
         )}
 
