@@ -1154,7 +1154,7 @@ const Leads = () => {
         {/* CUSTOMER DASHBOARD HEADER */}
         {!isTableMaximized && (
           <div id="custDash" className="cust-dash filled" style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)' }}>
-            <div className="cust-dash-header">
+            <div className="cust-dash-header" style={{ alignItems: 'flex-start' }}>
               
               {/* LEFT SIDE: Avatar + Name OR skeleton OR placeholder */}
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1188,27 +1188,17 @@ const Leads = () => {
                             <span style={{ fontSize: 12 }}>✕</span> Not Eligible for Upgrade
                           </span>
                         )}
-                        <button style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
-                          onClick={() => openModal(`📋 Payment History — ${selectedLead.name}`, <PaymentHistoryModal lead={selectedLead} />, 900)}
-                        >
-                          📋 History
-                        </button>
-                        <button style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.3)', color: 'var(--pur)', padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
-                          onClick={() => openModal(`📊 Payment Summary — ${selectedLead.name}`, <PaymentSummaryModal lead={selectedLead} />, 700)}
-                        >
-                          📊 Summary
-                        </button>
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', overflow: 'hidden' }}>
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {(selectedLead.account_no || '').replace(/LN-|-/g, '')} - {selectedLead.product || 'Personal Loan'} - {selectedLead.bank || 'HDFC Bank'}
-                        </span>
                         {leadPaySummary !== null && (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '1px 8px', borderRadius: 10, fontSize: 10, border: '1px solid rgba(34,197,94,0.25)', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
                             💰 Total Paid: ₹{Number(leadPaySummary.cleared || 0).toLocaleString('en-IN')}
                             {leadPaySummary.clearedCount > 0 && <span style={{ opacity: 0.7, fontWeight: 400 }}>({leadPaySummary.clearedCount})</span>}
                           </span>
                         )}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', overflow: 'hidden' }}>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {(selectedLead.account_no || '').replace(/LN-|-/g, '')} - {selectedLead.product || 'Personal Loan'} - {selectedLead.bank || 'HDFC Bank'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1223,6 +1213,18 @@ const Leads = () => {
                     onClick={() => selectedLead && openModal(`Record Payment — ${selectedLead.name}`, <RecordLeadPaymentModal lead={selectedLead} onDone={fetchLeads} />, 800)}
                   >
                     💳 Payment
+                  </button>
+                  <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '6px 12px' }}
+                    disabled={!selectedLead}
+                    onClick={() => selectedLead && openModal(`📋 Payment History — ${selectedLead.name}`, <PaymentHistoryModal lead={selectedLead} />, 900)}
+                  >
+                    📋 Payment History
+                  </button>
+                  <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: 'var(--pur)', padding: '6px 12px' }}
+                    disabled={!selectedLead}
+                    onClick={() => selectedLead && openModal(`📊 Payment Summary — ${selectedLead.name}`, <PaymentSummaryModal lead={selectedLead} />, 700)}
+                  >
+                    📊 Summary
                   </button>
                   <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }} 
                     onClick={() => openModal(`📞 Call Logs ${selectedLead ? `— ${selectedLead.name}` : ''}`, <CallLogsModal lead={selectedLead} />, 1100)}

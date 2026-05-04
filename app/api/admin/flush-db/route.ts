@@ -22,14 +22,14 @@ export async function POST(request: Request) {
 
     // 2. Perform Cleanup
     if (action === 'all') {
-      await prisma.$transaction([
-        prisma.auditLog.deleteMany(),
-        prisma.settlement.deleteMany(),
-        prisma.dispute.deleteMany(),
-        prisma.pTP.deleteMany(),
-        prisma.payment.deleteMany(),
-        prisma.customer.deleteMany(),
-      ]);
+      // Execute sequentially to avoid Postgres lock escalation timeouts or transaction deadlocks
+      await prisma.auditLog.deleteMany();
+      await prisma.bulkUploadJob.deleteMany();
+      await prisma.settlement.deleteMany();
+      await prisma.dispute.deleteMany();
+      await prisma.pTP.deleteMany();
+      await prisma.payment.deleteMany();
+      await prisma.customer.deleteMany();
     } else if (action === 'audit') {
       await prisma.auditLog.deleteMany();
     } else if (action === 'selective') {
@@ -75,14 +75,12 @@ export async function POST(request: Request) {
         });
       }
 
-      // 3. WIPE EVERYTHING EXCEPT PAYMENTS
-      await prisma.$transaction([
-        prisma.settlement.deleteMany({ where: { customerId: { in: allIds } } }),
-        prisma.dispute.deleteMany({ where: { customerId: { in: allIds } } }),
-        prisma.pTP.deleteMany({ where: { customerId: { in: allIds } } }),
-        prisma.auditLog.deleteMany({ where: { entityType: 'Customer', entityId: { in: allIds.map(String) } } }),
-        prisma.customer.deleteMany({ where: { id: { in: allIds } } }),
-      ]);
+      // 3. WIPE EVERYTHING EXCEPT PAYMENTS sequentially
+      await prisma.settlement.deleteMany({ where: { customerId: { in: allIds } } });
+      await prisma.dispute.deleteMany({ where: { customerId: { in: allIds } } });
+      await prisma.pTP.deleteMany({ where: { customerId: { in: allIds } } });
+      await prisma.auditLog.deleteMany({ where: { entityType: 'Customer', entityId: { in: allIds.map(String) } } });
+      await prisma.customer.deleteMany({ where: { id: { in: allIds } } });
 
       await logAudit({
         userId: Number(userId),
@@ -97,16 +95,16 @@ export async function POST(request: Request) {
         totalFound, 
         deletedCount: totalFound 
       });
-    } else {
-      // For 'audit' or other actions that didn't return early
-      await logAudit({
-        userId: Number(userId),
-        action: action === 'all' ? 'DATABASE_FLUSH' : 'AUDIT_LOG_CLEANUP',
-        entityType: 'System',
-        entityId: '0',
-        details: { message: action === 'all' ? 'Full database data flush performed' : 'Audit logs cleared' }
-      });
     }
+
+    // This runs for 'all' and 'audit' actions (since 'selective' returns early)
+    await logAudit({
+      userId: Number(userId),
+      action: action === 'all' ? 'DATABASE_FLUSH' : 'AUDIT_LOG_CLEANUP',
+      entityType: 'System',
+      entityId: '0',
+      details: { message: action === 'all' ? 'Full database data flush performed' : 'Audit logs cleared' }
+    });
 
     return NextResponse.json({ message: 'Action completed successfully' });
   } catch (error) {

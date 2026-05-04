@@ -312,39 +312,71 @@ const Admin = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    if (activeTab === 'users' || activeTab === 'bulk') {
-      const res = await fetch(`/api/admin/users?requesterId=${user?.id}`);
-      const data = await res.json();
-      setUsers(Array.isArray(data) ? data : []);
+    try {
+      const safeFetch = async (url: string) => {
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        } catch (e) {
+          console.error(`Failed to fetch ${url}:`, e);
+          return null;
+        }
+      };
+
+      if (activeTab === 'users' || activeTab === 'bulk') {
+        const data = await safeFetch(`/api/admin/users?requesterId=${user?.id}`);
+        setUsers(Array.isArray(data) ? data : []);
+      }
+
+      if (activeTab === 'portfolios' || activeTab === 'bulk') {
+        const data = await safeFetch(`/api/admin/portfolios?requesterId=${user?.id}`);
+        setPortfolios(Array.isArray(data) ? data : []);
+      }
+
+      // Run these in parallel where possible
+      const parallelFetches: Promise<void>[] = [];
+
+      if (activeTab === 'columns') {
+        parallelFetches.push(
+          safeFetch('/api/admin/columns').then(data => setColumns(Array.isArray(data) ? data : []))
+        );
+      }
+
+      if (activeTab === 'bulk') {
+        parallelFetches.push(
+          safeFetch('/api/admin/columns').then(data => setColumns(Array.isArray(data) ? data : []))
+        );
+        parallelFetches.push(
+          safeFetch('/api/admin/bulk-upload/fields').then(data => {
+            if (data) setUploadFields({ staticFields: data.staticFields || [], customFields: data.customFields || [] });
+          })
+        );
+      }
+
+      if (activeTab === 'audit') {
+        parallelFetches.push(
+          safeFetch(`/api/admin/audit-logs?requesterId=${user?.id}`).then(data => setAuditLogs(Array.isArray(data) ? data : []))
+        );
+      }
+
+      if (activeTab === 'lists') {
+        parallelFetches.push(
+          safeFetch('/api/admin/master-lists').then(data => setMasterLists(Array.isArray(data) ? data : []))
+        );
+      }
+
+      if (parallelFetches.length > 0) {
+        await Promise.all(parallelFetches);
+      }
+
+    } catch (e) {
+      console.error('fetchData error:', e);
+    } finally {
+      setLoading(false);
     }
-    if (activeTab === 'portfolios' || activeTab === 'bulk') {
-      const res = await fetch(`/api/admin/portfolios?requesterId=${user?.id}`);
-      const data = await res.json();
-      setPortfolios(Array.isArray(data) ? data : []);
-    }
-    if (activeTab === 'columns' || activeTab === 'bulk') {
-      const res = await fetch('/api/admin/columns');
-      const data = await res.json();
-      setColumns(Array.isArray(data) ? data : []);
-    }
-    if (activeTab === 'bulk') {
-      // Fetch all accepted fields (static schema + dynamic custom) from backend
-      const res = await fetch('/api/admin/bulk-upload/fields');
-      const data = await res.json();
-      setUploadFields({ staticFields: data.staticFields || [], customFields: data.customFields || [] });
-    }
-    if (activeTab === 'audit') {
-      const res = await fetch(`/api/admin/audit-logs?requesterId=${user?.id}`);
-      const data = await res.json();
-      setAuditLogs(Array.isArray(data) ? data : []);
-    }
-    if (activeTab === 'lists') {
-      const res = await fetch('/api/admin/master-lists');
-      const data = await res.json();
-      setMasterLists(Array.isArray(data) ? data : []);
-    }
-    setLoading(false);
   };
+
 
   const handleSavePortfolio = async (portfolioId: number, agentIds: number[], managerIds: number[]) => {
     const res = await fetch('/api/admin/portfolios', {
