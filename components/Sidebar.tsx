@@ -10,6 +10,24 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user, isMobileOpen }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Load state from localStorage on mount
+  React.useEffect(() => {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    if (saved !== null) setCollapsed(saved === 'true');
+    
+    // Use a small timeout to ensure the state is applied before enabling transitions
+    const timer = setTimeout(() => setMounted(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Save state to localStorage when changed
+  const toggleCollapse = () => {
+    const newState = !collapsed;
+    setCollapsed(newState);
+    localStorage.setItem('sidebar-collapsed', String(newState));
+  };
 
   const navItems = [
     { 
@@ -49,7 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user, isMo
   const sections = ['OPERATIONS', 'RECOVERY', 'MANAGEMENT'];
 
   return (
-    <div className={`sidebar ${collapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}>
+    <div className={`sidebar ${collapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''} ${!mounted ? 'no-transition' : ''}`}>
 
       {sections.map(sec => {
         const items = navItems.filter(i => i.section === sec && (!i.roles || i.roles.includes(user?.role)));
@@ -70,19 +88,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, user, isMo
                 {item.hasDot && <span className="ni-dot"></span>}
               </div>
             ))}
-            {sec === 'RECOVERY' && (
-              <div className="sidebar-header" style={{ marginTop: 20 }}>
-                <div className="sidebar-toggle" onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="15 18 9 12 15 6"/>
-                  </svg>
-                </div>
-              </div>
-            )}
             <div style={{ height: 10 }}></div>
           </React.Fragment>
         );
       })}
+
+      {/* Spacer pushes toggle to bottom */}
+      <div style={{ flex: 1 }} />
+
+      {/* Bottom toggle button */}
+      <div className="sidebar-header">
+        <div className="sidebar-toggle" onClick={toggleCollapse} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </div>
+      </div>
     </div>
   );
 };

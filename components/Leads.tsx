@@ -1177,8 +1177,10 @@ const Leads = () => {
                         {selectedLead.name?.split(' ').map((n: any) => n[0]).join('').substring(0, 2)}
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--txt)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--txt)', marginBottom: 4 }}>
                           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedLead.name}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                           {selectedLead.eligible_upgrade === 'Y' ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 11, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
                               <span style={{ fontSize: 12 }}>✓</span> Eligible for Upgrade
@@ -1189,9 +1191,9 @@ const Leads = () => {
                             </span>
                           )}
                           {leadPaySummary !== null && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '1px 8px', borderRadius: 10, fontSize: 10, border: '1px solid rgba(34,197,94,0.25)', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '2px 8px', borderRadius: 10, fontSize: 11, border: '1px solid rgba(34,197,94,0.25)', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
                               💰 Total Paid: ₹{Number(leadPaySummary.cleared || 0).toLocaleString('en-IN')}
-                              {leadPaySummary.clearedCount > 0 && <span style={{ opacity: 0.7, fontWeight: 400 }}>({leadPaySummary.clearedCount})</span>}
+                              {leadPaySummary.clearedCount > 0 && <span style={{ opacity: 0.7, fontWeight: 400, marginLeft: 2 }}>({leadPaySummary.clearedCount})</span>}
                             </span>
                           )}
                         </div>

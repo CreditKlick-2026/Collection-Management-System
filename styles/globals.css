@@ -201,6 +201,13 @@ body {
 .sidebar-toggle svg {
   transition: transform 0.22s cubic-bezier(.4,0,.2,1);
 }
+.sidebar.no-transition {
+  transition: none !important;
+}
+
+.sidebar.no-transition * {
+  transition: none !important;
+}
 
 .sidebar.collapsed .sidebar-toggle svg {
   transform: rotate(180deg);
