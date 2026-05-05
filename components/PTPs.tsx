@@ -195,11 +195,11 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
       </div>
 
       <div className="ff" style={{ marginBottom: isAgent ? 0 : 25 }}>
-        <label>VOC / CALL NOTES</label>
+        <label>SUB DISPOSITION / VOC</label>
         <textarea className="finp" rows={3} style={{ resize: 'vertical' }} value={form.voc} onChange={e => setForm({ ...form, voc: e.target.value })} disabled={isAgent} />
       </div>
 
-      {!isAgent && (
+      {!isAgent ? (
         <>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, textTransform: 'uppercase' }}>
             MANAGER REVIEW
@@ -225,7 +225,27 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
             {loading ? 'Saving...' : '✓ Save PTP'}
           </button>
         </>
-      )}
+      ) : item?.flag ? (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, marginTop: 25, textTransform: 'uppercase' }}>
+            MANAGER REVIEW FEEDBACK
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 10 }}>
+            <div className="ff">
+              <label>REVIEW STATUS</label>
+              <div style={{ padding: '10px 12px', background: 'var(--bg2)', borderRadius: 6, border: '1px solid var(--bdr)', color: item.flag === 'approved' ? 'var(--grn)' : item.flag === 'rejected' ? 'var(--red)' : 'var(--amb)', fontWeight: 600, textTransform: 'capitalize' }}>
+                {item.flag}
+              </div>
+            </div>
+            <div className="ff">
+              <label>MANAGER COMMENT</label>
+              <div style={{ padding: '10px 12px', background: 'var(--bg2)', borderRadius: 6, border: '1px solid var(--bdr)', color: 'var(--txt)' }}>
+                {item.flag_comment || item.rejection_reason || '—'}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 };
@@ -392,7 +412,7 @@ const PTPs = () => {
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Date</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Agent</th>
-                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>VOC</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Sub Disposition</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px' }}></th>
                   </tr>
                 </thead>

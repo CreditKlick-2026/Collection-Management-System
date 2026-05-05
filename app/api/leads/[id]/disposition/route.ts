@@ -42,6 +42,7 @@ export async function POST(
             date: data.date,
             status: 'pending',
             agentId: parsedUserId || 1,
+            voc: data.subDisposition || '',
             remarks: data.remarks,
             created: new Date().toISOString().split('T')[0]
           }
