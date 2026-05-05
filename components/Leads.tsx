@@ -86,9 +86,9 @@ const PaymentHistoryModal = ({ lead }: { lead: any }) => {
   }, [lead?.id]);
 
   const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-    cleared:          { label: 'Cleared',          color: '#22c55e', bg: 'rgba(34,197,94,0.1)'   },
+    cleared: { label: 'Cleared', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
     pending_approval: { label: 'Pending Approval', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-    rejected:         { label: 'Rejected',         color: '#ef4444', bg: 'rgba(239,68,68,0.1)'  },
+    rejected: { label: 'Rejected', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
   };
 
   const filtered = (data?.payments || []).filter((p: any) => !statusFilter || p.status === statusFilter);
@@ -98,10 +98,10 @@ const PaymentHistoryModal = ({ lead }: { lead: any }) => {
       {/* Summary KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
         {[
-          { label: 'Total Payments', val: data?.summary?.count || 0,                                  color: 'var(--acc2)', bg: 'rgba(79,125,255,0.06)', isCount: true },
-          { label: 'Cleared',        val: data?.summary?.clearedCount || 0,                           color: '#22c55e',    bg: 'rgba(34,197,94,0.06)',   isCount: true },
-          { label: 'Pending',        val: data?.summary?.pendingCount || 0,                           color: '#f59e0b',    bg: 'rgba(245,158,11,0.06)', isCount: true },
-          { label: 'Rejected',       val: data?.summary?.rejectedCount || 0,                          color: '#ef4444',    bg: 'rgba(239,68,68,0.06)',  isCount: true },
+          { label: 'Total Payments', val: data?.summary?.count || 0, color: 'var(--acc2)', bg: 'rgba(79,125,255,0.06)', isCount: true },
+          { label: 'Cleared', val: data?.summary?.clearedCount || 0, color: '#22c55e', bg: 'rgba(34,197,94,0.06)', isCount: true },
+          { label: 'Pending', val: data?.summary?.pendingCount || 0, color: '#f59e0b', bg: 'rgba(245,158,11,0.06)', isCount: true },
+          { label: 'Rejected', val: data?.summary?.rejectedCount || 0, color: '#ef4444', bg: 'rgba(239,68,68,0.06)', isCount: true },
         ].map(s => (
           <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.color}25`, borderRadius: 6, padding: '6px 10px', textAlign: 'center' }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.val}</div>
@@ -202,9 +202,9 @@ const PaymentSummaryModal = ({ lead }: { lead: any }) => {
           {/* Top KPI Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
             {[
-              { label: 'Total Collected', val: `₹${Number(s.cleared || 0).toLocaleString('en-IN')}`,  color: '#22c55e', bg: 'rgba(34,197,94,0.06)',   icon: '✅', note: `${s.clearedCount || 0} cleared payments` },
-              { label: 'Pending Approval',val: `₹${Number(s.pending || 0).toLocaleString('en-IN')}`,  color: '#f59e0b', bg: 'rgba(245,158,11,0.06)', icon: '⏳', note: `${s.pendingCount || 0} pending payments` },
-              { label: 'Rejected Amount', val: `₹${Number(s.rejected || 0).toLocaleString('en-IN')}`, color: '#ef4444', bg: 'rgba(239,68,68,0.06)',  icon: '❌', note: `${s.rejectedCount || 0} rejected payments` },
+              { label: 'Total Collected', val: `₹${Number(s.cleared || 0).toLocaleString('en-IN')}`, color: '#22c55e', bg: 'rgba(34,197,94,0.06)', icon: '✅', note: `${s.clearedCount || 0} cleared payments` },
+              { label: 'Pending Approval', val: `₹${Number(s.pending || 0).toLocaleString('en-IN')}`, color: '#f59e0b', bg: 'rgba(245,158,11,0.06)', icon: '⏳', note: `${s.pendingCount || 0} pending payments` },
+              { label: 'Rejected Amount', val: `₹${Number(s.rejected || 0).toLocaleString('en-IN')}`, color: '#ef4444', bg: 'rgba(239,68,68,0.06)', icon: '❌', note: `${s.rejectedCount || 0} rejected payments` },
             ].map(k => (
               <div key={k.label} style={{ background: k.bg, border: `1px solid ${k.color}25`, borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 20, marginBottom: 4 }}>{k.icon}</div>
@@ -809,39 +809,39 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
           <span>Outstanding: ₹{Number(lead.outstanding || 0).toLocaleString('en-IN')}</span>
         </div>
         <div style={{ flex: 2, minWidth: 250, background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.15)', padding: '10px 14px', borderRadius: 8, color: 'var(--amb)', fontSize: 11.5, lineHeight: 1.4, display: 'flex', alignItems: 'center' }}>
-          ⌛ Payment will go to <b style={{ color: 'var(--amb)', marginLeft: 4 }}>Pending Approval</b> queue. Manager approval required.
+          ⌛ Payment will go to <b style={{ color: 'var(--amb)', marginLeft: 4 }}>Pending Approval queue</b> . Manager approval required.
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div className="ff">
           <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>AMOUNT (₹) *</label>
-          <input className="finp" type="number" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} placeholder="0" />
+          <input className="finp" type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0" />
         </div>
         <div className="ff">
           <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT MODE</label>
-          <select className="finp" value={form.mode} onChange={e => setForm({...form, mode: e.target.value})}>
+          <select className="finp" value={form.mode} onChange={e => setForm({ ...form, mode: e.target.value })}>
             {['NEFT', 'IMPS', 'UPI', 'Cash', 'Cheque', 'DD'].map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <div className="ff">
           <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT DATE</label>
-          <input className="finp" type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+          <input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div className="ff">
           <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REFERENCE NO.</label>
-          <input className="finp" value={form.ref} onChange={e => setForm({...form, ref: e.target.value})} placeholder="UTR / Ref number" />
+          <input className="finp" value={form.ref} onChange={e => setForm({ ...form, ref: e.target.value })} placeholder="UTR / Ref number" />
         </div>
         <div className="ff">
           <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPDATE STATUS</label>
-          <select 
-            className="finp" 
+          <select
+            className="finp"
             style={{ height: '36px', borderRadius: 10, border: '1px solid var(--pur)', background: 'var(--purbg)', color: 'var(--pur)', fontWeight: 700 }}
             value={form.status}
-            onChange={e => setForm({...form, status: e.target.value})}
+            onChange={e => setForm({ ...form, status: e.target.value })}
           >
             {/* The user specifically wanted these 4 + current status */}
             {Array.from(new Set([lead.status || 'ACTIVE', 'Rollback', 'Rollforward', 'Normilization', 'STAB'])).map(s => (
@@ -855,7 +855,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div className="ff">
             <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG</label>
-            <select className="finp" value={form.upgradeFlag} onChange={e => setForm({...form, upgradeFlag: e.target.value, upgradeType: ''})}>
+            <select className="finp" value={form.upgradeFlag} onChange={e => setForm({ ...form, upgradeFlag: e.target.value, upgradeType: '' })}>
               <option value="">— Select —</option>
               <option value="Upgraded">Upgraded</option>
               <option value="Pending For Upgrade">Pending For Upgrade</option>
@@ -863,7 +863,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
           </div>
           <div className="ff">
             <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE</label>
-            <select className="finp" value={form.upgradeType} onChange={e => setForm({...form, upgradeType: e.target.value})} disabled={!form.upgradeFlag}>
+            <select className="finp" value={form.upgradeType} onChange={e => setForm({ ...form, upgradeType: e.target.value })} disabled={!form.upgradeFlag}>
               <option value="">— Select —</option>
               <option value="System">System</option>
               <option value="Payment Received">Payment Received</option>
@@ -876,7 +876,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
       <div className="ff" style={{ marginBottom: 15 }}>
         <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REMARKS / NOTES</label>
-        <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({...form, remarks: e.target.value})} placeholder="Payment notes..." />
+        <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} placeholder="Payment notes..." />
       </div>
 
       <button className="btn pr" style={{ width: '100%', padding: '12px', background: 'rgba(34,197,94,0.1)', color: 'var(--grn)', border: '1px solid rgba(34,197,94,0.2)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }} onClick={handleSubmit} disabled={loading}>
@@ -917,12 +917,12 @@ const Leads = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedLead?.id) { 
-      setLeadPaySummary(null); 
+    if (!selectedLead?.id) {
+      setLeadPaySummary(null);
       setLatestSettlement(null);
-      return; 
+      return;
     }
-    
+
     // Fetch payment summary
     fetch(`/api/leads/${selectedLead.id}/payments`)
       .then(r => r.json())
@@ -976,7 +976,7 @@ const Leads = () => {
 
       const res = await fetch(`/api/leads?${query.toString()}`, { cache: 'no-store' });
       const data = await res.json();
-      
+
       let leadsData = [];
       if (data.leads && Array.isArray(data.leads)) {
         leadsData = data.leads;
@@ -1006,25 +1006,25 @@ const Leads = () => {
 
   // Fixed column order & label overrides (independent of DB order)
   const COLUMN_ORDER: Record<string, { order: number; label: string }> = {
-    account_no:            { order: 1,  label: 'Account Number'        },
-    name:                  { order: 2,  label: 'Customer Name'         },
-    mobile:                { order: 3,  label: 'Mobile Number'         },
-    dpd:                   { order: 4,  label: 'DPD'                   },
-    product:               { order: 5,  label: 'Product Type'          },
-    bank:                  { order: 6,  label: 'Bank / Lender'         },
-    status:                { order: 7,  label: 'Status'                },
-    portfolio:             { order: 8,  label: 'Portfolio'             },
-    city:                  { order: 9,  label: 'City'                  },
-    state:                 { order: 10, label: 'State'                 },
-    email:                 { order: 11, label: 'Email'                 },
-    address:               { order: 13, label: 'Address'               },
-    min_amt_due:           { order: 14, label: 'Min Amount Due'        },
+    account_no: { order: 1, label: 'Account Number' },
+    name: { order: 2, label: 'Customer Name' },
+    mobile: { order: 3, label: 'Mobile Number' },
+    dpd: { order: 4, label: 'DPD' },
+    product: { order: 5, label: 'Product Type' },
+    bank: { order: 6, label: 'Bank / Lender' },
+    status: { order: 7, label: 'Status' },
+    portfolio: { order: 8, label: 'Portfolio' },
+    city: { order: 9, label: 'City' },
+    state: { order: 10, label: 'State' },
+    email: { order: 11, label: 'Email' },
+    address: { order: 13, label: 'Address' },
+    min_amt_due: { order: 14, label: 'Min Amount Due' },
     principle_outstanding: { order: 15, label: 'Principle Outstanding' },
-    outstanding:           { order: 16, label: 'Total Outstanding'     },
-    pan:                   { order: 17, label: 'PAN Number'            },
-    bkt_2:                 { order: 18, label: 'Bucket'                },
-    createdat:             { order: 19, label: 'Allocation Date'       },
-    assignedagent:         { order: 20, label: 'Assigned Agent'        },
+    outstanding: { order: 16, label: 'Total Outstanding' },
+    pan: { order: 17, label: 'PAN Number' },
+    bkt_2: { order: 18, label: 'Bucket' },
+    createdat: { order: 19, label: 'Allocation Date' },
+    assignedagent: { order: 20, label: 'Assigned Agent' },
   };
 
   const applyOrder = (cols: any[]) =>
@@ -1052,12 +1052,12 @@ const Leads = () => {
     const [loading, setLoading] = useState(false);
 
     const reasons = [
-      'Accident', 
-      'dispute', 
-      'medical issue', 
-      'job loss', 
-      'business Loss', 
-      'depht in family', 
+      'Accident',
+      'dispute',
+      'medical issue',
+      'job loss',
+      'business Loss',
+      'depht in family',
       'customer dead'
     ];
 
@@ -1151,364 +1151,392 @@ const Leads = () => {
       `}</style>
       <div id="pg-leads" className="page on">
         <div className="leads-wrapper">
-        {/* CUSTOMER DASHBOARD HEADER */}
-        {!isTableMaximized && (
-          <div id="custDash" className="cust-dash filled" style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)' }}>
-            <div className="cust-dash-header" style={{ alignItems: 'flex-start' }}>
-              
-              {/* LEFT SIDE: Avatar + Name OR skeleton OR placeholder */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {loading ? (
-                  <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--faint)', flexShrink: 0 }} className="skel" />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div className="skel" style={{ width: 180, maxWidth: '100%', height: 16, marginBottom: 8 }} />
-                      <div className="skel" style={{ width: 260, maxWidth: '100%', height: 11 }} />
-                    </div>
-                  </div>
-                ) : !selectedLead ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--txt3)', height: 48 }}>
-                    <div style={{ fontSize: '20px', opacity: 0.5 }}>◉</div>
-                    <div>Search and select a customer below to view details</div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                    <div className="av" style={{ flexShrink: 0, width: 48, height: 48, fontSize: 18, background: 'var(--faint)', color: 'var(--acc2)', border: '1px solid var(--bdr)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {selectedLead.name?.split(' ').map((n: any) => n[0]).join('').substring(0, 2)}
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--txt)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedLead.name}</span>
-                        {selectedLead.eligible_upgrade === 'Y' ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 11, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
-                            <span style={{ fontSize: 12 }}>✓</span> Eligible for Upgrade
-                          </span>
-                        ) : (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(226,75,74,0.1)', color: 'var(--red)', padding: '2px 8px', borderRadius: 12, fontSize: 11, border: '1px solid rgba(226,75,74,0.3)', fontWeight: 600 }}>
-                            <span style={{ fontSize: 12 }}>✕</span> Not Eligible for Upgrade
-                          </span>
-                        )}
-                        {leadPaySummary !== null && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '1px 8px', borderRadius: 10, fontSize: 10, border: '1px solid rgba(34,197,94,0.25)', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                            💰 Total Paid: ₹{Number(leadPaySummary.cleared || 0).toLocaleString('en-IN')}
-                            {leadPaySummary.clearedCount > 0 && <span style={{ opacity: 0.7, fontWeight: 400 }}>({leadPaySummary.clearedCount})</span>}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', overflow: 'hidden' }}>
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {(selectedLead.account_no || '').replace(/LN-|-/g, '')} - {selectedLead.product || 'Personal Loan'} - {selectedLead.bank || 'HDFC Bank'}
-                        </span>
+          {/* CUSTOMER DASHBOARD HEADER */}
+          {!isTableMaximized && (
+            <div id="custDash" className="cust-dash filled" style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)' }}>
+              <div className="cust-dash-header" style={{ alignItems: 'flex-start' }}>
+
+                {/* LEFT SIDE: Avatar + Name OR skeleton OR placeholder */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {loading ? (
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--faint)', flexShrink: 0 }} className="skel" />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="skel" style={{ width: 180, maxWidth: '100%', height: 16, marginBottom: 8 }} />
+                        <div className="skel" style={{ width: 260, maxWidth: '100%', height: 11 }} />
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* RIGHT SIDE: Action Buttons & Filters */}
-              <div className="cust-dash-actions">
-                <div className="cust-dash-actions-btns">
-                  <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--grn)', padding: '6px 12px' }} 
-                    disabled={!selectedLead}
-                    onClick={() => selectedLead && openModal(`Record Payment — ${selectedLead.name}`, <RecordLeadPaymentModal lead={selectedLead} onDone={fetchLeads} />, 800)}
-                  >
-                    💳 Payment
-                  </button>
-                  <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '6px 12px' }}
-                    disabled={!selectedLead}
-                    onClick={() => selectedLead && openModal(`📋 Payment History — ${selectedLead.name}`, <PaymentHistoryModal lead={selectedLead} />, 900)}
-                  >
-                    📋 Payment History
-                  </button>
-                  <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: 'var(--pur)', padding: '6px 12px' }}
-                    disabled={!selectedLead}
-                    onClick={() => selectedLead && openModal(`📊 Payment Summary — ${selectedLead.name}`, <PaymentSummaryModal lead={selectedLead} />, 700)}
-                  >
-                    📊 Summary
-                  </button>
-                  <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }} 
-                    onClick={() => openModal(`📞 Call Logs ${selectedLead ? `— ${selectedLead.name}` : ''}`, <CallLogsModal lead={selectedLead} />, 1100)}
-                  >
-                    📞 Call Logs
-                  </button>
-                  <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(79,125,255,0.1)', border: '1px solid rgba(79,125,255,0.3)', color: 'var(--acc2)', padding: '6px 12px' }}
-                    disabled={!selectedLead}
-                    onClick={() => selectedLead && openModal('Edit Lead Disposition', <EditLeadModal lead={selectedLead} onDone={fetchLeads} />)}
-                  >
-                    ✎ VOC UPDATE
-                  </button>
-                  <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', color: 'var(--red)', padding: '6px 12px' }}
-                    disabled={!selectedLead}
-                    onClick={() => selectedLead && openModal(`Raise Settlement — ${selectedLead.name}`, <RaiseSettlementModal lead={selectedLead} onDone={fetchLeads} />, 600)}
-                  >
-                    ⚖️ Settlement
-                  </button>
+                  ) : !selectedLead ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--txt3)', height: 48 }}>
+                      <div style={{ fontSize: '20px', opacity: 0.5 }}>◉</div>
+                      <div>Search and select a customer below to view details</div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                      <div className="av" style={{ flexShrink: 0, width: 48, height: 48, fontSize: 18, background: 'var(--faint)', color: 'var(--acc2)', border: '1px solid var(--bdr)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {selectedLead.name?.split(' ').map((n: any) => n[0]).join('').substring(0, 2)}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--txt)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedLead.name}</span>
+                          {selectedLead.eligible_upgrade === 'Y' ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 11, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
+                              <span style={{ fontSize: 12 }}>✓</span> Eligible for Upgrade
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(226,75,74,0.1)', color: 'var(--red)', padding: '2px 8px', borderRadius: 12, fontSize: 11, border: '1px solid rgba(226,75,74,0.3)', fontWeight: 600 }}>
+                              <span style={{ fontSize: 12 }}>✕</span> Not Eligible for Upgrade
+                            </span>
+                          )}
+                          {leadPaySummary !== null && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '1px 8px', borderRadius: 10, fontSize: 10, border: '1px solid rgba(34,197,94,0.25)', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              💰 Total Paid: ₹{Number(leadPaySummary.cleared || 0).toLocaleString('en-IN')}
+                              {leadPaySummary.clearedCount > 0 && <span style={{ opacity: 0.7, fontWeight: 400 }}>({leadPaySummary.clearedCount})</span>}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', overflow: 'hidden' }}>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {(selectedLead.account_no || '').replace(/LN-|-/g, '')} - {selectedLead.product || 'Personal Loan'} - {selectedLead.bank || 'HDFC Bank'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="cust-dash-filters">
-                  <select 
-                    className="finp" 
-                    style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }} 
-                    value={filterMonth || String(new Date().getMonth() + 1)} 
-                    onChange={e => setFilterMonth(e.target.value)}
-                  >
-                    <option value="all">All Months</option>
-                    {Array.from({ length: 12 }).map((_, i) => <option key={i + 1} value={i + 1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'short' })}</option>)}
-                  </select>
-                  <select 
-                    className="finp" 
-                    style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }} 
-                    value={filterYear || String(new Date().getFullYear())} 
-                    onChange={e => setFilterYear(e.target.value)}
-                  >
-                    <option value="all">All Years</option>
-                    {[0, 1, 2, 3, 4].map(y => {
-                      const yr = new Date().getFullYear() - y;
-                      return <option key={yr} value={yr}>{yr}</option>;
-                    })}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* LOWER SIDE: Grid Info Boxes */}
-            {loading ? (
-              <div className="cust-dash-grid">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="cust-dash-grid-item">
-                    <div className="skel" style={{ width: '60%', height: 8, marginBottom: 2 }} />
-                    <div className="skel" style={{ width: '80%', height: 11 }} />
-                  </div>
-                ))}
-              </div>
-            ) : selectedLead ? (
-              <div className="cust-dash-grid">
-                {(profileCols.length > 0 ? profileCols : [
-                  { label: 'ACCOUNT NUMBER', key: 'account_no' },
-                  { label: 'MOBILE NUMBER', key: 'mobile' },
-                  { label: 'OUTSTANDING', key: 'outstanding', type: 'amount' },
-                  { label: 'STATUS', key: 'status' }
-                ]).map((item: any, i: number) => {
-                  const lowerKey = item.key?.toLowerCase();
-                  const rawVal = selectedLead[item.key] ?? selectedLead[lowerKey]
-                    ?? selectedLead.metadata?.[item.key] ?? selectedLead.metadata?.[lowerKey]
-                    ?? selectedLead.metadata?.[item.label] ?? selectedLead.metadata?.[item.label?.toUpperCase()] ?? '—';
-                  const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
-                  
-                  const isMobile = lowerKey === 'mobile' || lowerKey === 'mobile_number' || lowerKey === 'mobile_no';
-                  const allAlts = Array.from(new Set([
-                    selectedLead.alt_mobile,
-                    selectedLead.alt_mobile_2,
-                    selectedLead.alt_mobile_3,
-                    selectedLead.alt_mobile_4,
-                    selectedLead.metadata?.alt_mobile,
-                    selectedLead.metadata?.ALT_MOBILE,
-                    selectedLead.metadata?.['ALT MOBILE'],
-                    selectedLead.metadata?.alt_mobile_2,
-                    selectedLead.metadata?.alt_mobile_3,
-                    selectedLead.metadata?.alt_mobile_4
-                  ])).filter(n => n && n !== '—' && n !== val);
-                  
-                  return (
-                    <div key={i} className={`cust-dash-grid-item ${isMobile && allAlts.length > 0 ? 'num-dropdown' : ''}`} 
-                      style={{ position: 'relative', overflow: 'visible' }}
+                {/* RIGHT SIDE: Action Buttons & Filters */}
+                <div className="cust-dash-actions">
+                  <div className="cust-dash-actions-btns">
+                    <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--grn)', padding: '6px 12px' }}
+                      disabled={!selectedLead}
+                      onClick={() => selectedLead && openModal(`Record Payment — ${selectedLead.name}`, <RecordLeadPaymentModal lead={selectedLead} onDone={fetchLeads} />, 800)}
                     >
-                      <div className="item-lbl" title={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{item.label}</span>
-                        {isMobile && allAlts.length > 0 && (
-                          <div 
-                            style={{ padding: '2px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenAltIdx(openAltIdx === i ? null : i);
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: 10, height: 10, color: 'var(--acc2)', transform: openAltIdx === i ? 'rotate(180deg)' : 'none', transition: '0.2s' }}>
-                              <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                          </div>
-                        )}
-                        {isMobile && allAlts.length > 0 && (
-                          <div className={`num-dropdown-list ${openAltIdx === i ? 'show' : ''}`}>
-                            <div style={{ padding: '8px 15px', fontSize: 10, color: 'var(--acc2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--faint)', marginBottom: 5 }}>Contact Numbers</div>
-                            <div style={{ padding: '10px 15px', fontSize: 12, color: 'var(--txt)', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span>{val}</span>
-                              <span style={{ color: 'var(--grn)', fontSize: 9, background: 'rgba(34,197,94,0.1)', padding: '2px 6px', borderRadius: 4 }}>PRIMARY</span>
-                            </div>
-                            {allAlts.map((alt, idx) => (
-                              <div key={idx} style={{ padding: '10px 15px', fontSize: 12, color: 'var(--txt2)', borderTop: '1px solid var(--faint)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>{String(alt)}</span>
-                                <span style={{ color: 'var(--txt3)', fontSize: 9, background: 'var(--faint)', padding: '2px 6px', borderRadius: 4 }}>ALT {idx + 1}</span>
-                              </div>
-                            ))}
-                            <div 
-                              style={{ padding: '8px 15px', fontSize: 10, textAlign: 'center', color: 'var(--red)', fontWeight: 700, cursor: 'pointer', borderTop: '1px solid var(--faint)', marginTop: 4 }}
-                              onClick={() => setOpenAltIdx(null)}
-                            >
-                              ✕ CLOSE
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className={`item-val ${item.type === 'amount' ? 'amt' : ''}`} title={String(val)}>
-                        {item.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` : 
-                         lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
-                         lowerKey === 'createdat' ? String(val).split('T')[0] :
-                         String(val)}
-                      </div>
-                    </div>
-                  );
-                })}
+                      💳 Payment
+                    </button>
+                    <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '6px 12px' }}
+                      disabled={!selectedLead}
+                      onClick={() => selectedLead && openModal(`📋 Payment History — ${selectedLead.name}`, <PaymentHistoryModal lead={selectedLead} />, 900)}
+                    >
+                      📋 Payment History
+                    </button>
+                    <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: 'var(--pur)', padding: '6px 12px' }}
+                      disabled={!selectedLead}
+                      onClick={() => selectedLead && openModal(`📊 Payment Summary — ${selectedLead.name}`, <PaymentSummaryModal lead={selectedLead} />, 700)}
+                    >
+                      📊 Summary
+                    </button>
+                    <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 12px' }}
+                      onClick={() => openModal(`📞 Call Logs ${selectedLead ? `— ${selectedLead.name}` : ''}`, <CallLogsModal lead={selectedLead} />, 1100)}
+                    >
+                      📞 Call Logs
+                    </button>
+                    <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(79,125,255,0.1)', border: '1px solid rgba(79,125,255,0.3)', color: 'var(--acc2)', padding: '6px 12px' }}
+                      disabled={!selectedLead}
+                      onClick={() => selectedLead && openModal('Edit Lead Disposition', <EditLeadModal lead={selectedLead} onDone={fetchLeads} />)}
+                    >
+                      ✎ VOC UPDATE
+                    </button>
+                    <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', color: 'var(--red)', padding: '6px 12px' }}
+                      disabled={!selectedLead}
+                      onClick={() => selectedLead && openModal(`Raise Settlement — ${selectedLead.name}`, <RaiseSettlementModal lead={selectedLead} onDone={fetchLeads} />, 600)}
+                    >
+                      ⚖️ Settlement
+                    </button>
+                  </div>
 
-                {/* Settlement Status Box */}
-                <div className="cust-dash-grid-item" style={{ border: '1px solid rgba(244,63,94,0.2)', background: 'rgba(244,63,94,0.03)', gridColumn: 'span 2', minWidth: 280 }}>
-                  <div className="item-lbl" style={{ color: 'var(--red)', fontWeight: 700 }}>SETTLEMENT STATUS</div>
-                  <div className="item-val" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 32 }}>
-                    {!latestSettlement ? (
-                      <span style={{ color: 'var(--txt3)', fontSize: 12, fontWeight: 600, opacity: 0.6 }}>No Request Raised</span>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        <span style={{ 
-                          color: latestSettlement.status === 'Approve' ? 'var(--grn)' : latestSettlement.status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
-                          fontWeight: 900,
-                          fontSize: 12,
-                          letterSpacing: 0.5
-                        }}>
-                          {latestSettlement.status === 'Approve' ? '✅ APPROVED' : 
-                           latestSettlement.status === 'Rejected' ? '❌ REJECTED' : 
-                           latestSettlement.status === 'Pending' ? '🔄 PENDING' : '⏳ RAISED'}
-                        </span>
-                        <button 
-                          style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 6, padding: '5px 12px', fontSize: 10, cursor: 'pointer', color: 'var(--txt)', fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'all 0.2s' }}
-                          onClick={() => openModal(`⚖️ Settlement History — ${selectedLead.name}`, <SettlementHistoryModal lead={selectedLead} />, 600)}
-                        >
-                          View History
-                        </button>
-                      </div>
-                    )}
+                  <div className="cust-dash-filters">
+                    <select
+                      className="finp"
+                      style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }}
+                      value={filterMonth || String(new Date().getMonth() + 1)}
+                      onChange={e => setFilterMonth(e.target.value)}
+                    >
+                      <option value="all">All Months</option>
+                      {Array.from({ length: 12 }).map((_, i) => <option key={i + 1} value={i + 1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'short' })}</option>)}
+                    </select>
+                    <select
+                      className="finp"
+                      style={{ fontSize: 11, padding: '4px 8px', width: 'auto', background: 'var(--bg3)', borderRadius: 16, border: '1px solid var(--bdr)' }}
+                      value={filterYear || String(new Date().getFullYear())}
+                      onChange={e => setFilterYear(e.target.value)}
+                    >
+                      <option value="all">All Years</option>
+                      {[0, 1, 2, 3, 4].map(y => {
+                        const yr = new Date().getFullYear() - y;
+                        return <option key={yr} value={yr}>{yr}</option>;
+                      })}
+                    </select>
                   </div>
                 </div>
               </div>
-            ) : null}
-          </div>
-        )}
 
-        {/* SEARCH BAR */}
-        <div className="sbar" style={{ padding: '8px 16px', borderBottom: '1px solid var(--bdr)', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div className="sinp-wrap" style={{ flex: 1, maxWidth: 350, background: 'var(--bg2)', borderRadius: 20, border: '1px solid var(--bdr)' }}>
-            <span style={{ padding: '0 10px', color: 'var(--txt3)', fontSize: 13 }}>⌕</span>
-            <input
-              className="sinp"
-              style={{ background: 'transparent', border: 'none', padding: '6px 0', fontSize: 12 }}
-              placeholder="Search by account, mobile, name, PAN..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {['All', 'Name', 'Mobile', 'Account', 'PAN'].map(t => (
-              <div key={t} className={`stab ${filterTab === t.toLowerCase() ? 'on' : ''}`} onClick={() => setFilterTab(t.toLowerCase())} style={{ borderRadius: 16, padding: '2px 10px', fontSize: 11 }}>{t}</div>
-            ))}
-          </div>
-          <SButton size="slim" variant="secondary" onClick={() => setShowFilters(!showFilters)}>⊞ More {showFilters ? '▲' : '▼'}</SButton>
-          <span style={{ fontSize: 12, color: 'var(--txt3)', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-            {leads.length} records
-            <button
-              onClick={() => setIsTableMaximized(!isTableMaximized)}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--txt2)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: 4, transition: '0.2s', backgroundColor: 'var(--bg3)' }}
-              title={isTableMaximized ? "Restore Layout" : "Maximize Table"}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {isTableMaximized ? (
-                  <>
-                    <polyline points="4 14 12 22 20 14"></polyline>
-                    <line x1="12" y1="2" x2="12" y2="22"></line>
-                  </>
-                ) : (
-                  <>
-                    <polyline points="4 10 12 2 20 10"></polyline>
-                    <line x1="12" y1="2" x2="12" y2="22"></line>
-                  </>
-                )}
-              </svg>
-            </button>
-          </span>
-        </div>
+              {/* LOWER SIDE: Grid Info Boxes */}
+              {loading ? (
+                <div className="cust-dash-grid">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="cust-dash-grid-item">
+                      <div className="skel" style={{ width: '60%', height: 8, marginBottom: 2 }} />
+                      <div className="skel" style={{ width: '80%', height: 11 }} />
+                    </div>
+                  ))}
+                </div>
+              ) : selectedLead ? (
+                <div className="cust-dash-grid">
+                  {(profileCols.length > 0 ? profileCols : [
+                    { label: 'ACCOUNT NUMBER', key: 'account_no' },
+                    { label: 'MOBILE NUMBER', key: 'mobile' },
+                    { label: 'OUTSTANDING', key: 'outstanding', type: 'amount' },
+                    { label: 'STATUS', key: 'status' }
+                  ]).map((item: any, i: number) => {
+                    const lowerKey = item.key?.toLowerCase();
+                    const rawVal = selectedLead[item.key] ?? selectedLead[lowerKey]
+                      ?? selectedLead.metadata?.[item.key] ?? selectedLead.metadata?.[lowerKey]
+                      ?? selectedLead.metadata?.[item.label] ?? selectedLead.metadata?.[item.label?.toUpperCase()] ?? '—';
+                    const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
 
-        {/* FILTER ROW */}
-        {showFilters && (
-          <div id="fRow" style={{ display: 'flex', padding: '10px 20px', background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select
-              className="finp"
-              style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }}
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-            >
-              <option value="">All Status</option>
-              {statusOptions.map(st => <option key={st} value={st}>{st}</option>)}
-            </select>
-            <input className="finp" type="number" placeholder="DPD Min" style={{ width: '90px', padding: '6px 10px' }} value={dpdMin} onChange={e => setDpdMin(e.target.value)} />
-            <input className="finp" type="number" placeholder="DPD Max" style={{ width: '90px', padding: '6px 10px' }} value={dpdMax} onChange={e => setDpdMax(e.target.value)} />
-            <input className="finp" type="number" placeholder="₹ Min" style={{ width: '100px', padding: '6px 10px' }} value={outMin} onChange={e => setOutMin(e.target.value)} />
-            <select className="finp" style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }} value={portfolioFilter} onChange={e => setPortfolioFilter(e.target.value)}>
-              <option value="">All Portfolios</option>
-              {portfolioOptions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <SButton size="slim" variant="critical" onClick={() => {
-              setStatusFilter(''); setDpdMin(''); setDpdMax(''); setOutMin(''); setPortfolioFilter(''); setSearch(''); setFilterTab('all');
-            }}>Clear Filters</SButton>
-          </div>
-        )}
+                    const isMobile = lowerKey === 'mobile' || lowerKey === 'mobile_number' || lowerKey === 'mobile_no';
+                    const allAlts = Array.from(new Set([
+                      selectedLead.alt_mobile,
+                      selectedLead.alt_mobile_2,
+                      selectedLead.alt_mobile_3,
+                      selectedLead.alt_mobile_4,
+                      selectedLead.metadata?.alt_mobile,
+                      selectedLead.metadata?.ALT_MOBILE,
+                      selectedLead.metadata?.['ALT MOBILE'],
+                      selectedLead.metadata?.alt_mobile_2,
+                      selectedLead.metadata?.alt_mobile_3,
+                      selectedLead.metadata?.alt_mobile_4
+                    ])).filter(n => n && n !== '—' && n !== val);
 
-        {/* RESULTS AREA */}
-        <div className="result-area hide-scrollbar" style={{ flex: 1, overflow: 'auto', background: 'var(--bg2)' }}>
-          <div className="result-area-mobile-scroll">
-            <table className="tbl" style={{ width: '100%', borderCollapse: 'collapse', whiteSpace: 'nowrap' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--bdr)' }}>
-                  {tableCols.length > 0 ? tableCols.map(col => (
-                    <th key={col.key} style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left' }}>
-                      {col.label}
-                    </th>
-                  )) : (
+                    return (
+                      <div key={i} className={`cust-dash-grid-item ${isMobile && allAlts.length > 0 ? 'num-dropdown' : ''}`}
+                        style={{ position: 'relative', overflow: 'visible' }}
+                      >
+                        <div className="item-lbl" title={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>{item.label}</span>
+                          {isMobile && allAlts.length > 0 && (
+                            <div
+                              style={{ padding: '2px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenAltIdx(openAltIdx === i ? null : i);
+                              }}
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: 10, height: 10, color: 'var(--acc2)', transform: openAltIdx === i ? 'rotate(180deg)' : 'none', transition: '0.2s' }}>
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                              </svg>
+                            </div>
+                          )}
+                          {isMobile && allAlts.length > 0 && (
+                            <div className={`num-dropdown-list ${openAltIdx === i ? 'show' : ''}`}>
+                              <div style={{ padding: '8px 15px', fontSize: 10, color: 'var(--acc2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--faint)', marginBottom: 5 }}>Contact Numbers</div>
+                              <div style={{ padding: '10px 15px', fontSize: 12, color: 'var(--txt)', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>{val}</span>
+                                <span style={{ color: 'var(--grn)', fontSize: 9, background: 'rgba(34,197,94,0.1)', padding: '2px 6px', borderRadius: 4 }}>PRIMARY</span>
+                              </div>
+                              {allAlts.map((alt, idx) => (
+                                <div key={idx} style={{ padding: '10px 15px', fontSize: 12, color: 'var(--txt2)', borderTop: '1px solid var(--faint)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span>{String(alt)}</span>
+                                  <span style={{ color: 'var(--txt3)', fontSize: 9, background: 'var(--faint)', padding: '2px 6px', borderRadius: 4 }}>ALT {idx + 1}</span>
+                                </div>
+                              ))}
+                              <div
+                                style={{ padding: '8px 15px', fontSize: 10, textAlign: 'center', color: 'var(--red)', fontWeight: 700, cursor: 'pointer', borderTop: '1px solid var(--faint)', marginTop: 4 }}
+                                onClick={() => setOpenAltIdx(null)}
+                              >
+                                ✕ CLOSE
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className={`item-val ${item.type === 'amount' ? 'amt' : ''}`} title={String(val)}>
+                          {item.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` :
+                            lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
+                              lowerKey === 'createdat' ? String(val).split('T')[0] :
+                                String(val)}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Settlement Status Box */}
+                  <div className="cust-dash-grid-item" style={{ border: '1px solid rgba(244,63,94,0.2)', background: 'rgba(244,63,94,0.03)', gridColumn: 'span 2', minWidth: 280 }}>
+                    <div className="item-lbl" style={{ color: 'var(--red)', fontWeight: 700 }}>SETTLEMENT STATUS</div>
+                    <div className="item-val" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 32 }}>
+                      {!latestSettlement ? (
+                        <span style={{ color: 'var(--txt3)', fontSize: 12, fontWeight: 600, opacity: 0.6 }}>No Request Raised</span>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                          <span style={{
+                            color: latestSettlement.status === 'Approve' ? 'var(--grn)' : latestSettlement.status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
+                            fontWeight: 900,
+                            fontSize: 12,
+                            letterSpacing: 0.5
+                          }}>
+                            {latestSettlement.status === 'Approve' ? '✅ APPROVED' :
+                              latestSettlement.status === 'Rejected' ? '❌ REJECTED' :
+                                latestSettlement.status === 'Pending' ? '🔄 PENDING' : '⏳ RAISED'}
+                          </span>
+                          <button
+                            style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 6, padding: '5px 12px', fontSize: 10, cursor: 'pointer', color: 'var(--txt)', fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'all 0.2s' }}
+                            onClick={() => openModal(`⚖️ Settlement History — ${selectedLead.name}`, <SettlementHistoryModal lead={selectedLead} />, 600)}
+                          >
+                            View History
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* SEARCH BAR */}
+          <div className="sbar" style={{ padding: '8px 16px', borderBottom: '1px solid var(--bdr)', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div className="sinp-wrap" style={{ flex: 1, maxWidth: 350, background: 'var(--bg2)', borderRadius: 20, border: '1px solid var(--bdr)' }}>
+              <span style={{ padding: '0 10px', color: 'var(--txt3)', fontSize: 13 }}>⌕</span>
+              <input
+                className="sinp"
+                style={{ background: 'transparent', border: 'none', padding: '6px 0', fontSize: 12 }}
+                placeholder="Search by account, mobile, name, PAN..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['All', 'Name', 'Mobile', 'Account', 'PAN'].map(t => (
+                <div key={t} className={`stab ${filterTab === t.toLowerCase() ? 'on' : ''}`} onClick={() => setFilterTab(t.toLowerCase())} style={{ borderRadius: 16, padding: '2px 10px', fontSize: 11 }}>{t}</div>
+              ))}
+            </div>
+            <SButton size="slim" variant="secondary" onClick={() => setShowFilters(!showFilters)}>⊞ More {showFilters ? '▲' : '▼'}</SButton>
+            <span style={{ fontSize: 12, color: 'var(--txt3)', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+              {leads.length} records
+              <button
+                onClick={() => setIsTableMaximized(!isTableMaximized)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--txt2)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: 4, transition: '0.2s', backgroundColor: 'var(--bg3)' }}
+                title={isTableMaximized ? "Restore Layout" : "Maximize Table"}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {isTableMaximized ? (
                     <>
-                      <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Account Number</th>
-                      <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer Name</th>
-                      <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Mobile Number</th>
-                      <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Outstanding</th>
-                      <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
-                      <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Settlement</th>
+                      <polyline points="4 14 12 22 20 14"></polyline>
+                      <line x1="12" y1="2" x2="12" y2="22"></line>
+                    </>
+                  ) : (
+                    <>
+                      <polyline points="4 10 12 2 20 10"></polyline>
+                      <line x1="12" y1="2" x2="12" y2="22"></line>
                     </>
                   )}
-                  <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Assigned To</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 15 }).map((_, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
-                      {Array.from({ length: (tableCols.length || 6) + 1 }).map((_, j) => (
-                        <td key={j} style={{ padding: '8px 10px' }}>
-                          <div className="skel" style={{ width: `${Math.floor(Math.random() * 40) + 40}%` }} />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : leads.map(lead => (
-                  <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ borderBottom: '1px solid var(--faint)', cursor: 'pointer', background: selectedLead?.id === lead.id ? 'var(--accbg)' : 'transparent' }}>
-                    {tableCols.length > 0 ? tableCols.map(col => {
-                      const lowerKey = col.key?.toLowerCase();
-                      const rawVal = lead[col.key] ?? lead[lowerKey]
-                        ?? lead.metadata?.[col.key] ?? lead.metadata?.[lowerKey]
-                        ?? lead.metadata?.[col.label] ?? lead.metadata?.[col.label?.toUpperCase()] ?? '—';
-                      const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
-                      return (
-                        <td key={col.key} style={{ padding: '8px 10px', fontSize: 11, color: col.type === 'amount' ? 'var(--red)' : 'var(--txt2)' }}>
-                          {col.key === 'settlement' ? (
-                            lead.settlements && lead.settlements.length > 0 ? (
-                              <span className="badge" style={{ 
-                                background: 'transparent', 
-                                border: `1px solid ${lead.settlements[0].status === 'Approve' ? 'rgba(34,197,94,0.3)' : lead.settlements[0].status === 'Rejected' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, 
+                </svg>
+              </button>
+            </span>
+          </div>
+
+          {/* FILTER ROW */}
+          {showFilters && (
+            <div id="fRow" style={{ display: 'flex', padding: '10px 20px', background: 'var(--bg2)', borderBottom: '1px solid var(--bdr)', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                className="finp"
+                style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }}
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+              >
+                <option value="">All Status</option>
+                {statusOptions.map(st => <option key={st} value={st}>{st}</option>)}
+              </select>
+              <input className="finp" type="number" placeholder="DPD Min" style={{ width: '90px', padding: '6px 10px' }} value={dpdMin} onChange={e => setDpdMin(e.target.value)} />
+              <input className="finp" type="number" placeholder="DPD Max" style={{ width: '90px', padding: '6px 10px' }} value={dpdMax} onChange={e => setDpdMax(e.target.value)} />
+              <input className="finp" type="number" placeholder="₹ Min" style={{ width: '100px', padding: '6px 10px' }} value={outMin} onChange={e => setOutMin(e.target.value)} />
+              <select className="finp" style={{ fontSize: 12, padding: '6px 10px', width: 'auto' }} value={portfolioFilter} onChange={e => setPortfolioFilter(e.target.value)}>
+                <option value="">All Portfolios</option>
+                {portfolioOptions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <SButton size="slim" variant="critical" onClick={() => {
+                setStatusFilter(''); setDpdMin(''); setDpdMax(''); setOutMin(''); setPortfolioFilter(''); setSearch(''); setFilterTab('all');
+              }}>Clear Filters</SButton>
+            </div>
+          )}
+
+          {/* RESULTS AREA */}
+          <div className="result-area hide-scrollbar" style={{ flex: 1, overflow: 'auto', background: 'var(--bg2)' }}>
+            <div className="result-area-mobile-scroll">
+              <table className="tbl" style={{ width: '100%', borderCollapse: 'collapse', whiteSpace: 'nowrap' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--bdr)' }}>
+                    {tableCols.length > 0 ? tableCols.map(col => (
+                      <th key={col.key} style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left' }}>
+                        {col.label}
+                      </th>
+                    )) : (
+                      <>
+                        <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Account Number</th>
+                        <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer Name</th>
+                        <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Mobile Number</th>
+                        <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Outstanding</th>
+                        <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
+                        <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Settlement</th>
+                      </>
+                    )}
+                    <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Assigned To</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 15 }).map((_, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
+                        {Array.from({ length: (tableCols.length || 6) + 1 }).map((_, j) => (
+                          <td key={j} style={{ padding: '8px 10px' }}>
+                            <div className="skel" style={{ width: `${Math.floor(Math.random() * 40) + 40}%` }} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : leads.map(lead => (
+                    <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ borderBottom: '1px solid var(--faint)', cursor: 'pointer', background: selectedLead?.id === lead.id ? 'var(--accbg)' : 'transparent' }}>
+                      {tableCols.length > 0 ? tableCols.map(col => {
+                        const lowerKey = col.key?.toLowerCase();
+                        const rawVal = lead[col.key] ?? lead[lowerKey]
+                          ?? lead.metadata?.[col.key] ?? lead.metadata?.[lowerKey]
+                          ?? lead.metadata?.[col.label] ?? lead.metadata?.[col.label?.toUpperCase()] ?? '—';
+                        const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
+                        return (
+                          <td key={col.key} style={{ padding: '8px 10px', fontSize: 11, color: col.type === 'amount' ? 'var(--red)' : 'var(--txt2)' }}>
+                            {col.key === 'settlement' ? (
+                              lead.settlements && lead.settlements.length > 0 ? (
+                                <span className="badge" style={{
+                                  background: 'transparent',
+                                  border: `1px solid ${lead.settlements[0].status === 'Approve' ? 'rgba(34,197,94,0.3)' : lead.settlements[0].status === 'Rejected' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                                  color: lead.settlements[0].status === 'Approve' ? 'var(--grn)' : lead.settlements[0].status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
+                                  fontSize: 9,
+                                  borderRadius: 12
+                                }}>
+                                  {lead.settlements[0].status}
+                                </span>
+                              ) : (
+                                <span style={{ color: 'var(--txt3)', fontSize: 9, opacity: 0.5 }}>—</span>
+                              )
+                            ) : col.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` :
+                              col.type === 'badge' ? <span className="badge" style={{ background: 'var(--purbg)', color: 'var(--pur)', border: '1px solid var(--purbg)', borderRadius: 12, padding: '2px 8px' }}>{String(val)}</span> :
+                                lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
+                                  lowerKey === 'createdat' ? String(val).split('T')[0] :
+                                    String(val)}
+                          </td>
+                        );
+                      }) : (
+                        <>
+                          <td className="mn" style={{ padding: '8px 10px', color: 'var(--txt3)' }}>{String(lead.account_no || '').replace(/LN-|-/g, '')}</td>
+                          <td className="nm" style={{ padding: '8px 10px', color: 'var(--txt)' }}>{lead.name}</td>
+                          <td className="mn" style={{ padding: '8px 10px', color: 'var(--txt2)' }}>{lead.mobile}</td>
+                          <td className="mn" style={{ padding: '8px 10px', color: 'var(--red)', fontWeight: 600 }}>₹{lead.outstanding?.toLocaleString('en-IN')}</td>
+                          <td><span className="badge">{lead.status}</span></td>
+                          <td>
+                            {lead.settlements && lead.settlements.length > 0 ? (
+                              <span className="badge" style={{
+                                background: 'transparent',
+                                border: `1px solid ${lead.settlements[0].status === 'Approve' ? 'rgba(34,197,94,0.3)' : lead.settlements[0].status === 'Rejected' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
                                 color: lead.settlements[0].status === 'Approve' ? 'var(--grn)' : lead.settlements[0].status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
                                 fontSize: 9,
                                 borderRadius: 12
@@ -1517,64 +1545,36 @@ const Leads = () => {
                               </span>
                             ) : (
                               <span style={{ color: 'var(--txt3)', fontSize: 9, opacity: 0.5 }}>—</span>
-                            )
-                          ) : col.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` :
-                            col.type === 'badge' ? <span className="badge" style={{ background: 'var(--purbg)', color: 'var(--pur)', border: '1px solid var(--purbg)', borderRadius: 12, padding: '2px 8px' }}>{String(val)}</span> :
-                            lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
-                            lowerKey === 'createdat' ? String(val).split('T')[0] :
-                            String(val)}
-                        </td>
-                      );
-                    }) : (
-                      <>
-                        <td className="mn" style={{ padding: '8px 10px', color: 'var(--txt3)' }}>{String(lead.account_no || '').replace(/LN-|-/g, '')}</td>
-                        <td className="nm" style={{ padding: '8px 10px', color: 'var(--txt)' }}>{lead.name}</td>
-                        <td className="mn" style={{ padding: '8px 10px', color: 'var(--txt2)' }}>{lead.mobile}</td>
-                        <td className="mn" style={{ padding: '8px 10px', color: 'var(--red)', fontWeight: 600 }}>₹{lead.outstanding?.toLocaleString('en-IN')}</td>
-                        <td><span className="badge">{lead.status}</span></td>
-                        <td>
-                           {lead.settlements && lead.settlements.length > 0 ? (
-                             <span className="badge" style={{ 
-                               background: 'transparent', 
-                               border: `1px solid ${lead.settlements[0].status === 'Approve' ? 'rgba(34,197,94,0.3)' : lead.settlements[0].status === 'Rejected' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, 
-                               color: lead.settlements[0].status === 'Approve' ? 'var(--grn)' : lead.settlements[0].status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
-                               fontSize: 9,
-                               borderRadius: 12
-                             }}>
-                               {lead.settlements[0].status}
-                             </span>
-                           ) : (
-                             <span style={{ color: 'var(--txt3)', fontSize: 9, opacity: 0.5 }}>—</span>
-                           )}
-                         </td>
-                      </>
-                    )}
-                    <td style={{ padding: '8px 10px', fontSize: 11, color: 'var(--txt2)' }}>{lead.assignedAgent?.name || 'Unassigned'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                            )}
+                          </td>
+                        </>
+                      )}
+                      <td style={{ padding: '8px 10px', fontSize: 11, color: 'var(--txt2)' }}>{lead.assignedAgent?.name || 'Unassigned'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
-        {/* PAGER */}
-        <div className="pager">
-          <span style={{ fontSize: 11, color: 'var(--txt3)', flex: 1 }}>Page {page} of {Math.max(1, Math.ceil(totalCount / limit))} • {totalCount} records</span>
-          <div style={{ display: 'flex', gap: 3 }}>
-            <button className="p-btn" disabled={page <= 1} onClick={() => setPage(1)}>«</button>
-            <button className="p-btn" disabled={page <= 1} onClick={() => setPage(Math.max(1, page - 1))}>‹</button>
-            <button className="p-btn cur">{page}</button>
-            <button className="p-btn" disabled={page >= Math.ceil(totalCount / limit)} onClick={() => setPage(page + 1)}>›</button>
-            <button className="p-btn" disabled={page >= Math.ceil(totalCount / limit)} onClick={() => setPage(Math.ceil(totalCount / limit))}>»</button>
+          {/* PAGER */}
+          <div className="pager">
+            <span style={{ fontSize: 11, color: 'var(--txt3)', flex: 1 }}>Page {page} of {Math.max(1, Math.ceil(totalCount / limit))} • {totalCount} records</span>
+            <div style={{ display: 'flex', gap: 3 }}>
+              <button className="p-btn" disabled={page <= 1} onClick={() => setPage(1)}>«</button>
+              <button className="p-btn" disabled={page <= 1} onClick={() => setPage(Math.max(1, page - 1))}>‹</button>
+              <button className="p-btn cur">{page}</button>
+              <button className="p-btn" disabled={page >= Math.ceil(totalCount / limit)} onClick={() => setPage(page + 1)}>›</button>
+              <button className="p-btn" disabled={page >= Math.ceil(totalCount / limit)} onClick={() => setPage(Math.ceil(totalCount / limit))}>»</button>
+            </div>
+            <select className="finp" style={{ fontSize: 10, padding: '3px 6px', width: 'auto', marginLeft: 10 }} value={limit} onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}>
+              <option value="25">25/page</option>
+              <option value="50">50/page</option>
+              <option value="100">100/page</option>
+            </select>
           </div>
-          <select className="finp" style={{ fontSize: 10, padding: '3px 6px', width: 'auto', marginLeft: 10 }} value={limit} onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}>
-            <option value="25">25/page</option>
-            <option value="50">50/page</option>
-            <option value="100">100/page</option>
-          </select>
         </div>
       </div>
-    </div>
     </>
   );
 };

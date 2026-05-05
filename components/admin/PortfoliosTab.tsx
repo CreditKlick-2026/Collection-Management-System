@@ -126,11 +126,10 @@ const PortfoliosTab: React.FC<PortfoliosTabProps> = ({
             {/* Header */}
             <div style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 32, height: 32, background: 'var(--accbg)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: 'var(--acc2)' }}>#{p.id}</div>
+                <div style={{ minWidth: 32, padding: '0 8px', height: 32, background: 'var(--accbg)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: 'var(--acc2)' }}>{p.bank || `#${p.id}`}</div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)' }}>{p.name}</div>
-                    {p.bank && <span style={{ fontSize: 10, padding: '2px 6px', background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', borderRadius: 4, fontWeight: 600 }}>{p.bank}</span>}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 1 }}>{p.agents?.length || 0} Agents • {p.managers?.length || 0} Managers</div>
                 </div>

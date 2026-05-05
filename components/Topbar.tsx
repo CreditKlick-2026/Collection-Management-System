@@ -17,7 +17,7 @@ const Topbar: React.FC<TopbarProps> = ({ user, activePage, logout, toggleMobileM
 
   const fetchNotifs = async () => {
     try {
-      const res = await fetch('/api/notifications');
+      const res = await fetch(`/api/notifications?requesterId=${user?.id || ''}`);
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);
@@ -60,7 +60,7 @@ const Topbar: React.FC<TopbarProps> = ({ user, activePage, logout, toggleMobileM
 
   const clearNotifs = async () => {
     try {
-      await fetch('/api/notifications', { method: 'DELETE' });
+      await fetch(`/api/notifications?requesterId=${user?.id || ''}`, { method: 'DELETE' });
       setNotifications([]);
       setShowNotifs(false);
     } catch (e) { }

@@ -59,7 +59,8 @@ export async function POST(
               title: 'New PTP Recorded',
               message: `${customer?.name} promised ₹${parsedAmount} for today`,
               time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-              account: customer?.account_no
+              account: customer?.account_no,
+              agentId: parsedUserId
             };
             const redisKey = `notifs:ptp:${today}`;
             await redis.lpush(redisKey, JSON.stringify(notification));

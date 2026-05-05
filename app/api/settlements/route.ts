@@ -13,6 +13,7 @@ export async function GET(request: Request) {
   const account = searchParams.get('account');
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '50');
+  const requesterId = searchParams.get('requesterId');
 
   try {
     const where: any = {};
@@ -23,10 +24,15 @@ export async function GET(request: Request) {
       where.created = date; // date format is YYYY-MM-DD
     }
     
-    if (agent) {
-      where.agent = {
-        name: { contains: agent, mode: 'insensitive' }
-      };
+    if (requesterId) {
+      const rUser = await prisma.user.findUnique({ where: { id: Number(requesterId) } });
+      if (rUser?.role === 'agent') {
+        where.agentId = Number(requesterId);
+      } else if (agent) {
+        where.agent = { name: { contains: agent, mode: 'insensitive' } };
+      }
+    } else if (agent) {
+      where.agent = { name: { contains: agent, mode: 'insensitive' } };
     }
     
     if (account) {

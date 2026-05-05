@@ -15,13 +15,23 @@ export async function GET(request: Request) {
   const page       = Math.max(1, parseInt(searchParams.get('page')  || '1'));
   const limit      = Math.min(100, parseInt(searchParams.get('limit') || '25'));
   const skip       = (page - 1) * limit;
+  const requesterId = searchParams.get('requesterId');
+
+  let agentFilter: any = agent ? { name: { contains: agent, mode: 'insensitive' } } : undefined;
+  
+  if (requesterId) {
+    const rUser = await prisma.user.findUnique({ where: { id: Number(requesterId) } });
+    if (rUser?.role === 'agent') {
+      agentFilter = { id: Number(requesterId) };
+    }
+  }
 
   const where: any = {
     status: (status === 'all' || !status) ? undefined : status,
     date:       date       || undefined,
     mode:       mode       || undefined,
     customerId: customerId ? Number(customerId) : undefined,
-    agent:      agent ? { name: { contains: agent, mode: 'insensitive' } } : undefined,
+    agent:      agentFilter,
     OR: account
       ? [
           { customer: { account_no: { contains: account, mode: 'insensitive' } } },

@@ -288,7 +288,8 @@ const PTPs = () => {
         agent: filters.agent,
         account: filters.account,
         page: String(pg),
-        limit: String(LIMIT)
+        limit: String(LIMIT),
+        requesterId: user?.id ? String(user.id) : ''
       }).toString();
       const res = await fetch(`/api/ptps?${q}`);
       if (res.ok) {
@@ -311,7 +312,8 @@ const PTPs = () => {
         agent: filters.agent,
         account: filters.account,
         page: String(pg),
-        limit: String(LIMIT)
+        limit: String(LIMIT),
+        requesterId: user?.id ? String(user.id) : ''
       }).toString();
       const res = await fetch(`/api/settlements?${q}`);
       if (res.ok) {
