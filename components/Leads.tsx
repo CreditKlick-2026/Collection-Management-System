@@ -75,15 +75,17 @@ const PaymentHistoryModal = ({ lead }: { lead: any }) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const LIMIT = 10;
 
   useEffect(() => {
     if (!lead?.id) return;
     setLoading(true);
-    fetch(`/api/leads/${lead.id}/payments`)
+    fetch(`/api/leads/${lead.id}/payments?page=${page}&limit=${LIMIT}&status=${statusFilter}`)
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [lead?.id]);
+  }, [lead?.id, page, statusFilter]);
 
   const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
     cleared: { label: 'Cleared', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
@@ -91,7 +93,8 @@ const PaymentHistoryModal = ({ lead }: { lead: any }) => {
     rejected: { label: 'Rejected', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
   };
 
-  const filtered = (data?.payments || []).filter((p: any) => !statusFilter || p.status === statusFilter);
+  const payments = data?.payments || [];
+  const totalPages = data?.totalPages || 1;
 
   return (
     <div style={{ padding: '0 20px 20px' }}>
@@ -114,44 +117,55 @@ const PaymentHistoryModal = ({ lead }: { lead: any }) => {
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
         <select
           style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 6, padding: '6px 12px', fontSize: 11, color: 'var(--txt)', outline: 'none' }}
-          value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
         >
           <option value="">All Statuses</option>
           <option value="cleared">Cleared</option>
           <option value="pending_approval">Pending Approval</option>
           <option value="rejected">Rejected</option>
         </select>
-        <div style={{ fontSize: 10, color: 'var(--txt3)', marginLeft: 'auto' }}>{filtered.length} records</div>
+        <div style={{ fontSize: 10, color: 'var(--txt3)', marginLeft: 'auto' }}>{data?.total || 0} records total</div>
       </div>
 
       {/* Table */}
-      <div style={{ border: '1px solid var(--bdr)', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '30px 90px 90px 90px 1fr 90px 80px', background: 'var(--bg-top)', borderBottom: '1px solid var(--bdr)', padding: '6px 12px', gap: 8 }}>
+      <div style={{ border: '1px solid var(--bdr)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg2)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '40px 100px 110px 100px 1fr 140px 130px', background: 'var(--bg3)', borderBottom: '1px solid var(--bdr)', padding: '10px 16px', gap: 12 }}>
           {['#', 'Date', 'Amount', 'Mode', 'Reference No.', 'Agent', 'Status'].map(h => (
-            <div key={h} style={{ fontSize: 9, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</div>
+            <div key={h} style={{ fontSize: 9, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8 }}>{h}</div>
           ))}
         </div>
-        <div style={{ maxHeight: '55vh', overflowY: 'auto', background: 'var(--bg2)' }}>
+        <div style={{ maxHeight: '45vh', overflowY: 'auto', background: 'var(--bg2)' }}>
           {loading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--txt3)' }}>⏳ Loading...</div>
-          ) : !filtered.length ? (
+          ) : !payments.length ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--txt3)' }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>📭</div>
               No payment records found.
             </div>
           ) : (
-            filtered.map((p: any, idx: number) => {
+            payments.map((p: any, idx: number) => {
               const cfg = STATUS_CFG[p.status] || { label: p.status, color: 'var(--txt3)', bg: 'var(--faint)' };
               return (
-                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '30px 90px 90px 90px 1fr 90px 80px', padding: '8px 12px', gap: 8, alignItems: 'center', borderBottom: idx < filtered.length - 1 ? '1px solid var(--faint)' : 'none' }}>
-                  <div style={{ fontSize: 10, color: 'var(--txt3)' }}>{idx + 1}</div>
+                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '40px 100px 110px 100px 1fr 140px 130px', padding: '12px 16px', gap: 12, alignItems: 'center', borderBottom: idx < payments.length - 1 ? '1px solid var(--faint)' : 'none', transition: 'background 0.2s' }}>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)' }}>{(page - 1) * LIMIT + idx + 1}</div>
                   <div style={{ fontSize: 11, color: 'var(--txt)', fontWeight: 600 }}>{p.date}</div>
-                  <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>₹{Number(p.amount).toLocaleString('en-IN')}</div>
-                  <div style={{ fontSize: 10, color: 'var(--txt2)' }}>{p.mode}</div>
-                  <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'monospace' }}>{p.ref || '—'}</div>
-                  <div style={{ fontSize: 10, color: 'var(--txt2)' }}>{p.agent?.name || '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--grn)', fontWeight: 800 }}>₹{Number(p.amount).toLocaleString('en-IN')}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt2)', fontWeight: 600 }}>{p.mode}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'monospace', opacity: 0.8 }}>{p.ref || '—'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--txt2)', fontWeight: 500 }}>{p.agent?.name || '—'}</div>
                   <div>
-                    <span style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30`, padding: '2px 7px', borderRadius: 10, fontSize: 9, fontWeight: 700 }}>
+                    <span style={{ 
+                      display: 'inline-flex', 
+                      background: cfg.bg, 
+                      color: cfg.color, 
+                      border: `1px solid ${cfg.color}30`, 
+                      padding: '3px 10px', 
+                      borderRadius: 12, 
+                      fontSize: 9, 
+                      fontWeight: 800,
+                      whiteSpace: 'nowrap',
+                      letterSpacing: 0.3
+                    }}>
                       {cfg.label}
                     </span>
                   </div>
@@ -160,6 +174,15 @@ const PaymentHistoryModal = ({ lead }: { lead: any }) => {
             })
           )}
         </div>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '12px', borderTop: '1px solid var(--bdr)', background: 'var(--bg3)' }}>
+            <button className="btn sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)} style={{ padding: '4px 12px', fontSize: 11 }}>Previous</button>
+            <div style={{ fontSize: 11, fontWeight: 700 }}>Page {page} of {totalPages}</div>
+            <button className="btn sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} style={{ padding: '4px 12px', fontSize: 11 }}>Next</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -350,31 +373,31 @@ const SettlementHistoryModal = ({ lead }: { lead: any }) => {
             {data.map((s: any) => {
               const cfg = STATUS_MAP[s.status] || { color: 'var(--txt3)', label: s.status, icon: '•' };
               return (
-                <div key={s.id} style={{ 
-                  background: 'var(--bg2)', 
-                  border: '1px solid var(--bdr)', 
-                  borderRadius: 6, 
-                  padding: '16px', 
-                  position: 'relative', 
+                <div key={s.id} style={{
+                  background: 'var(--bg2)',
+                  border: '1px solid var(--bdr)',
+                  borderRadius: 6,
+                  padding: '16px',
+                  position: 'relative',
                   flexShrink: 0,
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                 }}>
                   <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: cfg.color }}></div>
-                  
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)', marginBottom: 4 }}>{s.reason}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                         <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--red)', background: 'rgba(239,68,68,0.06)', padding: '2px 8px', borderRadius: 4 }}>
-                           ₹{Number(s.amount).toLocaleString('en-IN')}
-                         </span>
-                         <span style={{ fontSize: 9, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5 }}>SETTLEMENT AMOUNT</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--red)', background: 'rgba(239,68,68,0.06)', padding: '2px 8px', borderRadius: 4 }}>
+                          ₹{Number(s.amount).toLocaleString('en-IN')}
+                        </span>
+                        <span style={{ fontSize: 9, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5 }}>SETTLEMENT AMOUNT</span>
                       </div>
                     </div>
-                    <div style={{ 
-                      display: 'flex', alignItems: 'center', gap: 6, 
-                      color: cfg.color, background: `${cfg.color}10`, 
-                      padding: '4px 10px', borderRadius: 4, 
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      color: cfg.color, background: `${cfg.color}10`,
+                      padding: '4px 10px', borderRadius: 4,
                       border: `1px solid ${cfg.color}25`,
                       fontSize: 10, fontWeight: 800, letterSpacing: 0.5
                     }}>
@@ -387,7 +410,7 @@ const SettlementHistoryModal = ({ lead }: { lead: any }) => {
                       <div style={{ fontSize: 9, color: 'var(--txt3)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Agent Remarks</div>
                       <div style={{ fontSize: 11, color: 'var(--txt2)', lineHeight: 1.5, fontStyle: 'italic' }}>"{s.justification || 'No justification provided'}"</div>
                     </div>
-                    
+
                     {s.remarks && (
                       <div style={{ borderTop: '1px solid var(--bdr)', paddingTop: 10 }}>
                         <div style={{ fontSize: 9, color: 'var(--acc2)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Manager Response</div>
@@ -412,9 +435,9 @@ const SettlementHistoryModal = ({ lead }: { lead: any }) => {
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 24, padding: '10px 0', borderTop: '1px solid var(--bdr)' }}>
-              <button 
-                className="btn sm" 
-                disabled={page <= 1} 
+              <button
+                className="btn sm"
+                disabled={page <= 1}
                 onClick={() => setPage(p => p - 1)}
                 style={{ opacity: page <= 1 ? 0.5 : 1, background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '6px 12px', fontSize: 11 }}
               >
@@ -423,9 +446,9 @@ const SettlementHistoryModal = ({ lead }: { lead: any }) => {
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)' }}>
                 Page {page} of {totalPages}
               </div>
-              <button 
-                className="btn sm" 
-                disabled={page >= totalPages} 
+              <button
+                className="btn sm"
+                disabled={page >= totalPages}
                 onClick={() => setPage(p => p + 1)}
                 style={{ opacity: page >= totalPages ? 0.5 : 1, background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '6px 12px', fontSize: 11 }}
               >
@@ -937,7 +960,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         <div className="ff">
           <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT MODE</label>
           <select className="finp" value={form.mode} onChange={e => setForm({ ...form, mode: e.target.value })}>
-            {['NEFT', 'IMPS', 'UPI', 'Cash', 'Cheque', 'DD'].map(m => <option key={m} value={m}>{m}</option>)}
+            {['NEFT', 'IMPS', 'UPI', 'Cash', 'Cheque', 'Payment Recieved'].map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <div className="ff">
@@ -980,9 +1003,9 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="ff">
               <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG</label>
-              <select 
-                className="finp" 
-                value={form.upgradeFlag} 
+              <select
+                className="finp"
+                value={form.upgradeFlag}
                 onChange={e => setForm({ ...form, upgradeFlag: e.target.value, upgradeType: '', upgradeReason: '' })}
               >
                 <option value="">— Select —</option>
@@ -1033,23 +1056,23 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
       {(() => {
         const isFormValid = !!(form.amount && form.ref && form.status && form.remarks);
         return (
-          <button 
-            className="btn pr" 
-            style={{ 
-              width: '100%', 
-              padding: '12px', 
-              background: !isFormValid ? 'var(--bg3)' : 'rgba(34,197,94,0.1)', 
-              color: !isFormValid ? 'var(--txt3)' : 'var(--grn)', 
-              border: !isFormValid ? '1px solid var(--bdr)' : '1px solid rgba(34,197,94,0.2)', 
-              fontWeight: 700, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
+          <button
+            className="btn pr"
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: !isFormValid ? 'var(--bg3)' : 'rgba(34,197,94,0.1)',
+              color: !isFormValid ? 'var(--txt3)' : 'var(--grn)',
+              border: !isFormValid ? '1px solid var(--bdr)' : '1px solid rgba(34,197,94,0.2)',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               gap: 10,
               cursor: !isFormValid ? 'not-allowed' : 'pointer',
               opacity: !isFormValid ? 0.7 : 1
-            }} 
-            onClick={handleSubmit} 
+            }}
+            onClick={handleSubmit}
             disabled={loading || !isFormValid}
           >
             {loading ? 'Processing...' : <><span style={{ fontSize: 16 }}>💳</span> Submit for Approval</>}
@@ -1404,7 +1427,7 @@ const Leads = () => {
                     </button>
                     <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '6px 12px' }}
                       disabled={!selectedLead}
-                      onClick={() => selectedLead && openModal(`📋 Payment History — ${selectedLead.name}`, <PaymentHistoryModal lead={selectedLead} />, 900)}
+                      onClick={() => selectedLead && openModal(`📋 Payment History — ${selectedLead.name}`, <PaymentHistoryModal lead={selectedLead} />, 1100)}
                     >
                       📋 Payment History
                     </button>

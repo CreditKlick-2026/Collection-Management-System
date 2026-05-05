@@ -12,7 +12,9 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
 
   // Agent Swap Logic
   const isEligible = (item.customer?.eligible_upgrade === 'Y' || item.customer?.eligible_for_update === 'Y');
-  const [upgradeData, setUpgradeData] = useState({ flag: '', type: '', upgraded: 'N' });
+  const [uFlag, setUFlag] = useState(item.upgradeFlag || '');
+  const [uType, setUType] = useState(item.upgradeType || '');
+  const [uReason, setUReason] = useState(item.upgradeReason || '');
   const [allAgents, setAllAgents] = useState<any[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState(item.agentId);
   const [search, setSearch] = useState('');
@@ -53,21 +55,15 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
         flagBy: user?.id,
         flagComment: comment,
         rejectionReason: action === 'rejected' ? comment : undefined,
+        upgradeFlag: uFlag,
+        upgradeType: uType,
+        upgradeReason: uReason
       };
 
       // If Agent Swapped
       if (action === 'reassign') {
         body.agentId = selectedAgentId;
         body.status = 'cleared';
-      }
-
-      // Upgrade info
-      if (!isEligible) {
-        body.metadata = {
-          upgrade_flag: upgradeData.flag,
-          upgrade_type: upgradeData.type,
-          upgraded: upgradeData.upgraded
-        };
       }
 
       const res = await fetch('/api/payments', {
@@ -100,7 +96,7 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
           <div><span style={{ color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', display: 'block' }}>Amount</span><b style={{ color: 'var(--grn)' }}>₹{item.amount?.toLocaleString('en-IN')}</b></div>
           <div>
             <span style={{ color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Eligible</span>
-            {(item.customer?.eligible_upgrade === 'Y' || item.customer?.eligible_for_update === 'Y') ? (
+            {isEligible ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '1px 8px', borderRadius: 12, fontSize: 9, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 700 }}>
                 <span style={{ fontSize: 10 }}>✓</span> Eligible
               </span>
@@ -115,30 +111,40 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
         </div>
       </div>
 
-      {!isEligible && (
-        <div style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 6, padding: '8px 12px', marginBottom: 10 }}>
-          <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 10, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-            ⚠️ INELIGIBLE UPGRADE
+      {/* Upgrade Tracking Section */}
+      <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: '12px', marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>Upgrade Status</div>
+          {isEligible ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 10, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
+              <span style={{ fontSize: 11 }}>✓</span> Eligible for Upgrade
+            </span>
+          ) : (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(226,75,74,0.1)', color: 'var(--red)', padding: '2px 8px', borderRadius: 12, fontSize: 10, border: '1px solid rgba(226,75,74,0.3)', fontWeight: 600 }}>
+              <span style={{ fontSize: 11 }}>✕</span> Not Eligible for Upgrade
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="ff" style={{ margin: 0 }}>
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG</label>
+            <select 
+              className="finp" 
+              style={{ fontSize: 11, padding: '4px 8px', height: 'auto', borderRadius: 6 }}
+              value={uFlag} 
+              onChange={e => { setUFlag(e.target.value); setUType(''); setUReason(''); }}
+            >
+              <option value="">— Select —</option>
+              <option value="Upgraded">Upgraded</option>
+              <option value="Pending For Upgrade">Pending For Upgrade</option>
+            </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+
+          {uFlag === 'Upgraded' && (
             <div className="ff" style={{ margin: 0 }}>
-              <label style={{ fontSize: 8 }}>UPGRADE FLAG</label>
-              <select className="finp" style={{ borderRadius: 4, height: 28, fontSize: 10, padding: '2px 6px' }} value={upgradeData.flag} onChange={e => setUpgradeData({ ...upgradeData, flag: e.target.value })}>
-                <option value="">Select...</option>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-              </select>
-            </div>
-            <div className="ff" style={{ margin: 0 }}>
-              <label style={{ fontSize: 8 }}>UPGRADED</label>
-              <select className="finp" style={{ borderRadius: 4, height: 28, fontSize: 10, padding: '2px 6px' }} value={upgradeData.upgraded} onChange={e => setUpgradeData({ ...upgradeData, upgraded: e.target.value })}>
-                <option value="N">N</option>
-                <option value="Y">Y</option>
-              </select>
-            </div>
-            <div className="ff" style={{ margin: 0, gridColumn: 'span 2' }}>
-              <label style={{ fontSize: 8 }}>UPGRADE TYPE</label>
-              <select className="finp" style={{ borderRadius: 4, height: 28, fontSize: 10, padding: '2px 6px' }} value={upgradeData.type} onChange={e => setUpgradeData({ ...upgradeData, type: e.target.value })}>
+              <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE</label>
+              <select className="finp" style={{ fontSize: 11, padding: '4px 8px', height: 'auto', borderRadius: 6 }} value={uType} onChange={e => setUType(e.target.value)}>
                 <option value="">— Select —</option>
                 <option value="System">System</option>
                 <option value="Payment Received">Payment Received</option>
@@ -146,9 +152,26 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
                 <option value="Reversal">Reversal</option>
               </select>
             </div>
-          </div>
+          )}
+
+          {uFlag === 'Pending For Upgrade' && (
+            <div className="ff" style={{ margin: 0 }}>
+              <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON</label>
+              <select className="finp" style={{ fontSize: 11, padding: '4px 8px', height: 'auto', borderRadius: 6 }} value={uReason} onChange={e => setUReason(e.target.value)}>
+                <option value="">— Select Reason —</option>
+                <option value="Multi Card Payment Due">Multi Card Payment Due</option>
+                <option value="ONE Card Write Off">ONE Card Write Off</option>
+                <option value="Multi Card Write Off">Multi Card Write Off</option>
+                <option value="Card Settlement">Card Settlement</option>
+                <option value="Card Settlement (J5/J6)">Card Settlement (J5/J6)</option>
+                <option value="Intrest Payment Due">Intrest Payment Due</option>
+                <option value="Customer Refused to Pay">Customer Refused to Pay</option>
+                <option value="Customer Not Contactable">Customer Not Contactable</option>
+              </select>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
 
       <div className="tabs" style={{ marginBottom: 10, padding: 2, background: 'var(--bg3)', borderRadius: 6, display: 'flex', gap: 4, border: '1px solid var(--bdr)' }}>

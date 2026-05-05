@@ -117,7 +117,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { id, status, flag, flagBy, flagComment, rejectionReason, remarks, customerId, agentId, metadata, type } =
+    const { id, status, flag, flagBy, flagComment, rejectionReason, remarks, customerId, agentId, metadata, type, upgradeFlag, upgradeType, upgradeReason } =
       await request.json();
 
     // Check if payment is locked (resolved by manager)
@@ -139,6 +139,9 @@ export async function PUT(request: Request) {
         customerId: customerId ? Number(customerId) : undefined,
         agentId: agentId ? Number(agentId) : undefined,
         metadata: metadata || undefined,
+        upgradeFlag: upgradeFlag || undefined,
+        upgradeType: upgradeType || undefined,
+        upgradeReason: upgradeReason || undefined,
       }
     });
 
