@@ -251,9 +251,9 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
 };
 
 
-const PTPs = () => {
+const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => {
   const { openModal, user } = useApp();
-  const [subTab, setSubTab] = useState<'ptp' | 'settlement'>('ptp');
+  const [subTab, setSubTab] = useState<'ptp' | 'settlement'>(initialTab);
   const [ptps, setPtps] = useState<any[]>([]);
   const [settlements, setSettlements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

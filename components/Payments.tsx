@@ -205,7 +205,7 @@ const STATUS_TABS = [
 ];
 
 const Payments = () => {
-  const { openModal, closeModal } = useApp();
+  const { openModal, closeModal, user } = useApp();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ date: '', agent: '', account: '', mode: '' });
@@ -238,7 +238,8 @@ const Payments = () => {
         agent: filters.agent,
         account: filters.account,
         page: String(pg),
-        limit: String(LIMIT)
+        limit: String(LIMIT),
+        requesterId: user?.id ? String(user.id) : ''
       });
       const res = await fetch(`/api/payments?${q.toString()}`);
       if (res.ok) {

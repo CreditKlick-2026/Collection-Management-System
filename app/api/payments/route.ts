@@ -18,11 +18,13 @@ export async function GET(request: Request) {
   const requesterId = searchParams.get('requesterId');
 
   let agentFilter: any = agent ? { name: { contains: agent, mode: 'insensitive' } } : undefined;
+  let agentIdFilter = undefined;
   
   if (requesterId) {
     const rUser = await prisma.user.findUnique({ where: { id: Number(requesterId) } });
     if (rUser?.role === 'agent') {
-      agentFilter = { id: Number(requesterId) };
+      agentIdFilter = Number(requesterId);
+      agentFilter = undefined;
     }
   }
 
@@ -32,6 +34,7 @@ export async function GET(request: Request) {
     mode:       mode       || undefined,
     customerId: customerId ? Number(customerId) : undefined,
     agent:      agentFilter,
+    agentId:    agentIdFilter,
     OR: account
       ? [
           { customer: { account_no: { contains: account, mode: 'insensitive' } } },
