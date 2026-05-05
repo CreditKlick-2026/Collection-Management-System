@@ -8,6 +8,7 @@ interface FlushDBModalProps {
   setFlushPassword: (val: string) => void;
   handleFlushDB: () => void;
   flushing: boolean;
+  flushForce?: boolean;
 }
 
 const FlushDBModal: React.FC<FlushDBModalProps> = ({
@@ -17,7 +18,8 @@ const FlushDBModal: React.FC<FlushDBModalProps> = ({
   flushPassword,
   setFlushPassword,
   handleFlushDB,
-  flushing
+  flushing,
+  flushForce
 }) => {
   if (!isFlushModalOpen) return null;
 
@@ -28,8 +30,13 @@ const FlushDBModal: React.FC<FlushDBModalProps> = ({
           <div style={{ fontSize: 32, marginBottom: 10 }}>🚨</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>Critical Action!</div>
           <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 8 }}>
-            Enter your admin password to confirm {flushAction === 'all' ? 'full database flush' : 'audit logs cleanup'}.
-            <br /><b>This cannot be undone.</b>
+            Enter your admin password to confirm {flushAction === 'all' ? 'full database flush' : (flushAction === 'audit' ? 'audit logs cleanup' : 'selective lead cleanup')}.
+            {flushAction === 'selective' && flushForce && (
+              <div style={{ color: 'var(--red)', background: 'rgba(226,75,74,0.1)', padding: '10px', borderRadius: 6, marginTop: 10, border: '1px solid var(--red)' }}>
+                <b>WARNING:</b> Force mode is ON. This will delete ALL leads including those with active payments.
+              </div>
+            )}
+            <br /><b style={{ color: 'var(--red)', display: 'block', marginTop: 5 }}>This cannot be undone.</b>
           </div>
         </div>
 

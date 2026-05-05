@@ -22,7 +22,6 @@ export async function POST(request: Request) {
 
     // 2. Perform Cleanup
     if (action === 'all') {
-      // Execute sequentially to avoid Postgres lock escalation timeouts or transaction deadlocks
       await prisma.auditLog.deleteMany();
       await prisma.bulkUploadJob.deleteMany();
       await prisma.settlement.deleteMany();
@@ -35,69 +34,104 @@ export async function POST(request: Request) {
     } else if (action === 'selective') {
       if (!month || !year) return NextResponse.json({ message: 'Month and Year required' }, { status: 400 });
 
-      const startDate = new Date(Number(year), Number(month) - 1, 1);
-      const endDate = new Date(Number(year), Number(month), 1);
+      // Use UTC dates to match database storage behavior
+      const startDate = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
+      const endDate = new Date(Date.UTC(Number(year), Number(month), 1));
+      
       const startStr = startDate.toISOString().split('T')[0];
       const endStr = endDate.toISOString().split('T')[0];
 
-      // 1. Find all related IDs from different tables for that period
-      const [customers, payments, ptps] = await Promise.all([
-        prisma.customer.findMany({ where: { createdAt: { gte: startDate, lt: endDate } }, select: { id: true } }),
-        prisma.payment.findMany({ where: { date: { gte: startStr, lt: endStr } }, select: { customerId: true } }),
-        prisma.pTP.findMany({ where: { date: { gte: startStr, lt: endStr } }, select: { customerId: true } })
+      console.log(`[Selective Cleanup] Target: ${month}/${year} | UTC Range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
+      // 1. Find all candidate IDs
+      const [customers, jobs, ptps, disputes, settlements] = await Promise.all([
+        prisma.customer.findMany({ 
+          where: { createdAt: { gte: startDate, lt: endDate } }, 
+          select: { id: true, account_no: true } 
+        }),
+        prisma.bulkUploadJob.findMany({
+          where: { createdAt: { gte: startDate, lt: endDate } },
+          select: { id: true }
+        }),
+        prisma.pTP.findMany({ where: { date: { gte: startStr, lt: endStr } }, select: { customerId: true } }),
+        prisma.dispute.findMany({ where: { raisedDate: { gte: startStr, lt: endStr } }, select: { customerId: true } }),
+        prisma.settlement.findMany({ where: { created: { gte: startStr, lt: endStr } }, select: { customerId: true } })
       ]);
 
-      const allCustomerIds = new Set([
-        ...customers.map(c => c.id),
-        ...payments.map(p => p.customerId),
-        ...ptps.map(p => p.customerId)
-      ]);
+      console.log(`  - Found ${customers.length} customers by createdAt`);
+      console.log(`  - Found ${jobs.length} bulk upload jobs in range`);
 
-      // Filter out nulls since customerId is now optional
-      const allIds = Array.from(allCustomerIds).filter((id): id is number => id !== null);
-      const totalFound = allIds.length;
+      const jobCustomerIds = jobs.length > 0 ? await prisma.customer.findMany({
+        where: { bulkUploadJobId: { in: jobs.map(j => j.id) } },
+        select: { id: true }
+      }) : [];
       
-      if (totalFound === 0) return NextResponse.json({ message: 'No data found for this period', totalFound: 0, deletedCount: 0 });
+      if (jobs.length > 0) console.log(`  - Found ${jobCustomerIds.length} customers linked to those jobs`);
 
-      // 2. Preserve Payments by copying Customer Data into them before deletion
-      const customersToWipe = await prisma.customer.findMany({
-        where: { id: { in: allIds } },
-        select: { id: true, account_no: true, name: true }
-      });
+      const allCandidateIds = new Set([
+        ...customers.map(c => c.id),
+        ...jobCustomerIds.map(c => c.id),
+        ...ptps.map(p => p.customerId),
+        ...disputes.map(d => d.customerId),
+        ...settlements.map(s => s.customerId)
+      ]);
 
-      for (const cust of customersToWipe) {
-        await prisma.payment.updateMany({
-          where: { customerId: cust.id },
-          data: {
-            account_no: cust.account_no,
-            customer_name: cust.name
-          }
-        });
+      const candidateIds = Array.from(allCandidateIds).filter((id): id is number => id !== null);
+      console.log(`  - Total unique candidate IDs: ${candidateIds.length}`);
+      
+      if (candidateIds.length === 0) {
+        return NextResponse.json({ message: 'No data found for this period', deletedCount: 0, skippedCount: 0 });
       }
 
-      // 3. WIPE EVERYTHING EXCEPT PAYMENTS sequentially
-      await prisma.settlement.deleteMany({ where: { customerId: { in: allIds } } });
-      await prisma.dispute.deleteMany({ where: { customerId: { in: allIds } } });
-      await prisma.pTP.deleteMany({ where: { customerId: { in: allIds } } });
-      await prisma.auditLog.deleteMany({ where: { entityType: 'Customer', entityId: { in: allIds.map(String) } } });
-      await prisma.customer.deleteMany({ where: { id: { in: allIds } } });
+      // 2. Identify customers who have ANY VALID payments (cleared or pending)
+      const protectedPayments = await prisma.payment.findMany({
+        where: { 
+          customerId: { in: candidateIds },
+          status: { in: ['cleared', 'pending_approval'] }
+        },
+        select: { customerId: true },
+        distinct: ['customerId']
+      });
+      const protectedIds = new Set(protectedPayments.map(p => p.customerId).filter((id): id is number => id !== null));
+      
+      // If force is true, we delete everything regardless of payments
+      const force = body.force === true;
+      const targetIds = force ? candidateIds : candidateIds.filter(id => !protectedIds.has(id));
+      
+      const skippedCount = force ? 0 : protectedIds.size;
+      const deletedCount = targetIds.length;
+
+      console.log(`  - Force Mode: ${force}`);
+      console.log(`  - Protected (with payments): ${protectedIds.size}`);
+      console.log(`  - Skipped (protected): ${skippedCount}`);
+      console.log(`  - Targets for deletion: ${deletedCount}`);
+
+      if (targetIds.length > 0) {
+        await prisma.$transaction([
+          prisma.payment.deleteMany({ where: { customerId: { in: targetIds } } }),
+          prisma.settlement.deleteMany({ where: { customerId: { in: targetIds } } }),
+          prisma.dispute.deleteMany({ where: { customerId: { in: targetIds } } }),
+          prisma.pTP.deleteMany({ where: { customerId: { in: targetIds } } }),
+          prisma.auditLog.deleteMany({ where: { entityType: 'Customer', entityId: { in: targetIds.map(String) } } }),
+          prisma.customer.deleteMany({ where: { id: { in: targetIds } } }),
+        ]);
+      }
 
       await logAudit({
         userId: Number(userId),
-        action: 'SELECTIVE_DATABASE_WIPE',
+        action: 'SELECTIVE_LEAD_CLEANUP',
         entityType: 'System',
         entityId: '0',
-        details: { month, year, totalFound, message: `TOTAL WIPE for ${month}/${year}. Deleted ${totalFound} leads and all related payments/history.` }
+        details: { month, year, deletedCount, skippedCount, message: `Selective cleanup for ${month}/${year}. Deleted ${deletedCount} leads, skipped ${skippedCount} with payments.` }
       });
 
       return NextResponse.json({ 
-        message: `Total wipe completed for ${month}/${year}.`, 
-        totalFound, 
-        deletedCount: totalFound 
+        message: `Cleanup completed for ${month}/${year}.`, 
+        deletedCount, 
+        skippedCount 
       });
     }
 
-    // This runs for 'all' and 'audit' actions (since 'selective' returns early)
     await logAudit({
       userId: Number(userId),
       action: action === 'all' ? 'DATABASE_FLUSH' : 'AUDIT_LOG_CLEANUP',

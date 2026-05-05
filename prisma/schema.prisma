@@ -123,6 +123,11 @@ model Payment {
   resolvedBy      Int?                        // Manager who resolved it
   resolvedAt      DateTime?                   // When it was resolved
   metadata        Json?                       // Upgrade info, swap details, etc.
+  
+  // Upgrade Tracking
+  upgradeFlag     String?                     // Upgraded, Pending for Upgrade
+  upgradeType     String?                     // System, Payment Received, Money Collection, Reversal
+  upgradeReason   String?                     // Reasons like 'Multi Card Payment Due', etc.
 }
 
 model PTP {

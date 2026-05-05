@@ -31,7 +31,18 @@ const getStatusBadge = (payment: any) => {
 // ─── Record Payment Form ────────────────────────────────────────────────────
 const RecordPaymentForm = ({ modes, onSuccess }: { modes: string[], onSuccess: () => void }) => {
   const { toast, closeModal, user } = useApp();
-  const [form, setForm] = useState({ customerId: '', amount: '', mode: 'Cash', ref: '', date: new Date().toISOString().split('T')[0], remarks: '' });
+  const [form, setForm] = useState({ 
+    customerId: '', 
+    amount: '', 
+    mode: 'Cash', 
+    ref: '', 
+    date: new Date().toISOString().split('T')[0], 
+    remarks: '',
+    upgradeFlag: '',
+    upgradeType: '',
+    upgradeReason: ''
+  });
+  const [selectedCust, setSelectedCust] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -61,7 +72,8 @@ const RecordPaymentForm = ({ modes, onSuccess }: { modes: string[], onSuccess: (
   }, [searchQuery]);
 
   const selectCustomer = (c: any) => {
-    setForm({ ...form, customerId: c.id });
+    setForm({ ...form, customerId: c.id, upgradeFlag: '', upgradeType: '', upgradeReason: '' });
+    setSelectedCust(c);
     setSearchQuery(`${c.name} (${c.account_no})`);
     setShowSuggestions(false);
   };
@@ -74,7 +86,11 @@ const RecordPaymentForm = ({ modes, onSuccess }: { modes: string[], onSuccess: (
       const res = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, amount: parseFloat(form.amount), agentId: user.id })
+        body: JSON.stringify({ 
+          ...form, 
+          amount: parseFloat(form.amount), 
+          agentId: user.id
+        })
       });
       if (res.ok) { toast('Payment recorded — pending manager approval ✓'); closeModal(); onSuccess(); }
       else { const err = await res.json(); toast(err.message || 'Failed to record payment'); }
@@ -116,7 +132,63 @@ const RecordPaymentForm = ({ modes, onSuccess }: { modes: string[], onSuccess: (
         </div>
         <div className="ff"><label>Reference Number</label><input className="finp" placeholder="UTR / Cheque No." value={form.ref} onChange={e => setForm({ ...form, ref: e.target.value })} /></div>
         <div className="ff"><label>Payment Date</label><input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div>
-        <div className="ff" style={{ gridColumn: '1/-1' }}><label>Remarks</label><textarea className="finp" rows={2} style={{ resize: 'vertical' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} /></div>
+
+        {selectedCust && (selectedCust.eligible_upgrade === 'Y' || selectedCust.eligible_for_update === 'Y') && (
+          <div className="ff" style={{ gridColumn: '1/-1', background: 'rgba(79,125,255,0.03)', border: '1px solid var(--bdr)', borderRadius: 8, padding: '12px', marginTop: 5 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)' }}>UPGRADE STATUS</div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 9, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
+                <span style={{ fontSize: 10 }}>✓</span> Eligible for Upgrade
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="ff">
+                <label style={{ fontSize: 9 }}>UPGRADE FLAG</label>
+                <select className="finp" value={form.upgradeFlag} onChange={e => setForm({ ...form, upgradeFlag: e.target.value, upgradeType: '', upgradeReason: '' })}>
+                  <option value="">— Select —</option>
+                  <option value="Upgraded">Upgraded</option>
+                  <option value="Pending For Upgrade">Pending For Upgrade</option>
+                </select>
+              </div>
+
+              {form.upgradeFlag === 'Upgraded' && (
+                <div className="ff">
+                  <label style={{ fontSize: 9 }}>UPGRADE TYPE</label>
+                  <select className="finp" value={form.upgradeType} onChange={e => setForm({ ...form, upgradeType: e.target.value })}>
+                    <option value="">— Select —</option>
+                    <option value="System">System</option>
+                    <option value="Payment Received">Payment Received</option>
+                    <option value="Money Collection">Money Collection</option>
+                    <option value="Reversal">Reversal</option>
+                  </select>
+                </div>
+              )}
+
+              {form.upgradeFlag === 'Pending For Upgrade' && (
+                <div className="ff">
+                  <label style={{ fontSize: 9 }}>REASON</label>
+                  <select className="finp" value={form.upgradeReason} onChange={e => setForm({ ...form, upgradeReason: e.target.value })}>
+                    <option value="">— Select Reason —</option>
+                    <option value="Multi Card Payment Due">Multi Card Payment Due</option>
+                    <option value="ONE Card Write Off">ONE Card Write Off</option>
+                    <option value="Multi Card Write Off">Multi Card Write Off</option>
+                    <option value="Card Settlement">Card Settlement</option>
+                    <option value="Card Settlement (J5/J6)">Card Settlement (J5/J6)</option>
+                    <option value="Intrest Payment Due">Intrest Payment Due</option>
+                    <option value="Customer Refused to Pay">Customer Refused to Pay</option>
+                    <option value="Customer Not Contactable">Customer Not Contactable</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="ff" style={{ gridColumn: '1/-1' }}>
+          <label>Remarks</label>
+          <textarea className="finp" rows={2} style={{ resize: 'vertical' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} />
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
         <SButton variant="primary" style={{ flex: 2 }} onClick={handleSubmit} loading={saving}>Record Payment</SButton>
@@ -173,6 +245,16 @@ const PaymentDetailModal = ({ payment, onClose, onRefresh }: { payment: any, onC
         <div className="ff"><label>Date</label><input className="finp" value={payment.date} readOnly /></div>
         <div className="ff"><label>Agent</label><input className="finp" value={payment.agent?.name || '—'} readOnly /></div>
         <div className="ff"><label>Status (Backend)</label><input className="finp" value={s} readOnly style={{ color: cfg.color, fontWeight: 600, textTransform: 'capitalize' }} /></div>
+        {/* Upgrade Details */}
+        <div className="ff" style={{ gridColumn: 'span 2', background: 'var(--bg3)', padding: '10px', borderRadius: 8, marginTop: 5, border: '1px solid var(--bdr)' }}>
+           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+             <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)' }}>UPGRADE INFO</div>
+           </div>
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div><label style={{ fontSize: 9, color: 'var(--txt3)' }}>FLAG</label><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--pur)' }}>{payment.upgradeFlag || 'None'}</div></div>
+              <div><label style={{ fontSize: 9, color: 'var(--txt3)' }}>{payment.upgradeFlag === 'Upgraded' ? 'TYPE' : 'REASON'}</label><div style={{ fontSize: 12, fontWeight: 700 }}>{payment.upgradeType || payment.upgradeReason || '—'}</div></div>
+           </div>
+        </div>
       </div>
 
       {payment.rejectionReason && (
@@ -357,7 +439,7 @@ const Payments = () => {
             <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--bdr)' }}>
-                  {['Date', 'Account Details', 'Amount', 'Mode', 'Ref #', 'Agent', 'Status', ''].map(h => (
+                  {['Date', 'Account Details', 'Amount', 'Mode', 'Ref #', 'Agent', 'Upgrade Flag', 'Reason', 'Status', ''].map(h => (
                     <th key={h} style={{ padding: '13px 18px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: h === '' ? 'right' : 'left' }}>{h}</th>
                   ))}
                 </tr>
@@ -366,11 +448,11 @@ const Payments = () => {
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
-                      <td colSpan={8} style={{ padding: '14px 18px' }}><div className="skel" style={{ width: '100%', height: 18 }} /></td>
+                      <td colSpan={10} style={{ padding: '14px 18px' }}><div className="skel" style={{ width: '100%', height: 18 }} /></td>
                     </tr>
                   ))
                 ) : payments.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: 60, color: 'var(--txt3)' }}>
+                  <tr><td colSpan={10} style={{ textAlign: 'center', padding: 60, color: 'var(--txt3)' }}>
                     <div style={{ fontSize: 40, marginBottom: 15, opacity: 0.2 }}>🔍</div>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>No payments found</div>
                     <div style={{ fontSize: 12, opacity: 0.6 }}>Try adjusting your filters or record a new payment.</div>
@@ -390,6 +472,18 @@ const Payments = () => {
                     <td style={{ padding: '15px 18px' }}>
                       <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>{p.agent?.name}</div>
                       {p.agent?.empId && <div style={{ fontSize: 10, color: 'var(--txt3)' }}>{p.agent.empId}</div>}
+                    </td>
+                    <td style={{ padding: '15px 18px' }}>
+                      {p.upgradeFlag ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--pur)', background: 'var(--purbg)', padding: '2px 8px', borderRadius: 6, border: '1px solid rgba(167,139,250,0.2)' }}>
+                          {p.upgradeFlag}
+                        </span>
+                      ) : <span style={{ color: 'var(--txt3)', fontSize: 11 }}>—</span>}
+                    </td>
+                    <td style={{ padding: '15px 18px' }}>
+                      <div style={{ fontSize: 11, color: 'var(--txt2)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.upgradeReason || p.upgradeType || ''}>
+                        {p.upgradeReason || p.upgradeType || '—'}
+                      </div>
                     </td>
                     <td style={{ padding: '15px 18px' }}>{getStatusBadge(p)}</td>
                     <td style={{ padding: '15px 18px', textAlign: 'right' }}>

@@ -298,6 +298,7 @@ const Admin = () => {
   const [flushAction, setFlushAction] = useState<'all' | 'audit' | 'selective'>('all');
   const [cleanupMonth, setCleanupMonth] = useState(new Date().getMonth() + 1);
   const [cleanupYear, setCleanupYear] = useState(new Date().getFullYear());
+  const [flushForce, setFlushForce] = useState(false);
 
   const DEFAULT_LISTS: Record<string, string[]> = {
     PAYMENT_MODE: ['Cash', 'NEFT', 'IMPS', 'UPI', 'Cheque', 'DD'],
@@ -788,7 +789,8 @@ const Admin = () => {
           userId: user?.id,
           action: flushAction,
           month: cleanupMonth,
-          year: cleanupYear
+          year: cleanupYear,
+          force: flushForce
         })
       });
       if (res.ok) {
@@ -1006,6 +1008,8 @@ const Admin = () => {
             setCleanupMonth={setCleanupMonth}
             cleanupYear={cleanupYear}
             setCleanupYear={setCleanupYear}
+            flushForce={flushForce}
+            setFlushForce={setFlushForce}
           />
         )}
 
@@ -1044,6 +1048,7 @@ const Admin = () => {
           setFlushPassword={setFlushPassword}
           handleFlushDB={handleFlushDB}
           flushing={flushing}
+          flushForce={flushForce}
         />
 
       </div>

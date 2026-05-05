@@ -88,7 +88,11 @@ export async function POST(request: Request) {
         date: data.date || new Date().toISOString().split('T')[0],
         agentId,
         status: 'pending_approval',
-        remarks: data.remarks || ''
+        remarks: data.remarks || '',
+        // Upgrade fields
+        upgradeFlag: data.upgradeFlag || null,
+        upgradeType: data.upgradeType || null,
+        upgradeReason: data.upgradeReason || null
       }
     });
 

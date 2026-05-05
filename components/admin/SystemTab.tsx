@@ -14,6 +14,8 @@ export default function SystemTab({
   setCleanupMonth: (month: number) => void;
   cleanupYear: number;
   setCleanupYear: (year: number) => void;
+  flushForce: boolean;
+  setFlushForce: (val: boolean) => void;
 }) {
   return (
     <div style={{ width: '100%' }}>
@@ -50,7 +52,7 @@ export default function SystemTab({
           <div style={{ background: 'rgba(245,166,35,0.04)', border: '1px solid rgba(245,166,35,0.15)', borderRadius: 10, padding: '20px', display: 'flex', flexDirection: 'column', gap: 15, marginTop: 20 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--amb)', display: 'flex', alignItems: 'center', gap: 8 }}>📅 Selective Lead Cleanup</div>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 5, lineHeight: 1.5 }}>Delete leads by Month/Year. <b>Leads with payment records will NOT be deleted.</b></div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 5, lineHeight: 1.5 }}>Delete leads by Month/Year. {flushForce ? <b style={{ color: 'var(--red)' }}>FORCE MODE: Will delete even those with payments!</b> : <span><b>Leads with payment records will NOT be deleted.</b></span>}</div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -68,6 +70,13 @@ export default function SystemTab({
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: 6 }}>
+              <input type="checkbox" id="forceFlush" checked={flushForce} onChange={e => setFlushForce(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+              <label htmlFor="forceFlush" style={{ fontSize: 11, fontWeight: 600, color: flushForce ? 'var(--red)' : 'var(--txt2)', cursor: 'pointer' }}>
+                Force Cleanup (Override Payment Protection)
+              </label>
             </div>
 
             <button className="btn" style={{ background: 'rgba(245,166,35,0.1)', color: 'var(--amb)', border: '1px solid rgba(245,166,35,0.2)', padding: '10px', fontSize: 12, fontWeight: 600 }} onClick={() => {
