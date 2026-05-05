@@ -6,7 +6,9 @@ export default function SystemTab({
   cleanupMonth,
   setCleanupMonth,
   cleanupYear,
-  setCleanupYear
+  setCleanupYear,
+  flushForce,
+  setFlushForce
 }: {
   setFlushAction: (action: 'all' | 'audit' | 'selective') => void;
   setIsFlushModalOpen: (open: boolean) => void;
