@@ -196,9 +196,9 @@ const BulkUploadTab: React.FC<BulkUploadTabProps> = ({
                 <div className="ff">
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', marginBottom: 8, display: 'block' }}>ASSIGN TO PORTFOLIO</label>
                   <select className="finp" style={{ height: 45, borderRadius: 10 }} value={uploadPortfolio} onChange={e => setUploadPortfolio(e.target.value)}>
-                    <option value="">— Auto Detect from File —</option>
+                    <option value="">— Select Portfolio —</option>
                     {portfolios.map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                      <option key={p.id} value={p.id}>{p.bank ? `${p.name} (${p.bank})` : p.name}</option>
                     ))}
                   </select>
                 </div>
@@ -221,9 +221,9 @@ const BulkUploadTab: React.FC<BulkUploadTabProps> = ({
             </div>
             <button
               className="btn pr"
-              style={{ height: 60, fontSize: 16, background: 'var(--acc)', borderRadius: 12, fontWeight: 800, opacity: (!uploadFile || uploading || !!validationError) ? 0.4 : 1 }}
+              style={{ height: 60, fontSize: 16, background: 'var(--acc)', borderRadius: 12, fontWeight: 800, opacity: (!uploadFile || uploading || !!validationError || !uploadPortfolio) ? 0.4 : 1 }}
               onClick={handleStartUpload}
-              disabled={!uploadFile || uploading || !!validationError}
+              disabled={!uploadFile || uploading || !!validationError || !uploadPortfolio}
             >
               {uploading ? '⌛ Processing Data...' : '🚀 Start Bulk Import'}
             </button>

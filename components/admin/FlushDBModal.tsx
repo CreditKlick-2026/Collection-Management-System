@@ -39,7 +39,7 @@ const FlushDBModal: React.FC<FlushDBModalProps> = ({
             type="password"
             className="finp"
             autoFocus
-            style={{ border: '1px solid rgba(226,75,74,0.3)', background: 'rgba(226,75,74,0.05)' }}
+            style={{ border: '1px solid rgba(226,75,74,0.3)', background: 'rgba(226,75,74,0.05)', color: '#fff' }}
             placeholder="Enter password..."
             value={flushPassword}
             onChange={e => setFlushPassword(e.target.value)}

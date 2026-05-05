@@ -188,11 +188,11 @@ async function processJob() {
           m['assignedAgentId'] = parseInt(agentId) || null;
         }
 
-        if (m['portfolioId']) {
+        if (portfolioId) {
+          m['portfolioId'] = parseInt(portfolioId) || null;
+        } else if (m['portfolioId']) {
           const p = String(m['portfolioId']).toLowerCase().trim();
           m['portfolioId'] = byPId.get(p) ?? byPName.get(p) ?? null;
-        } else if (portfolioId) {
-          m['portfolioId'] = parseInt(portfolioId) || null;
         }
 
         mapped.push(m);

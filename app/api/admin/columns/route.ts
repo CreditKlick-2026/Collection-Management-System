@@ -26,6 +26,8 @@ const DEFAULT_COLUMNS = [
   { key: 'eligible_upgrade',      label: 'Eligible for Upgrade',  order: 20, type: 'text',   visible: false, showInProfile: true },
   { key: 'createdAt',             label: 'Allocation Date',       order: 21, type: 'date',   visible: false, showInProfile: true },
   { key: 'assignedAgent',         label: 'Assigned Agent',        order: 22, type: 'text',   visible: true, showInProfile: true  },
+  { key: 'portfolio',             label: 'Portfolio',             order: 23, type: 'text',   visible: true, showInProfile: true  },
+  { key: 'settlement',            label: 'Settlement',            order: 24, type: 'badge',  visible: true, showInProfile: true  },
 ];
 
 export async function GET() {

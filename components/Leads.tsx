@@ -1504,7 +1504,21 @@ const Leads = () => {
                       const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
                       return (
                         <td key={col.key} style={{ padding: '8px 10px', fontSize: 11, color: col.type === 'amount' ? 'var(--red)' : 'var(--txt2)' }}>
-                          {col.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` :
+                          {col.key === 'settlement' ? (
+                            lead.settlements && lead.settlements.length > 0 ? (
+                              <span className="badge" style={{ 
+                                background: 'transparent', 
+                                border: `1px solid ${lead.settlements[0].status === 'Approve' ? 'rgba(34,197,94,0.3)' : lead.settlements[0].status === 'Rejected' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`, 
+                                color: lead.settlements[0].status === 'Approve' ? 'var(--grn)' : lead.settlements[0].status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
+                                fontSize: 9,
+                                borderRadius: 12
+                              }}>
+                                {lead.settlements[0].status}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--txt3)', fontSize: 9, opacity: 0.5 }}>—</span>
+                            )
+                          ) : col.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` :
                             col.type === 'badge' ? <span className="badge" style={{ background: 'var(--purbg)', color: 'var(--pur)', border: '1px solid var(--purbg)', borderRadius: 12, padding: '2px 8px' }}>{String(val)}</span> :
                             lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
                             lowerKey === 'createdat' ? String(val).split('T')[0] :

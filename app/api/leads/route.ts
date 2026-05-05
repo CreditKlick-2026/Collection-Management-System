@@ -131,9 +131,23 @@ export async function GET(request: Request) {
           where.AND.push({ OR: managerOrConditions });
         }
       } else {
-        // Agent — STRICTLY see only leads assigned to themselves
-        // We do NOT enforce portfolio matching here because the assignment takes precedence.
-        where.AND.push({ assignedAgentId: Number(userId) });
+        // Agent sees leads in their assigned portfolios OR leads directly assigned to them
+        const agentOrConditions: any[] = [{ assignedAgentId: Number(userId) }];
+        
+        if (portfolioIds.length > 0) {
+          agentOrConditions.push({ portfolioId: { in: portfolioIds } });
+        }
+        
+        if (portfolio) {
+          const pId = Number(portfolio);
+          if (portfolioIds.includes(pId)) {
+            where.AND.push({ portfolioId: pId });
+          } else {
+            where.AND.push({ id: -1 }); // Agent requested a portfolio they don't own
+          }
+        } else {
+          where.AND.push({ OR: agentOrConditions });
+        }
       }
     } else if (portfolio) {
       // Admin filtering by specific portfolio

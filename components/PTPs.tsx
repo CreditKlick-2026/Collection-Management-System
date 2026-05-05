@@ -139,12 +139,12 @@ const NewPTPModal = ({ onDone }: { onDone: () => void }) => {
 };
 
 const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
-  const { closeModal, toast } = useApp();
+  const { closeModal, toast, user } = useApp();
+  const isAgent = user?.role === 'agent';
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     amount: item?.ptp_amount || item?.amount,
     date: item?.ptp_date?.split('/').reverse().join('-') || '',
-    status: item?.status,
     remarks: item?.remarks || '',
     voc: item?.voc || '',
     flag: item?.flag || '',
@@ -181,66 +181,58 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
         <div className="ff">
           <label>PTP AMOUNT (₹)</label>
-          <input className="finp" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+          <input className="finp" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} disabled={isAgent} />
         </div>
         <div className="ff">
           <label>PTP DATE</label>
-          <input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+          <input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} disabled={isAgent} />
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
-        <div className="ff">
-          <label>STATUS</label>
-          <select className="finp" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-            <option value="pending">pending</option>
-            <option value="partial">partial</option>
-            <option value="kept">kept</option>
-            <option value="broken">broken</option>
-            <option value="paid">paid</option>
-          </select>
-        </div>
-        <div className="ff">
-          <label>REMARKS</label>
-          <input className="finp" value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} />
-        </div>
+      <div className="ff" style={{ marginBottom: 15 }}>
+        <label>REMARKS</label>
+        <input className="finp" value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} disabled={isAgent} />
       </div>
 
-      <div className="ff" style={{ marginBottom: 25 }}>
+      <div className="ff" style={{ marginBottom: isAgent ? 0 : 25 }}>
         <label>VOC / CALL NOTES</label>
-        <textarea className="finp" rows={3} style={{ resize: 'vertical' }} value={form.voc} onChange={e => setForm({ ...form, voc: e.target.value })} />
+        <textarea className="finp" rows={3} style={{ resize: 'vertical' }} value={form.voc} onChange={e => setForm({ ...form, voc: e.target.value })} disabled={isAgent} />
       </div>
 
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, textTransform: 'uppercase' }}>
-        MANAGER REVIEW
-      </div>
+      {!isAgent && (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, textTransform: 'uppercase' }}>
+            MANAGER REVIEW
+          </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 25 }}>
-        <div className="ff">
-          <label>FLAG / REVIEW STATUS</label>
-          <select className="finp" value={form.flag} onChange={e => setForm({ ...form, flag: e.target.value })}>
-            <option value="">— Select Status —</option>
-            <option value="approved">approved</option>
-            <option value="flagged">flagged</option>
-            <option value="rejected">rejected</option>
-          </select>
-        </div>
-        <div className="ff">
-          <label>FLAG COMMENT / REJECTION REASON</label>
-          <input className="finp" value={form.flag_comment} onChange={e => setForm({ ...form, flag_comment: e.target.value })} placeholder="e.g. Customer history unreliable" />
-        </div>
-      </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 25 }}>
+            <div className="ff">
+              <label>FLAG / REVIEW STATUS</label>
+              <select className="finp" value={form.flag} onChange={e => setForm({ ...form, flag: e.target.value })}>
+                <option value="">— Select Status —</option>
+                <option value="approved">approved</option>
+                <option value="flagged">flagged</option>
+                <option value="rejected">rejected</option>
+              </select>
+            </div>
+            <div className="ff">
+              <label>FLAG COMMENT / REJECTION REASON</label>
+              <input className="finp" value={form.flag_comment} onChange={e => setForm({ ...form, flag_comment: e.target.value })} placeholder="e.g. Customer history unreliable" />
+            </div>
+          </div>
 
-      <button className="btn pr" style={{ width: '100%', padding: '12px', background: '#4f7dff' }} onClick={handleSubmit} disabled={loading}>
-        {loading ? 'Saving...' : '✓ Save PTP'}
-      </button>
+          <button className="btn pr" style={{ width: '100%', padding: '12px', background: '#4f7dff' }} onClick={handleSubmit} disabled={loading}>
+            {loading ? 'Saving...' : '✓ Save PTP'}
+          </button>
+        </>
+      )}
     </div>
   );
 };
 
 
 const PTPs = () => {
-  const { openModal } = useApp();
+  const { openModal, user } = useApp();
   const [subTab, setSubTab] = useState<'ptp' | 'settlement'>('ptp');
   const [ptps, setPtps] = useState<any[]>([]);
   const [settlements, setSettlements] = useState<any[]>([]);
@@ -457,7 +449,7 @@ const PTPs = () => {
                       <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{p.agent_name}</td>
                       <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.voc || '—'}</td>
                       <td style={{ padding: '12px 10px', textAlign: 'right' }}>
-                        <button className="btn sm" style={{ background: 'var(--faint)', border: '1px solid var(--faint)' }} onClick={() => openModal(`PTP — ${p.account_no}`, <EditPTPModal item={p} onDone={fetchPtps} />)}>Edit</button>
+                        <button className="btn sm" style={{ background: 'var(--faint)', border: '1px solid var(--faint)' }} onClick={() => openModal(`PTP — ${p.account_no}`, <EditPTPModal item={p} onDone={fetchPtps} />)}>{user?.role === 'agent' ? 'View' : 'Edit'}</button>
                       </td>
                     </tr>
                   ))}
