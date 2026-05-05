@@ -98,7 +98,7 @@ const Topbar: React.FC<TopbarProps> = ({ user, activePage, logout, toggleMobileM
 
           {showNotifs && (
             <div style={{
-              position: 'absolute', top: '120%', right: 0, width: '280px',
+              position: 'absolute', top: '120%', right: 0, width: '550px',
               background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: '10px',
               boxShadow: '0 10px 30px rgba(0,0,0,0.4)', zIndex: 1000, overflow: 'hidden'
             }}>
@@ -106,20 +106,22 @@ const Topbar: React.FC<TopbarProps> = ({ user, activePage, logout, toggleMobileM
                 <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--txt)' }}>Today's PTP Alerts</span>
                 <button onClick={clearNotifs} style={{ fontSize: '10px', color: 'var(--red)', background: 'transparent', border: 'none', cursor: 'pointer' }}>Clear All</button>
               </div>
-              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {notifications.length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: 'var(--txt3)', fontSize: '11px' }}>
                     No PTP reminders for today
                   </div>
                 ) : (
                   notifications.map((n, i) => (
-                    <div key={i} style={{ padding: '10px 15px', borderBottom: i < notifications.length - 1 ? '1px solid var(--faint)' : 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--acc2)' }}>{n.title}</span>
-                        <span style={{ fontSize: '9px', color: 'var(--txt3)' }}>{n.time}</span>
+                    <div key={i} style={{ padding: '12px 15px', borderBottom: i < notifications.length - 1 ? '1px solid var(--faint)' : 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--acc2)', whiteSpace: 'nowrap' }}>{n.title}</span>
+                        <span style={{ color: 'var(--txt3)', fontSize: '10px' }}>•</span>
+                        <span style={{ fontSize: '11px', color: 'var(--txt)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={n.message}>{n.message}</span>
+                        <span style={{ color: 'var(--txt3)', fontSize: '10px' }}>•</span>
+                        <span style={{ fontSize: '11px', color: 'var(--txt3)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>A/C: {n.account}</span>
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--txt)' }}>{n.message}</div>
-                      <div style={{ fontSize: '9px', color: 'var(--txt3)', fontFamily: 'monospace' }}>A/C: {n.account}</div>
+                      <span style={{ fontSize: '10px', color: 'var(--txt3)', whiteSpace: 'nowrap', flexShrink: 0 }}>{n.time}</span>
                     </div>
                   ))
                 )}

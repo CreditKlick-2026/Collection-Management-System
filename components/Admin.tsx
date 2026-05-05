@@ -832,11 +832,11 @@ const Admin = () => {
       "Alt Mobile",
       "Address",
       "Bucket",
-      "Eligible_For_Update"
+      "Eligible for Upgrade"
     ];
 
     // Add any extra custom columns that are not in the standard list
-    const standardKeys = ['account_no', 'name', 'mobile', 'outstanding', 'principle_outstanding', 'min_amt_due', 'dpd', 'product', 'bank', 'pan', 'status', 'portfolio', 'assignedAgent', 'city', 'state', 'email', 'alt_mobile', 'address', 'bkt_2', 'eligible_for_update'];
+    const standardKeys = ['account_no', 'name', 'mobile', 'outstanding', 'principle_outstanding', 'min_amt_due', 'dpd', 'product', 'bank', 'pan', 'status', 'portfolio', 'assignedAgent', 'city', 'state', 'email', 'alt_mobile', 'address', 'bkt_2', 'eligible_upgrade', 'eligible_for_update', 'product_npa', 'date_of_npa', 'createdAt', 'settlement'];
     const custom = columns
       .filter(c => !standardKeys.includes(c.key))
       .map(c => c.label);
