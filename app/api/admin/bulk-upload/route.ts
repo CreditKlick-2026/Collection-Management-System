@@ -34,6 +34,7 @@ const FIELD_MAP = {
   'dob':'dob','gender':'gender','employer':'employer','salary':'salary',
   'portfolio':'portfolioId','assigned agent':'agentUsername','agent':'agentUsername',
   'eligible_for_update':'eligible_for_update','eligible for update':'eligible_for_update',
+  'eligible_upgrade':'eligible_upgrade','eligible for upgrade':'eligible_upgrade','upgrade eligibility':'eligible_upgrade',
   // NOTE: 'created date' / 'createdAt' intentionally NOT mapped — it is DB-managed (@default(now()))
 };
 const NUMBER_FIELDS = new Set(['outstanding','principle_outstanding','min_amt_due','dpd','salary']);
@@ -42,7 +43,7 @@ const CUSTOMER_FIELDS = new Set([
   'account_no','name','mobile','alt_mobile','alt_mobile_2','alt_mobile_3','alt_mobile_4',
   'email','pan','product','bank','outstanding','principle_outstanding','min_amt_due','dpd',
   'bkt_2','product_npa','date_of_npa','status','city','state','address',
-  'dob','gender','employer','salary','eligible_for_update',
+  'dob','gender','employer','salary','eligible_for_update','eligible_upgrade',
   'portfolioId','assignedAgentId'
 ]);
 
@@ -57,9 +58,9 @@ function mapRow(row, dynamicFieldMap) {
     const field = FIELD_MAP[nk];
     if (field) {
       if (NUMBER_FIELDS.has(field)) { const n = Number(v); if (!isNaN(n)) out[field] = n; }
-      else if (field === 'eligible_for_update') {
+      else if (field === 'eligible_for_update' || field === 'eligible_upgrade') {
         const s = String(v).toLowerCase().trim();
-        out[field] = (!s || s === 'no' || s === 'n' || s === 'false') ? 'N' : 'Y';
+        out[field] = (!s || s === 'no' || s === 'n' || s === 'false' || s === '0') ? 'N' : 'Y';
       } else { out[field] = String(v).trim(); }
     } else if (dynamicFieldMap && dynamicFieldMap[nk]) {
       const { key, type } = dynamicFieldMap[nk];

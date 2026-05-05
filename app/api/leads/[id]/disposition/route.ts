@@ -15,12 +15,8 @@ export async function POST(
 
     const parsedUserId = userId ? Number(userId) : null;
 
-    // 1. Update customer status
-    const updateData: any = {
-      status: data.disposition === 'Promised to Pay' ? 'ptp' : 
-              data.connectStatus === 'Right Party Connect' ? 'active' : 
-              'pending',
-    };
+    // 1. Update customer metadata (if needed)
+    const updateData: any = {};
 
     if (data.eligibleForUpdate !== undefined) {
       updateData.eligible_for_update = data.eligibleForUpdate;

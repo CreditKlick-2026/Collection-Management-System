@@ -271,59 +271,169 @@ const PaymentSummaryModal = ({ lead }: { lead: any }) => {
 const SettlementHistoryModal = ({ lead }: { lead: any }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 20;
 
   useEffect(() => {
     if (!lead?.id) return;
     setLoading(true);
-    fetch(`/api/settlements?customerId=${lead.id}&status=all`)
+    fetch(`/api/settlements?customerId=${lead.id}&status=all&page=${page}&limit=${limit}`)
       .then(r => r.json())
-      .then(d => { setData(Array.isArray(d) ? d : []); setLoading(false); })
+      .then(d => {
+        const list = Array.isArray(d) ? d : (d?.data || []);
+        setData(list);
+        setTotal(d?.total || list.length);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
-  }, [lead?.id]);
+  }, [lead?.id, page]);
+
+  const totalPages = Math.ceil(total / limit);
 
   const STATUS_MAP: any = {
-    Raised: { color: 'var(--amb)', label: 'Raised' },
-    Approve: { color: 'var(--grn)', label: 'Approved' },
-    Rejected: { color: 'var(--red)', label: 'Rejected' },
-    Pending: { color: 'var(--pur)', label: 'Pending' },
+    Raised: { color: 'var(--amb)', label: 'RAISED', icon: '⏳' },
+    Approve: { color: 'var(--grn)', label: 'APPROVED', icon: '✅' },
+    Rejected: { color: 'var(--red)', label: 'REJECTED', icon: '❌' },
+    Pending: { color: 'var(--pur)', label: 'PENDING', icon: '🔄' },
   };
 
   return (
     <div style={{ padding: '0 20px 20px' }}>
+      <style>{`
+        @keyframes shimmer {
+          0% { background-position: -468px 0 }
+          100% { background-position: 468px 0 }
+        }
+        .skeleton {
+          background: #f6f7f8;
+          background-image: linear-gradient(to right, #f6f7f8 0%, #edeef1 20%, #f6f7f8 40%, #f6f7f8 100%);
+          background-repeat: no-repeat;
+          background-size: 800px 100%;
+          display: inline-block;
+          position: relative;
+          animation: shimmer 1.2s infinite linear;
+          border-radius: 4px;
+        }
+      `}</style>
+
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center' }}>Loading history...</div>
-      ) : data.length === 0 ? (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--txt3)' }}>No settlement history found for this customer.</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {data.map((s: any) => {
-            const cfg = STATUS_MAP[s.status] || { color: 'var(--txt3)', label: s.status };
-            return (
-              <div key={s.id} style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: 15 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>{s.reason}</span>
-                    {s.amount > 0 && <span style={{ color: 'var(--red)', background: 'rgba(239,68,68,0.06)', padding: '1px 6px', borderRadius: 4, fontSize: 10 }}>₹{s.amount.toLocaleString('en-IN')}</span>}
-                  </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: `${cfg.color}15`, padding: '2px 8px', borderRadius: 10, border: `1px solid ${cfg.color}30` }}>
-                    {cfg.label}
-                  </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 6, padding: '16px', position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div className="skeleton" style={{ height: 16, width: '60%', marginBottom: 8 }}></div>
+                  <div className="skeleton" style={{ height: 12, width: '40%' }}></div>
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--txt2)', marginBottom: 8 }}>
-                  <b>Agent Remarks:</b> {s.justification}
-                </div>
-                {s.remarks && (
-                  <div style={{ fontSize: 11, color: 'var(--txt)', background: 'rgba(255,255,255,0.03)', padding: 8, borderRadius: 6, borderLeft: '3px solid var(--acc2)' }}>
-                    <b>Manager Remarks:</b> {s.remarks}
-                  </div>
-                )}
-                <div style={{ fontSize: 9, color: 'var(--txt3)', marginTop: 10, textAlign: 'right' }}>
-                  Requested on {new Date(s.createdAt).toLocaleDateString()}
-                </div>
+                <div className="skeleton" style={{ height: 24, width: 80, borderRadius: 12 }}></div>
               </div>
-            );
-          })}
+              <div style={{ background: 'var(--bg3)', borderRadius: 6, padding: 12, border: '1px solid var(--bdr)' }}>
+                <div className="skeleton" style={{ height: 10, width: '100%', marginBottom: 6 }}></div>
+                <div className="skeleton" style={{ height: 10, width: '80%' }}></div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
+                <div className="skeleton" style={{ height: 10, width: 100 }}></div>
+                <div className="skeleton" style={{ height: 10, width: 80 }}></div>
+              </div>
+            </div>
+          ))}
         </div>
+      ) : data.length === 0 ? (
+        <div style={{ padding: 60, textAlign: 'center', color: 'var(--txt3)' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⚖️</div>
+          No settlement history found for this customer.
+        </div>
+      ) : (
+        <>
+          <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 8, display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 20 }}>
+            {data.map((s: any) => {
+              const cfg = STATUS_MAP[s.status] || { color: 'var(--txt3)', label: s.status, icon: '•' };
+              return (
+                <div key={s.id} style={{ 
+                  background: 'var(--bg2)', 
+                  border: '1px solid var(--bdr)', 
+                  borderRadius: 6, 
+                  padding: '16px', 
+                  position: 'relative', 
+                  flexShrink: 0,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: cfg.color }}></div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)', marginBottom: 4 }}>{s.reason}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                         <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--red)', background: 'rgba(239,68,68,0.06)', padding: '2px 8px', borderRadius: 4 }}>
+                           ₹{Number(s.amount).toLocaleString('en-IN')}
+                         </span>
+                         <span style={{ fontSize: 9, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5 }}>SETTLEMENT AMOUNT</span>
+                      </div>
+                    </div>
+                    <div style={{ 
+                      display: 'flex', alignItems: 'center', gap: 6, 
+                      color: cfg.color, background: `${cfg.color}10`, 
+                      padding: '4px 10px', borderRadius: 4, 
+                      border: `1px solid ${cfg.color}25`,
+                      fontSize: 10, fontWeight: 800, letterSpacing: 0.5
+                    }}>
+                      <span>{cfg.icon}</span> {cfg.label}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 6, padding: 12 }}>
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 9, color: 'var(--txt3)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Agent Remarks</div>
+                      <div style={{ fontSize: 11, color: 'var(--txt2)', lineHeight: 1.5, fontStyle: 'italic' }}>"{s.justification || 'No justification provided'}"</div>
+                    </div>
+                    
+                    {s.remarks && (
+                      <div style={{ borderTop: '1px solid var(--bdr)', paddingTop: 10 }}>
+                        <div style={{ fontSize: 9, color: 'var(--acc2)', fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Manager Response</div>
+                        <div style={{ fontSize: 11, color: 'var(--txt)', lineHeight: 1.5, fontWeight: 600 }}>{s.remarks}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
+                    <div style={{ fontSize: 10, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      👤 <span style={{ fontWeight: 600 }}>{s.agent?.name || 'Unknown Agent'}</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 600 }}>
+                      📅 {new Date(s.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 24, padding: '10px 0', borderTop: '1px solid var(--bdr)' }}>
+              <button 
+                className="btn sm" 
+                disabled={page <= 1} 
+                onClick={() => setPage(p => p - 1)}
+                style={{ opacity: page <= 1 ? 0.5 : 1, background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '6px 12px', fontSize: 11 }}
+              >
+                ‹ Previous
+              </button>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)' }}>
+                Page {page} of {totalPages}
+              </div>
+              <button 
+                className="btn sm" 
+                disabled={page >= totalPages} 
+                onClick={() => setPage(p => p + 1)}
+                style={{ opacity: page >= totalPages ? 0.5 : 1, background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '6px 12px', fontSize: 11 }}
+              >
+                Next ›
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -742,7 +852,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
     remarks: '',
     upgradeFlag: '',
     upgradeType: '',
-    status: lead.status || 'ACTIVE'
+    status: ''
   });
 
   const handleSubmit = async () => {
@@ -765,7 +875,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
       });
 
       // 1.5 Update Lead Status if changed
-      if (form.status !== lead.status) {
+      if (form.status && form.status !== lead.status) {
         await fetch(`/api/leads/${lead.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -843,8 +953,8 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
             value={form.status}
             onChange={e => setForm({ ...form, status: e.target.value })}
           >
-            {/* The user specifically wanted these 4 + current status */}
-            {Array.from(new Set([lead.status || 'ACTIVE', 'Rollback', 'Rollforward', 'Normilization', 'STAB'])).map(s => (
+            <option value="">— Select Status —</option>
+            {['Rollback', 'Rollforward', 'Normilization', 'STAB'].map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
@@ -932,7 +1042,10 @@ const Leads = () => {
     // Fetch latest settlement status
     fetch(`/api/settlements?customerId=${selectedLead.id}&status=all&limit=1`)
       .then(r => r.json())
-      .then(d => setLatestSettlement(Array.isArray(d) && d.length > 0 ? d[0] : null))
+      .then(d => {
+        const list = Array.isArray(d) ? d : (d?.data || []);
+        setLatestSettlement(list.length > 0 ? list[0] : null);
+      })
       .catch(() => setLatestSettlement(null));
   }, [selectedLead?.id]);
 
@@ -1081,6 +1194,15 @@ const Leads = () => {
         if (res.ok) {
           toast('Settlement Request Raised ✓');
           closeModal();
+          // Trigger a refresh of the dashboard status specifically
+          if (selectedLead?.id) {
+            fetch(`/api/settlements?customerId=${selectedLead.id}&status=all&limit=1`)
+              .then(r => r.json())
+              .then(d => {
+                const list = Array.isArray(d) ? d : (d?.data || []);
+                setLatestSettlement(list.length > 0 ? list[0] : null);
+              });
+          }
           onDone();
         } else {
           toast((await res.json()).message || 'Failed to raise request');
@@ -1181,7 +1303,7 @@ const Leads = () => {
                           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedLead.name}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                          {selectedLead.eligible_upgrade === 'Y' ? (
+                          {(selectedLead.eligible_upgrade === 'Y' || selectedLead.eligible_for_update === 'Y') ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 11, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
                               <span style={{ fontSize: 12 }}>✓</span> Eligible for Upgrade
                             </span>
@@ -1506,7 +1628,7 @@ const Leads = () => {
                         const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
                         return (
                           <td key={col.key} style={{ padding: '8px 10px', fontSize: 11, color: col.type === 'amount' ? 'var(--red)' : 'var(--txt2)' }}>
-                            {col.key === 'settlement' ? (
+                            {(lowerKey === 'settlement' || lowerKey.includes('settlement')) ? (
                               lead.settlements && lead.settlements.length > 0 ? (
                                 <span className="badge" style={{
                                   background: 'transparent',
