@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       prisma.payment.findMany({
         where,
         include: {
-          customer: { select: { id: true, name: true, account_no: true, bkt_2: true, eligible_upgrade: true, product: true } },
+          customer: { select: { id: true, name: true, account_no: true, bkt_2: true, eligible_upgrade: true, eligible_for_update: true, product: true } },
           agent:    { select: { id: true, name: true, empId: true } },
         },
         orderBy: { date: 'desc' },

@@ -11,7 +11,7 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
   const [saving, setSaving] = useState(false);
 
   // Agent Swap Logic
-  const isEligible = item.customer?.eligible_upgrade === 'Y';
+  const isEligible = (item.customer?.eligible_upgrade === 'Y' || item.customer?.eligible_for_update === 'Y');
   const [upgradeData, setUpgradeData] = useState({ flag: '', type: '', upgraded: 'N' });
   const [allAgents, setAllAgents] = useState<any[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState(item.agentId);
@@ -98,7 +98,18 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
           <div><span style={{ color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', display: 'block' }}>Customer</span><b>{item.customer?.name}</b></div>
           <div><span style={{ color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', display: 'block' }}>Account</span><b style={{ fontFamily: 'monospace' }}>{item.customer?.account_no}</b></div>
           <div><span style={{ color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', display: 'block' }}>Amount</span><b style={{ color: 'var(--grn)' }}>₹{item.amount?.toLocaleString('en-IN')}</b></div>
-          <div><span style={{ color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', display: 'block' }}>Eligible</span><span className={`badge ${isEligible ? 'grn' : 'red'}`} style={{ fontSize: 8, padding: '1px 4px' }}>{isEligible ? 'YES' : 'NO'}</span></div>
+          <div>
+            <span style={{ color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Eligible</span>
+            {(item.customer?.eligible_upgrade === 'Y' || item.customer?.eligible_for_update === 'Y') ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '1px 8px', borderRadius: 12, fontSize: 9, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 700 }}>
+                <span style={{ fontSize: 10 }}>✓</span> Eligible
+              </span>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(226,75,74,0.1)', color: 'var(--red)', padding: '1px 8px', borderRadius: 12, fontSize: 9, border: '1px solid rgba(226,75,74,0.3)', fontWeight: 700 }}>
+                <span style={{ fontSize: 10 }}>✕</span> Not Eligible
+              </span>
+            )}
+          </div>
           <div><span style={{ color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', display: 'block' }}>Bucket</span><b style={{ color: 'var(--pur)' }}>{item.customer?.bkt_2 || '—'}</b></div>
           <div><span style={{ color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', display: 'block' }}>Agent</span><b>{item.agent?.name}</b></div>
         </div>

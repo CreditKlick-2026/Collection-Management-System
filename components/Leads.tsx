@@ -989,9 +989,33 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} placeholder="Payment notes..." />
       </div>
 
-      <button className="btn pr" style={{ width: '100%', padding: '12px', background: 'rgba(34,197,94,0.1)', color: 'var(--grn)', border: '1px solid rgba(34,197,94,0.2)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }} onClick={handleSubmit} disabled={loading}>
-        {loading ? 'Processing...' : <><span style={{ fontSize: 16 }}>💳</span> Submit for Approval</>}
-      </button>
+      {/* Validation Logic */}
+      {(() => {
+        const isFormValid = !!(form.amount && form.ref && form.status && form.remarks);
+        return (
+          <button 
+            className="btn pr" 
+            style={{ 
+              width: '100%', 
+              padding: '12px', 
+              background: !isFormValid ? 'var(--bg3)' : 'rgba(34,197,94,0.1)', 
+              color: !isFormValid ? 'var(--txt3)' : 'var(--grn)', 
+              border: !isFormValid ? '1px solid var(--bdr)' : '1px solid rgba(34,197,94,0.2)', 
+              fontWeight: 700, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: 10,
+              cursor: !isFormValid ? 'not-allowed' : 'pointer',
+              opacity: !isFormValid ? 0.7 : 1
+            }} 
+            onClick={handleSubmit} 
+            disabled={loading || !isFormValid}
+          >
+            {loading ? 'Processing...' : <><span style={{ fontSize: 16 }}>💳</span> Submit for Approval</>}
+          </button>
+        );
+      })()}
     </div>
   );
 };
