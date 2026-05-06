@@ -120,6 +120,7 @@ const QuickApproveModal = ({ item, onDone }: { item: any, onDone: () => void }) 
                   <option value="Intrest Payment Due">Intrest Payment Due</option>
                   <option value="Customer Refused to Pay">Customer Refused to Pay</option>
                   <option value="Customer Not Contactable">Customer Not Contactable</option>
+                  <option value="Partial Payment">Partial Payment</option>
                 </select>
               </div>
             )}
@@ -314,6 +315,7 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
                   <option value="Intrest Payment Due">Intrest Payment Due</option>
                   <option value="Customer Refused to Pay">Customer Refused to Pay</option>
                   <option value="Customer Not Contactable">Customer Not Contactable</option>
+                  <option value="Partial Payment">Partial Payment</option>
                 </select>
               </div>
             )}
@@ -811,13 +813,24 @@ const Approvals = () => {
                     const isElig = p.customer?.eligible_upgrade === 'Y' || p.customer?.eligible_for_update === 'Y';
                     return (
                     <tr key={p.id} className="tr-h" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}>
-                      <td className="mn" style={{ padding: '16px 20px', fontSize: 12, color: 'var(--txt3)' }}>{p.date}</td>
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--txt)' }}>
+                          {p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : p.date}
+                        </div>
+                        {p.createdAt && (
+                          <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 2 }}>
+                            {new Date(p.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{p.customer?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'monospace' }}>{p.customer?.account_no}</div>
                       </td>
                       <td className="mn" style={{ padding: '16px 20px', color: 'var(--grn)', fontWeight: 800, fontSize: 15 }}>₹{p.amount?.toLocaleString('en-IN')}</td>
-                      <td className="mn" style={{ padding: '16px 20px', color: 'var(--txt2)', fontSize: 13 }}>{p.date}</td>
+                      <td className="mn" style={{ padding: '16px 20px', color: 'var(--txt2)', fontSize: 13 }}>
+                        {p.date ? new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
                       <td style={{ padding: '16px 20px' }}>
                         {(() => {
                           const modeColors: Record<string, { bg: string; color: string; border: string }> = {
@@ -907,13 +920,24 @@ const Approvals = () => {
                     </td></tr>
                   ) : pending.map(p => (
                     <tr key={p.id} className="tr-h" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}>
-                      <td className="mn" style={{ padding: '16px 20px', fontSize: 13, color: 'var(--txt3)' }}>{p.created}</td>
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--txt)' }}>
+                          {p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : p.created}
+                        </div>
+                        {p.createdAt && (
+                          <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 2 }}>
+                            {new Date(p.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{p.customer_name}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'monospace' }}>{p.account_no}</div>
                       </td>
                       <td className="mn" style={{ padding: '16px 20px', color: 'var(--amb)', fontWeight: 800, fontSize: 15 }}>₹{p.ptp_amount?.toLocaleString('en-IN')}</td>
-                      <td className="mn" style={{ padding: '16px 20px', color: 'var(--txt2)', fontSize: 13 }}>{p.ptp_date}</td>
+                      <td className="mn" style={{ padding: '16px 20px', color: 'var(--txt2)', fontSize: 13 }}>
+                        {p.ptp_date ? new Date(p.ptp_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>{p.agent_name}</div>
                       </td>
@@ -965,14 +989,25 @@ const Approvals = () => {
                     </td></tr>
                   ) : pending.map(p => (
                     <tr key={p.id} className="tr-h" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}>
-                      <td className="mn" style={{ padding: '16px 20px', fontSize: 12, color: 'var(--txt3)' }}>{p.created}</td>
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--txt)' }}>
+                          {p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : p.created}
+                        </div>
+                        {p.createdAt && (
+                          <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 2 }}>
+                            {new Date(p.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{p.customer?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'monospace' }}>{p.customer?.account_no}</div>
                         <div style={{ marginTop: 3 }}><span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: 'rgba(244,63,94,0.1)', color: 'var(--red)', border: '1px solid rgba(244,63,94,0.2)', textTransform: 'uppercase' }}>{p.reason}{p.subReason ? ` · ${p.subReason}` : ''}</span></div>
                       </td>
                       <td className="mn" style={{ padding: '16px 20px', color: 'var(--acc2)', fontWeight: 800, fontSize: 15 }}>₹{p.amount?.toLocaleString('en-IN')}</td>
-                      <td className="mn" style={{ padding: '16px 20px', color: 'var(--txt2)', fontSize: 13 }}>{p.created}</td>
+                      <td className="mn" style={{ padding: '16px 20px', color: 'var(--txt2)', fontSize: 13 }}>
+                        {p.created ? new Date(p.created).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>{p.agent?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.justification || 'No remarks'}</div>

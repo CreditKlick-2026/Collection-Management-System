@@ -7,9 +7,9 @@ const DEFAULT_MODES = ['Cash', 'NEFT', 'IMPS', 'UPI', 'Cheque', 'DD'];
 
 // ─── Status config ─────────────────────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
-  cleared:          { label: 'Cleared',          color: '#22c55e', bg: 'rgba(34,197,94,0.1)',   border: 'rgba(34,197,94,0.3)',   icon: '✓' },
-  pending_approval: { label: 'Pending Approval', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.3)',  icon: '⏳' },
-  rejected:         { label: 'Rejected',         color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.3)',   icon: '✕' },
+  cleared: { label: 'Cleared', color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.3)', icon: '✓' },
+  pending_approval: { label: 'Pending Approval', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)', icon: '⏳' },
+  rejected: { label: 'Rejected', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)', icon: '✕' },
 };
 
 const getStatusBadge = (payment: any) => {
@@ -31,12 +31,12 @@ const getStatusBadge = (payment: any) => {
 // ─── Record Payment Form ────────────────────────────────────────────────────
 const RecordPaymentForm = ({ modes, onSuccess }: { modes: string[], onSuccess: () => void }) => {
   const { toast, closeModal, user } = useApp();
-  const [form, setForm] = useState({ 
-    customerId: '', 
-    amount: '', 
-    mode: 'Cash', 
-    ref: '', 
-    date: new Date().toISOString().split('T')[0], 
+  const [form, setForm] = useState({
+    customerId: '',
+    amount: '',
+    mode: 'Cash',
+    ref: '',
+    date: '',
     remarks: '',
     upgradeFlag: '',
     upgradeType: '',
@@ -79,16 +79,16 @@ const RecordPaymentForm = ({ modes, onSuccess }: { modes: string[], onSuccess: (
   };
 
   const handleSubmit = async () => {
-    if (!form.customerId || !form.amount) { toast('Customer and amount are required'); return; }
+    if (!form.customerId || !form.amount || !form.date || !form.mode) { toast('Please fill all required fields (Customer, Amount, Mode, Date)'); return; }
     if (!user?.id) { toast('You must be logged in'); return; }
     setSaving(true);
     try {
       const res = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          ...form, 
-          amount: parseFloat(form.amount), 
+        body: JSON.stringify({
+          ...form,
+          amount: parseFloat(form.amount),
           agentId: user.id
         })
       });
@@ -178,6 +178,7 @@ const RecordPaymentForm = ({ modes, onSuccess }: { modes: string[], onSuccess: (
                     <option value="Intrest Payment Due">Intrest Payment Due</option>
                     <option value="Customer Refused to Pay">Customer Refused to Pay</option>
                     <option value="Customer Not Contactable">Customer Not Contactable</option>
+                    <option value="Partial Payment">Partial Payment</option>
                   </select>
                 </div>
               )}
@@ -247,13 +248,13 @@ const PaymentDetailModal = ({ payment, onClose, onRefresh }: { payment: any, onC
         <div className="ff"><label>Status (Backend)</label><input className="finp" value={s} readOnly style={{ color: cfg.color, fontWeight: 600, textTransform: 'capitalize' }} /></div>
         {/* Upgrade Details */}
         <div className="ff" style={{ gridColumn: 'span 2', background: 'var(--bg3)', padding: '10px', borderRadius: 8, marginTop: 5, border: '1px solid var(--bdr)' }}>
-           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-             <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)' }}>UPGRADE INFO</div>
-           </div>
-           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div><label style={{ fontSize: 9, color: 'var(--txt3)' }}>FLAG</label><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--pur)' }}>{payment.upgradeFlag || 'None'}</div></div>
-              <div><label style={{ fontSize: 9, color: 'var(--txt3)' }}>{payment.upgradeFlag === 'Upgraded' ? 'TYPE' : 'REASON'}</label><div style={{ fontSize: 12, fontWeight: 700 }}>{payment.upgradeType || payment.upgradeReason || '—'}</div></div>
-           </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)' }}>UPGRADE INFO</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={{ fontSize: 9, color: 'var(--txt3)' }}>FLAG</label><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--pur)' }}>{payment.upgradeFlag || 'None'}</div></div>
+            <div><label style={{ fontSize: 9, color: 'var(--txt3)' }}>{payment.upgradeFlag === 'Upgraded' ? 'TYPE' : 'REASON'}</label><div style={{ fontSize: 12, fontWeight: 700 }}>{payment.upgradeType || payment.upgradeReason || '—'}</div></div>
+          </div>
         </div>
       </div>
 
@@ -280,10 +281,10 @@ const PaymentDetailModal = ({ payment, onClose, onRefresh }: { payment: any, onC
 
 // ─── Main Payments Component ────────────────────────────────────────────────
 const STATUS_TABS = [
-  { key: 'all',              label: 'All',      icon: '◈' },
-  { key: 'cleared',         label: 'Cleared',  icon: '✓' },
-  { key: 'pending_approval',label: 'Pending',  icon: '⏳' },
-  { key: 'rejected',        label: 'Rejected', icon: '✕' },
+  { key: 'all', label: 'All', icon: '◈' },
+  { key: 'cleared', label: 'Cleared', icon: '✓' },
+  { key: 'pending_approval', label: 'Pending', icon: '⏳' },
+  { key: 'rejected', label: 'Rejected', icon: '✕' },
 ];
 
 const Payments = () => {
@@ -328,23 +329,23 @@ const Payments = () => {
         const json = await res.json();
         const dataArray = Array.isArray(json) ? json : (json.data || []);
         const total = json.total || dataArray.length;
-        
+
         setPayments(dataArray);
         setTotalRecords(total);
         setTotalPages(json.totalPages || 1);
 
         // Compute stats from the data (Note: stats are now only for the current page if filtered, 
         // but for 'all' we usually want global stats. For now, keeping it simple to fix the crash.)
-        const cl  = dataArray.filter((p: any) => p.status === 'cleared');
+        const cl = dataArray.filter((p: any) => p.status === 'cleared');
         const pen = dataArray.filter((p: any) => p.status === 'pending_approval');
         const rej = dataArray.filter((p: any) => p.status === 'rejected');
-        
+
         setStats({
-          cleared:      cl.length,
-          pending:      pen.length,
-          rejected:     rej.length,
-          total:        dataArray.length,
-          totalAmount:  dataArray.reduce((s: number, p: any) => s + (p.amount || 0), 0),
+          cleared: cl.length,
+          pending: pen.length,
+          rejected: rej.length,
+          total: dataArray.length,
+          totalAmount: dataArray.reduce((s: number, p: any) => s + (p.amount || 0), 0),
           clearedAmount: cl.reduce((s: number, p: any) => s + (p.amount || 0), 0),
         });
       }
@@ -508,10 +509,10 @@ const Payments = () => {
                     const pg = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
                     if (pg > totalPages || pg < 1) return null;
                     return (
-                      <button key={pg} 
+                      <button key={pg}
                         onClick={() => setPage(pg)}
-                        style={{ 
-                          width: 32, height: 32, borderRadius: 8, border: '1px solid var(--bdr)', 
+                        style={{
+                          width: 32, height: 32, borderRadius: 8, border: '1px solid var(--bdr)',
                           background: page === pg ? 'var(--acc2)' : 'var(--bg2)',
                           color: page === pg ? '#fff' : 'var(--txt2)',
                           fontSize: 12, fontWeight: 600, cursor: 'pointer'

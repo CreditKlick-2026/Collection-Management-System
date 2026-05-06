@@ -97,11 +97,11 @@ export default function Home() {
               </div>
 
               <div className="form-group">
-                <label className="input-label">Emp Id</label>
+                <label className="input-label">Username / Emp ID</label>
                 <input
                   className="input-field"
                   type="text"
-                  placeholder="Enter your emp ID"
+                  placeholder="Enter your username or emp ID"
                   value={authData.username}
                   onChange={e => setAuthData({ ...authData, username: e.target.value })}
                 />

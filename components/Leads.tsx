@@ -825,7 +825,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
     amount: '',
     mode: 'NEFT',
     ref: '',
-    date: new Date().toISOString().split('T')[0],
+    date: '',
     remarks: '',
     upgradeFlag: '',
     upgradeType: '',
@@ -834,7 +834,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
   });
 
   const handleSubmit = async () => {
-    if (!form.amount) { toast('Please enter amount'); return; }
+    if (!form.amount || !form.date || !form.mode) { toast('Please fill all required fields (Amount, Mode, Date)'); return; }
     setLoading(true);
     try {
       // 1. Create Payment
@@ -994,6 +994,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
                   <option value="Intrest Payment Due">Intrest Payment Due</option>
                   <option value="Customer Refused to Pay">Customer Refused to Pay</option>
                   <option value="Customer Not Contactable">Customer Not Contactable</option>
+                  <option value="Partial Payment">Partial Payment</option>
                 </select>
               </div>
             )}
