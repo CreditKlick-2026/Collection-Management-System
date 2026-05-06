@@ -5,32 +5,44 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const date    = searchParams.get('date');
-  const agent   = searchParams.get('agent');
-  const account = searchParams.get('account');
-  const status  = searchParams.get('status');
-  const flag    = searchParams.get('flag');
-  const page    = Math.max(1, parseInt(searchParams.get('page')  || '1'));
-  const limit   = Math.min(100, parseInt(searchParams.get('limit') || '25'));
-  const skip    = (page - 1) * limit;
+  const date       = searchParams.get('date');
+  const dateFrom   = searchParams.get('dateFrom');
+  const dateTo     = searchParams.get('dateTo');
+  const agent      = searchParams.get('agent');
+  const account    = searchParams.get('account');
+  const status     = searchParams.get('status');
+  const flag       = searchParams.get('flag');
+  const page       = Math.max(1, parseInt(searchParams.get('page')  || '1'));
+  const limit      = Math.min(100, parseInt(searchParams.get('limit') || '25'));
+  const skip       = (page - 1) * limit;
   const requesterId = searchParams.get('requesterId');
 
-  let agentFilter = agent ? { name: { contains: agent, mode: 'insensitive' } } : undefined;
-  let agentIdFilter = undefined;
+  let agentFilter: any = agent ? { name: { contains: agent, mode: 'insensitive' } } : undefined;
+  let agentIdFilter: any = undefined;
   
   if (requesterId) {
     const rUser = await prisma.user.findUnique({ where: { id: Number(requesterId) } });
     if (rUser?.role === 'agent') {
       agentIdFilter = Number(requesterId);
-      agentFilter = undefined; // Agents can't search by name
+      agentFilter = undefined;
     }
   }
 
+  // Date filter: range takes priority over single date
+  let dateFilter: any = undefined;
+  if (dateFrom || dateTo) {
+    dateFilter = {};
+    if (dateFrom) dateFilter.gte = dateFrom;
+    if (dateTo)   dateFilter.lte = dateTo;
+  } else if (date) {
+    dateFilter = date;
+  }
+
   const where: any = {
-    date:   date   || undefined,
-    status: status || undefined,
-    flag:   flag === 'null' ? null : (flag || undefined),
-    agent:  agentFilter,
+    date:    dateFilter,
+    status:  status || undefined,
+    flag:    flag === 'null' ? null : (flag || undefined),
+    agent:   agentFilter,
     agentId: agentIdFilter,
     OR: account
       ? [
@@ -41,7 +53,8 @@ export async function GET(req: NextRequest) {
   };
 
   try {
-    const [ptps, total] = await prisma.$transaction([
+    const [ptps, total, globalAgg, approvedAgg] = await prisma.$transaction([
+      // 1. Paginated records
       prisma.pTP.findMany({
         where,
         include: { customer: true, agent: true },
@@ -49,8 +62,43 @@ export async function GET(req: NextRequest) {
         skip,
         take: limit,
       }),
+      // 2. Total count for pagination
       prisma.pTP.count({ where }),
+      // 3. Global aggregate by status (for KPI cards — ALL pages)
+      prisma.pTP.groupBy({
+        by: ['status'],
+        where,
+        _count: { _all: true },
+        _sum:   { amount: true },
+      }),
+      // 4. Approved PTPs only (flag = 'approved') — for Approved Amount card
+      prisma.pTP.aggregate({
+        where: { ...where, flag: 'approved' },
+        _count: { _all: true },
+        _sum:   { amount: true },
+      }),
     ]);
+
+    // Build summary map from status groupBy
+    const summaryMap: Record<string, { count: number; amount: number }> = {};
+    for (const row of globalAgg) {
+      summaryMap[row.status] = {
+        count:  row._count._all,
+        amount: row._sum.amount || 0,
+      };
+    }
+    const allStatuses = ['pending', 'paid', 'kept', 'broken'];
+    const summary: Record<string, { count: number; amount: number }> = {};
+    for (const s of allStatuses) summary[s] = summaryMap[s] || { count: 0, amount: 0 };
+    summary.total = {
+      count:  Object.values(summaryMap).reduce((a, b) => a + b.count,  0),
+      amount: Object.values(summaryMap).reduce((a, b) => a + b.amount, 0),
+    };
+    // Approved flag aggregate
+    summary.approved = {
+      count:  approvedAgg._count._all,
+      amount: approvedAgg._sum.amount || 0,
+    };
 
     const formatted = ptps.map(p => ({
       id:               p.id,
@@ -68,7 +116,7 @@ export async function GET(req: NextRequest) {
       remarks:          p.remarks,
     }));
 
-    return NextResponse.json({ data: formatted, total, page, limit, totalPages: Math.ceil(total / limit) });
+    return NextResponse.json({ data: formatted, total, page, limit, totalPages: Math.ceil(total / limit), summary });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

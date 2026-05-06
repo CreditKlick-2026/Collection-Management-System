@@ -257,10 +257,12 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
   const [ptps, setPtps] = useState<any[]>([]);
   const [settlements, setSettlements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ date: '', agent: '', account: '' });
+  const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', agent: '', account: '' });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [summary, setSummary] = useState({ total: { count: 0, amount: 0 }, pending: { count: 0, amount: 0 }, paid: { count: 0, amount: 0 }, kept: { count: 0, amount: 0 }, broken: { count: 0, amount: 0 }, approved: { count: 0, amount: 0 } });
+  const [settlementSummary, setSettlementSummary] = useState({ total: { count: 0, amount: 0 }, raised: { count: 0, amount: 0 }, approved: { count: 0, amount: 0 }, rejected: { count: 0, amount: 0 } });
   const LIMIT = 25;
 
   useEffect(() => {
@@ -278,17 +280,18 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [filters.date, filters.agent, filters.account]);
+  }, [filters.dateFrom, filters.dateTo, filters.agent, filters.account]);
 
   const fetchPtps = async (pg = page) => {
     setLoading(true);
     try {
       const q = new URLSearchParams({
-        date: filters.date,
-        agent: filters.agent,
-        account: filters.account,
-        page: String(pg),
-        limit: String(LIMIT),
+        dateFrom:    filters.dateFrom,
+        dateTo:      filters.dateTo,
+        agent:       filters.agent,
+        account:     filters.account,
+        page:        String(pg),
+        limit:       String(LIMIT),
         requesterId: user?.id ? String(user.id) : ''
       }).toString();
       const res = await fetch(`/api/ptps?${q}`);
@@ -298,6 +301,7 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
         setPtps(dataArray);
         setTotalRecords(json.total || dataArray.length);
         setTotalPages(json.totalPages || 1);
+        if (json.summary) setSummary(json.summary);
       }
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -308,11 +312,12 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
     try {
       const q = new URLSearchParams({
         status: 'all',
-        date: filters.date,
-        agent: filters.agent,
-        account: filters.account,
-        page: String(pg),
-        limit: String(LIMIT),
+        dateFrom:    filters.dateFrom,
+        dateTo:      filters.dateTo,
+        agent:       filters.agent,
+        account:     filters.account,
+        page:        String(pg),
+        limit:       String(LIMIT),
         requesterId: user?.id ? String(user.id) : ''
       }).toString();
       const res = await fetch(`/api/settlements?${q}`);
@@ -322,6 +327,7 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
         setSettlements(dataArray);
         setTotalRecords(json.total || dataArray.length);
         setTotalPages(json.totalPages || 1);
+        if (json.summary) setSettlementSummary(json.summary);
       }
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -372,34 +378,138 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
       <div className="page-body">
 
         {/* Stats Cards - Only for PTP */}
-        {subTab === 'ptp' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
-            <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
-              <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Total PTPs</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--txt)' }}>{totalRecords}</div>
-            </div>
-            <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
-              <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Pending</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--amb)' }}>{ptps.filter(p => p.status === 'pending').length}</div>
-            </div>
-            <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
-              <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Paid / Kept</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--grn)' }}>{ptps.filter(p => p.status === 'paid' || p.status === 'kept').length}</div>
-            </div>
-            <div className="card" style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', padding: '16px 20px' }}>
-              <div style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>Broken</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--red)' }}>{ptps.filter(p => p.status === 'broken').length}</div>
-            </div>
-          </div>
-        )}
+        {subTab === 'ptp' && (() => {
+          const paidKept = (summary.paid?.count || 0) + (summary.kept?.count || 0);
+          const paidKeptAmt = (summary.paid?.amount || 0) + (summary.kept?.amount || 0);
+          const hasFilter = filters.dateFrom || filters.dateTo || filters.agent || filters.account;
+          return (
+            <div style={{ marginBottom: 20 }}>
+              {/* KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 14 }}>
+                {/* Total PTPs */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(79,125,255,0.08) 0%, transparent 100%)', border: '1px solid rgba(79,125,255,0.2)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--acc2)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Total PTPs</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--txt)' }}>{summary.total?.count || totalRecords}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>{totalRecords} records</div>
+                </div>
 
-        {/* Filter Row - Shared for PTP & Settlements */}
-        <div style={{ marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
-          <input className="finp" type="date" style={{ width: 'auto' }} value={filters.date} onChange={e => setFilters({ ...filters, date: e.target.value })} />
-          <input className="finp" placeholder="Agent name..." style={{ width: 160 }} value={filters.agent} onChange={e => setFilters({ ...filters, agent: e.target.value })} />
-          <input className="finp" placeholder="Account / Customer..." style={{ width: 200 }} value={filters.account} onChange={e => setFilters({ ...filters, account: e.target.value })} />
-          <button className="btn" style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => setFilters({ date: '', agent: '', account: '' })}>Clear</button>
-        </div>
+                {/* Approved Amount */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.1) 0%, transparent 100%)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--pur)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>💰 Approved Amount</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)' }}>₹{(summary.approved?.amount || 0).toLocaleString('en-IN')}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>manager approved PTPs</div>
+                </div>
+
+                {/* Pending */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, transparent 100%)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--amb)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>⏳ Pending</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--amb)' }}>{summary.pending?.count || 0}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>₹{(summary.pending?.amount || 0).toLocaleString('en-IN')}</div>
+                </div>
+
+                {/* Paid / Kept */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, transparent 100%)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--grn)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>✓ Paid / Kept</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--grn)' }}>{paidKept}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>₹{paidKeptAmt.toLocaleString('en-IN')}</div>
+                </div>
+
+                {/* Broken */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.08) 0%, transparent 100%)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--red)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>✕ Broken</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--red)' }}>{summary.broken?.count || 0}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>₹{(summary.broken?.amount || 0).toLocaleString('en-IN')}</div>
+                </div>
+              </div>
+
+              {hasFilter && (
+                <div style={{ fontSize: 10, color: 'var(--acc2)', fontWeight: 700 }}>● Filters active — amounts reflect filtered data</div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Stats Cards - Only for Settlements */}
+        {subTab === 'settlement' && (() => {
+          const hasFilter = filters.dateFrom || filters.dateTo || filters.agent || filters.account;
+          return (
+            <div style={{ marginBottom: 20 }}>
+              {/* KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 14 }}>
+                {/* Total Settlements */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(79,125,255,0.08) 0%, transparent 100%)', border: '1px solid rgba(79,125,255,0.2)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--acc2)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Total Raised</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--txt)' }}>{settlementSummary.total?.count || totalRecords}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>{totalRecords} records</div>
+                </div>
+
+                {/* Total Settlement Amount */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.1) 0%, transparent 100%)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--pur)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>💰 Total Amount</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)' }}>₹{(settlementSummary.total?.amount || 0).toLocaleString('en-IN')}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>requested settlement amount</div>
+                </div>
+
+                {/* Pending / Raised */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, transparent 100%)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--amb)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>⏳ Pending Approval</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--amb)' }}>{settlementSummary.raised?.count || 0}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>₹{(settlementSummary.raised?.amount || 0).toLocaleString('en-IN')}</div>
+                </div>
+
+                {/* Approved */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, transparent 100%)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--grn)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>✓ Approved</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--grn)' }}>{settlementSummary.approved?.count || 0}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>₹{(settlementSummary.approved?.amount || 0).toLocaleString('en-IN')}</div>
+                </div>
+
+                {/* Rejected */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.08) 0%, transparent 100%)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 9, color: 'var(--red)', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>✕ Rejected</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--red)' }}>{settlementSummary.rejected?.count || 0}</div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>₹{(settlementSummary.rejected?.amount || 0).toLocaleString('en-IN')}</div>
+                </div>
+              </div>
+
+              {hasFilter && (
+                <div style={{ fontSize: 10, color: 'var(--acc2)', fontWeight: 700 }}>● Filters active — amounts reflect filtered data</div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Filter Row */}
+        {(() => {
+          const hasFilter = filters.dateFrom || filters.dateTo || filters.agent || filters.account;
+          return (
+            <div style={{ marginBottom: 20, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: 9, color: 'var(--txt3)', marginBottom: 3, letterSpacing: 0.5 }}>FROM DATE</label>
+                <input className="finp" type="date" style={{ width: 'auto' }} value={filters.dateFrom} onChange={e => setFilters({ ...filters, dateFrom: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: 9, color: 'var(--txt3)', marginBottom: 3, letterSpacing: 0.5 }}>TO DATE</label>
+                <input className="finp" type="date" style={{ width: 'auto' }} value={filters.dateTo} onChange={e => setFilters({ ...filters, dateTo: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: 9, color: 'var(--txt3)', marginBottom: 3, letterSpacing: 0.5 }}>AGENT</label>
+                <input className="finp" placeholder="Agent name..." style={{ width: 150 }} value={filters.agent} onChange={e => setFilters({ ...filters, agent: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: 9, color: 'var(--txt3)', marginBottom: 3, letterSpacing: 0.5 }}>ACCOUNT / CUSTOMER</label>
+                <input className="finp" placeholder="Account # or Name..." style={{ width: 200 }} value={filters.account} onChange={e => setFilters({ ...filters, account: e.target.value })} />
+              </div>
+              <button className="btn"
+                style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)', opacity: hasFilter ? 1 : 0.4 }}
+                onClick={() => setFilters({ dateFrom: '', dateTo: '', agent: '', account: '' })}
+                disabled={!hasFilter}>Clear</button>
+              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{totalRecords} records</div>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: '1px solid var(--bdr)' }}>
           <div style={{ overflowX: 'auto' }}>

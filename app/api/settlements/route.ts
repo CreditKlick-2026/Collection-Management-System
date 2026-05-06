@@ -9,6 +9,8 @@ export async function GET(request: Request) {
   const status = searchParams.get('status') || 'Raised';
   const customerId = searchParams.get('customerId');
   const date = searchParams.get('date');
+  const dateFrom = searchParams.get('dateFrom');
+  const dateTo = searchParams.get('dateTo');
   const agent = searchParams.get('agent');
   const account = searchParams.get('account');
   const page = parseInt(searchParams.get('page') || '1');
@@ -20,8 +22,12 @@ export async function GET(request: Request) {
     if (status && status !== 'all') where.status = status;
     if (customerId) where.customerId = Number(customerId);
     
-    if (date) {
-      where.created = date; // date format is YYYY-MM-DD
+    if (dateFrom || dateTo) {
+      where.created = {};
+      if (dateFrom) where.created.gte = dateFrom;
+      if (dateTo)   where.created.lte = dateTo;
+    } else if (date) {
+      where.created = date; // legacy single date
     }
     
     if (requesterId) {
@@ -44,24 +50,47 @@ export async function GET(request: Request) {
       };
     }
 
-    const total = await prisma.settlement.count({ where });
-    const settlements = await prisma.settlement.findMany({
-      where,
-      include: {
-        customer: { select: { id: true, name: true, account_no: true } },
-        agent: { select: { id: true, name: true } },
+    const [total, settlements, globalAgg] = await prisma.$transaction([
+      prisma.settlement.count({ where }),
+      prisma.settlement.findMany({
+        where,
+        include: {
+          customer: { select: { id: true, name: true, account_no: true } },
+          agent: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.settlement.groupBy({
+        by: ['status'],
+        where,
+        _count: { _all: true },
+        _sum: { amount: true }
+      })
+    ]);
+
+    const summaryMap: Record<string, { count: number; amount: number }> = {};
+    for (const row of globalAgg) {
+      summaryMap[row.status] = { count: row._count._all, amount: row._sum.amount || 0 };
+    }
+    const summary = {
+      total: {
+        count: Object.values(summaryMap).reduce((a, b) => a + b.count, 0),
+        amount: Object.values(summaryMap).reduce((a, b) => a + b.amount, 0),
       },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+      raised:   summaryMap['Raised']   || { count: 0, amount: 0 },
+      approved: summaryMap['Approve']  || { count: 0, amount: 0 },
+      rejected: summaryMap['Rejected'] || { count: 0, amount: 0 }
+    };
     
     return NextResponse.json({
       data: settlements,
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit)
+      totalPages: Math.ceil(total / limit),
+      summary
     });
   } catch (error) {
     return NextResponse.json({ message: 'Error fetching settlements' }, { status: 500 });
