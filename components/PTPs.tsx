@@ -34,10 +34,10 @@ const NewPTPModal = ({ onDone }: { onDone: () => void }) => {
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/leads?q=${searchQuery}&searchType=account`);
+        const res = await fetch(`/api/leads?q=${searchQuery}&userId=${user?.id || ''}`);
         if (res.ok) {
-          const data = await res.json();
-          setSuggestions(data);
+          const json = await res.json();
+          setSuggestions(Array.isArray(json) ? json : (json.data || []));
         }
       } catch (e) { console.error(e); }
       setIsSearching(false);
@@ -138,18 +138,28 @@ const NewPTPModal = ({ onDone }: { onDone: () => void }) => {
   );
 };
 
-const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
+const EditPTPModal = ({ item, onDone, isReassign }: { item: any, onDone: () => void, isReassign?: boolean }) => {
   const { closeModal, toast, user } = useApp();
   const isAgent = user?.role === 'agent';
   const [loading, setLoading] = useState(false);
+  const [agents, setAgents] = useState<any[]>([]);
   const [form, setForm] = useState({
     amount: item?.ptp_amount || item?.amount,
     date: item?.ptp_date?.split('/').reverse().join('-') || '',
+    status: item?.status || 'pending',
     remarks: item?.remarks || '',
     voc: item?.voc || '',
     flag: item?.flag || '',
-    flag_comment: item?.flag_comment || item?.rejection_reason || ''
+    flag_comment: item?.flag_comment || item?.rejection_reason || '',
+    newAgentId: '',
+    transferStatus: isReassign ? 'reassigned' : (item?.transfer_status || '')
   });
+
+  useEffect(() => {
+    if (isReassign) {
+      fetch('/api/admin/users').then(r => r.json()).then(d => setAgents(d.filter((u:any) => u.role === 'agent' && u.active)));
+    }
+  }, [isReassign]);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -173,10 +183,11 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
   };
 
   return (
-    <div style={{ padding: '0 20px 20px' }}>
-      <div style={{ background: 'rgba(79,125,255,0.08)', border: '1px solid rgba(79,125,255,0.2)', padding: '12px 16px', borderRadius: 8, marginBottom: 20, color: 'var(--acc2)', fontSize: 13 }}>
-        Account: <b>{item?.account_no || item?.account}</b> <span style={{ color: 'var(--txt3)' }}>·</span> <b>{item?.customer_name || item?.customer}</b>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ maxHeight: '55vh', overflowY: 'auto', paddingRight: '8px', marginRight: '-8px', paddingLeft: 20, paddingRight: 20 }}>
+        <div style={{ background: 'rgba(79,125,255,0.08)', border: '1px solid rgba(79,125,255,0.2)', padding: '12px 16px', borderRadius: 8, marginBottom: 20, color: 'var(--acc2)', fontSize: 13, marginTop: 5 }}>
+          Account: <b>{item?.account_no || item?.account}</b> <span style={{ color: 'var(--txt3)' }}>·</span> <b>{item?.customer_name || item?.customer}</b>
+        </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
         <div className="ff">
@@ -189,9 +200,20 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
         </div>
       </div>
 
-      <div className="ff" style={{ marginBottom: 15 }}>
-        <label>REMARKS</label>
-        <input className="finp" value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} disabled={isAgent} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
+        <div className="ff">
+          <label>REMARKS</label>
+          <input className="finp" value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} disabled={isAgent} />
+        </div>
+        <div className="ff">
+          <label>PTP STATUS *</label>
+          <select className="finp" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} disabled={!isAgent && !isReassign}>
+            <option value="pending">⏳ Pending</option>
+            <option value="kept">✓ Kept</option>
+            <option value="paid">✓ Paid</option>
+            <option value="broken">✕ Broken</option>
+          </select>
+        </div>
       </div>
 
       <div className="ff" style={{ marginBottom: isAgent ? 0 : 25 }}>
@@ -200,31 +222,37 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
       </div>
 
       {!isAgent ? (
-        <>
+        <div style={{ background: 'rgba(79,125,255,0.03)', border: '1px solid rgba(79,125,255,0.15)', padding: '20px', borderRadius: 8, marginTop: 15, marginBottom: 5 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, textTransform: 'uppercase' }}>
-            MANAGER REVIEW
+            {isReassign ? 'REASSIGN PTP & MANAGER REVIEW' : 'MANAGER REVIEW'}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 25 }}>
+          {isReassign && (
+            <div className="ff" style={{ marginBottom: 20 }}>
+              <label style={{ color: 'var(--acc2)' }}>REASSIGN TO EXPERT AGENT *</label>
+              <select className="finp" style={{ border: '1px solid rgba(79,125,255,0.4)', background: '#fff' }} value={form.newAgentId} onChange={e => setForm({ ...form, newAgentId: e.target.value })}>
+                <option value="">— Select Expert Agent —</option>
+                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
             <div className="ff">
               <label>FLAG / REVIEW STATUS</label>
               <select className="finp" value={form.flag} onChange={e => setForm({ ...form, flag: e.target.value })}>
                 <option value="">— Select Status —</option>
-                <option value="approved">approved</option>
-                <option value="flagged">flagged</option>
-                <option value="rejected">rejected</option>
+                <option value="approved">Approved</option>
+                <option value="flagged">Flagged</option>
+                <option value="rejected">Rejected</option>
               </select>
             </div>
             <div className="ff">
-              <label>FLAG COMMENT / REJECTION REASON</label>
-              <input className="finp" value={form.flag_comment} onChange={e => setForm({ ...form, flag_comment: e.target.value })} placeholder="e.g. Customer history unreliable" />
+              <label>MANAGER COMMENT</label>
+              <input className="finp" value={form.flag_comment} onChange={e => setForm({ ...form, flag_comment: e.target.value })} placeholder="e.g. Needs hard follow-up" />
             </div>
           </div>
-
-          <button className="btn pr" style={{ width: '100%', padding: '12px', background: '#4f7dff' }} onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Saving...' : '✓ Save PTP'}
-          </button>
-        </>
+        </div>
       ) : item?.flag ? (
         <>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, marginTop: 25, textTransform: 'uppercase' }}>
@@ -246,14 +274,22 @@ const EditPTPModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
           </div>
         </>
       ) : null}
+      </div>
+
+      <div style={{ padding: '15px 20px 20px', borderTop: '1px solid var(--bdr)', flexShrink: 0, marginTop: 5 }}>
+        <button className="btn pr" style={{ width: '100%', padding: '12px', background: '#4f7dff' }} onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Saving...' : '✓ Save PTP'}
+        </button>
+      </div>
     </div>
   );
 };
 
 
-const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => {
-  const { openModal, user } = useApp();
-  const [subTab, setSubTab] = useState<'ptp' | 'settlement'>(initialTab);
+const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'escalated' }) => {
+  const { openModal, toast, user } = useApp();
+  const isManager = user?.role === 'manager' || user?.role === 'admin';
+  const [subTab, setSubTab] = useState<'ptp' | 'settlement' | 'escalated'>(initialTab);
   const [ptps, setPtps] = useState<any[]>([]);
   const [settlements, setSettlements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,14 +302,14 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
   const LIMIT = 25;
 
   useEffect(() => {
-    if (subTab === 'ptp') fetchPtps();
+    if (subTab === 'ptp' || subTab === 'escalated') fetchPtps();
     else fetchSettlements();
   }, [subTab, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (page === 1) {
-        if (subTab === 'ptp') fetchPtps(1);
+        if (subTab === 'ptp' || subTab === 'escalated') fetchPtps(1);
         else fetchSettlements(1);
       } else {
         setPage(1);
@@ -286,13 +322,14 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
     setLoading(true);
     try {
       const q = new URLSearchParams({
-        dateFrom:    filters.dateFrom,
-        dateTo:      filters.dateTo,
-        agent:       filters.agent,
-        account:     filters.account,
-        page:        String(pg),
-        limit:       String(LIMIT),
-        requesterId: user?.id ? String(user.id) : ''
+        dateFrom:       filters.dateFrom,
+        dateTo:         filters.dateTo,
+        agent:          filters.agent,
+        account:        filters.account,
+        page:           String(pg),
+        limit:          String(LIMIT),
+        requesterId:    user?.id ? String(user.id) : '',
+        transferStatus: subTab === 'escalated' ? 'escalated' : ''
       }).toString();
       const res = await fetch(`/api/ptps?${q}`);
       if (res.ok) {
@@ -338,9 +375,9 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
       <div className="ph" style={{ borderBottom: 'none' }}>
         <div>
           <div className="ph-t" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span>₹ {subTab === 'ptp' ? 'Promise to Pay' : 'Settlements'}</span>
+            <span>₹ {subTab === 'ptp' ? 'Promise to Pay' : subTab === 'escalated' ? 'Escalations' : 'Settlements'}</span>
           </div>
-          <div className="ph-s">{subTab === 'ptp' ? 'PTP records and tracking' : 'Raised settlements for approval'}</div>
+          <div className="ph-s">{subTab === 'ptp' ? 'PTP records and tracking' : subTab === 'escalated' ? 'Broken PTPs waiting for reassignment' : 'Raised settlements for approval'}</div>
         </div>
 
         <div style={{ display: 'flex', gap: 6, background: 'var(--bg3)', padding: 4, borderRadius: 10, border: '1px solid var(--bdr)', marginLeft: 40 }}>
@@ -367,6 +404,20 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
           >
             ⚖️ Settlements
           </button>
+          {isManager && (
+            <button 
+              onClick={() => setSubTab('escalated')}
+              style={{ 
+                padding: '6px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                background: subTab === 'escalated' ? 'var(--acc2)' : 'transparent',
+                color: subTab === 'escalated' ? '#fff' : 'var(--txt3)',
+                border: 'none',
+                display: 'flex', alignItems: 'center', gap: 6
+              }}
+            >
+              🔥 Escalations
+            </button>
+          )}
         </div>
 
         <div className="ph-ml" style={{ marginLeft: 'auto' }}>
@@ -375,6 +426,27 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
           )}
         </div>
       </div>
+
+      {/* handleEscalate method */}
+      {(() => {
+        const handleEscalate = async (id: number) => {
+          if (!confirm('Escalate this broken PTP to manager for reassignment?')) return;
+          try {
+            const res = await fetch('/api/ptps', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id, transferStatus: 'escalated' })
+            });
+            if (res.ok) {
+              toast('PTP escalated to manager');
+              fetchPtps();
+            }
+          } catch(e) {}
+        };
+        // Expose handleEscalate to window purely for hacky inline access if needed, or pass it down
+        (window as any)._handleEscalatePTP = handleEscalate;
+        return null;
+      })()}
       <div className="page-body">
 
         {/* Stats Cards - Only for PTP */}
@@ -513,7 +585,7 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
 
         <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: '1px solid var(--bdr)' }}>
           <div style={{ overflowX: 'auto' }}>
-            {subTab === 'ptp' ? (
+            {subTab === 'ptp' || subTab === 'escalated' ? (
               <table className="tbl" style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--bdr)' }}>
@@ -523,7 +595,7 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Amount</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Date</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
-                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Agent</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>{subTab === 'escalated' ? 'Original Agent' : 'Agent'}</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Sub Disposition</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px' }}></th>
                   </tr>
@@ -577,10 +649,23 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' }) => 
                             <span style={{ fontSize: 8, marginRight: 5 }}>●</span> {p.status}
                           </span>
                         )}
+                        {p.transfer_status === 'escalated' && (
+                          <div style={{ marginTop: 4 }}>
+                            <span className="badge" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--red)', fontSize: 9 }}>🔥 Escalated</span>
+                          </div>
+                        )}
                       </td>
-                      <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>{p.agent_name}</td>
+                      <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>
+                        {subTab === 'escalated' ? p.original_agent : p.agent_name}
+                      </td>
                       <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.voc || '—'}</td>
-                      <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                      <td style={{ padding: '12px 10px', textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        {p.status === 'broken' && !p.transfer_status && user?.role === 'agent' && (
+                           <button className="btn sm" style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => (window as any)._handleEscalatePTP(p.id)}>Escalate</button>
+                        )}
+                        {subTab === 'escalated' && isManager && (
+                           <button className="btn sm" style={{ background: 'var(--acc2)', color: '#fff' }} onClick={() => openModal(`Reassign PTP`, <EditPTPModal item={p} onDone={fetchPtps} isReassign={true} />)}>Reassign</button>
+                        )}
                         <button className="btn sm" style={{ background: 'var(--faint)', border: '1px solid var(--faint)' }} onClick={() => openModal(`PTP — ${p.account_no}`, <EditPTPModal item={p} onDone={fetchPtps} />)}>{user?.role === 'agent' ? 'View' : 'Edit'}</button>
                       </td>
                     </tr>

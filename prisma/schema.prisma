@@ -29,6 +29,7 @@ model User {
   assignedLeads Customer[] @relation("AssignedAgent")
   payments      Payment[]  @relation("PaymentAgent")
   ptps          PTP[]      @relation("PTPAgent")
+  originalPtps  PTP[]      @relation("PTPOriginalAgent")
   disputes      Dispute[]  @relation("DisputeAgent")
   settlements   Settlement[] @relation("SettlementAgent")
   
@@ -142,6 +143,9 @@ model PTP {
   status          String    @default("pending")
   agentId         Int
   agent           User      @relation("PTPAgent", fields: [agentId], references: [id])
+  originalAgentId Int?
+  originalAgent   User?     @relation("PTPOriginalAgent", fields: [originalAgentId], references: [id])
+  transferStatus  String?
   voc             String?
   remarks         String?
   flag            String?

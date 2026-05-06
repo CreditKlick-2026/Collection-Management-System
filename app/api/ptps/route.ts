@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const agent      = searchParams.get('agent');
   const account    = searchParams.get('account');
   const status     = searchParams.get('status');
+  const transferStatusFilter = searchParams.get('transferStatus');
   const flag       = searchParams.get('flag');
   const page       = Math.max(1, parseInt(searchParams.get('page')  || '1'));
   const limit      = Math.min(100, parseInt(searchParams.get('limit') || '25'));
@@ -38,26 +39,32 @@ export async function GET(req: NextRequest) {
     dateFilter = date;
   }
 
-  const where: any = {
-    date:    dateFilter,
-    status:  status || undefined,
-    flag:    flag === 'null' ? null : (flag || undefined),
-    agent:   agentFilter,
-    agentId: agentIdFilter,
-    OR: account
-      ? [
-          { customer: { account_no: { contains: account, mode: 'insensitive' } } },
-          { customer: { name:       { contains: account, mode: 'insensitive' } } },
-        ]
-      : undefined,
-  };
+    const where: any = {
+      date:    dateFilter,
+      status:  status || undefined,
+      transferStatus: transferStatusFilter || undefined,
+      flag:    flag === 'null' ? null : (flag || undefined),
+      OR: account
+        ? [
+            { customer: { account_no: { contains: account, mode: 'insensitive' } } },
+            { customer: { name:       { contains: account, mode: 'insensitive' } } },
+          ]
+        : undefined,
+    };
+    
+    if (agentIdFilter) {
+      where.OR = where.OR || [];
+      where.OR.push({ agentId: agentIdFilter }, { originalAgentId: agentIdFilter });
+    } else if (agentFilter) {
+      where.agent = agentFilter;
+    }
 
   try {
-    const [ptps, total, globalAgg, approvedAgg] = await prisma.$transaction([
+    const [ptps, total, globalAgg, approvedAgg, originalAgg] = await prisma.$transaction([
       // 1. Paginated records
       prisma.pTP.findMany({
         where,
-        include: { customer: true, agent: true },
+        include: { customer: true, agent: true, originalAgent: true },
         orderBy: { created: 'desc' },
         skip,
         take: limit,
@@ -77,6 +84,17 @@ export async function GET(req: NextRequest) {
         _count: { _all: true },
         _sum:   { amount: true },
       }),
+      // 5. Total Raised (based on originalAgentId for correct lifetime metrics)
+      prisma.pTP.aggregate({
+        where: { 
+          ...where, 
+          OR: undefined, 
+          originalAgentId: agentIdFilter ? agentIdFilter : undefined,
+          agent: agentFilter ? agentFilter : undefined
+        },
+        _count: { _all: true },
+        _sum:   { amount: true },
+      }),
     ]);
 
     // Build summary map from status groupBy
@@ -91,8 +109,8 @@ export async function GET(req: NextRequest) {
     const summary: Record<string, { count: number; amount: number }> = {};
     for (const s of allStatuses) summary[s] = summaryMap[s] || { count: 0, amount: 0 };
     summary.total = {
-      count:  Object.values(summaryMap).reduce((a, b) => a + b.count,  0),
-      amount: Object.values(summaryMap).reduce((a, b) => a + b.amount, 0),
+      count:  originalAgg._count._all,
+      amount: originalAgg._sum.amount || 0,
     };
     // Approved flag aggregate
     summary.approved = {
@@ -108,6 +126,8 @@ export async function GET(req: NextRequest) {
       ptp_date:         p.date,
       status:           p.status,
       agent_name:       p.agent.name,
+      original_agent:   p.originalAgent?.name || p.agent.name,
+      transfer_status:  p.transferStatus,
       created:          p.created,
       flag:             p.flag,
       flag_comment:     p.flagComment,
@@ -141,6 +161,7 @@ export async function POST(req: NextRequest) {
         date: data.date,
         status: data.status || 'pending',
         agentId,
+        originalAgentId: agentId,
         voc: data.voc || '',
         remarks: data.remarks || '',
         created: new Date().toISOString().split('T')[0]
@@ -156,7 +177,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const data = await req.json();
-    const { id, amount, date, status, voc, remarks, flag, flag_comment, rejection_reason } = data;
+    const { id, amount, date, status, voc, remarks, flag, flag_comment, rejection_reason, transferStatus, newAgentId } = data;
 
     if (!id) return NextResponse.json({ message: 'ID is required' }, { status: 400 });
 
@@ -166,6 +187,8 @@ export async function PUT(req: NextRequest) {
         amount: amount ? parseFloat(amount) : undefined,
         date: date || undefined,
         status: status || undefined,
+        transferStatus: transferStatus || undefined,
+        agentId: newAgentId ? Number(newAgentId) : undefined,
         voc: voc || undefined,
         remarks: remarks || undefined,
         flag: flag || undefined,
