@@ -291,7 +291,7 @@ const Payments = () => {
   const { openModal, closeModal, user } = useApp();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ date: '', agent: '', account: '', mode: '' });
+  const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', agent: '', account: '', mode: '' });
   const [activeTab, setActiveTab] = useState('all');
   const [masterModes, setMasterModes] = useState<string[]>(DEFAULT_MODES);
   const [stats, setStats] = useState({ cleared: 0, pending: 0, rejected: 0, total: 0, totalAmount: 0, clearedAmount: 0 });
@@ -315,13 +315,14 @@ const Payments = () => {
     setLoading(true);
     try {
       const q = new URLSearchParams({
-        status: activeTab === 'all' ? 'all' : activeTab,
-        date: filters.date,
-        mode: filters.mode,
-        agent: filters.agent,
-        account: filters.account,
-        page: String(pg),
-        limit: String(LIMIT),
+        status:    activeTab === 'all' ? 'all' : activeTab,
+        dateFrom:  filters.dateFrom,
+        dateTo:    filters.dateTo,
+        mode:      filters.mode,
+        agent:     filters.agent,
+        account:   filters.account,
+        page:      String(pg),
+        limit:     String(LIMIT),
         requesterId: user?.id ? String(user.id) : ''
       });
       const res = await fetch(`/api/payments?${q.toString()}`);
@@ -334,20 +335,29 @@ const Payments = () => {
         setTotalRecords(total);
         setTotalPages(json.totalPages || 1);
 
-        // Compute stats from the data (Note: stats are now only for the current page if filtered, 
-        // but for 'all' we usually want global stats. For now, keeping it simple to fix the crash.)
-        const cl = dataArray.filter((p: any) => p.status === 'cleared');
-        const pen = dataArray.filter((p: any) => p.status === 'pending_approval');
-        const rej = dataArray.filter((p: any) => p.status === 'rejected');
-
-        setStats({
-          cleared: cl.length,
-          pending: pen.length,
-          rejected: rej.length,
-          total: dataArray.length,
-          totalAmount: dataArray.reduce((s: number, p: any) => s + (p.amount || 0), 0),
-          clearedAmount: cl.reduce((s: number, p: any) => s + (p.amount || 0), 0),
-        });
+        // ── Use global summary from API (all pages, not just current page) ──
+        const s = json.summary;
+        if (s) {
+          setStats({
+            cleared:       s.cleared?.count  || 0,
+            pending:       s.pending?.count  || 0,
+            rejected:      s.rejected?.count || 0,
+            total:         (s.cleared?.count || 0) + (s.pending?.count || 0) + (s.rejected?.count || 0),
+            totalAmount:   (s.cleared?.amount || 0) + (s.pending?.amount || 0) + (s.rejected?.amount || 0),
+            clearedAmount: s.cleared?.amount || 0,
+          });
+        } else {
+          // Fallback: compute from current page (old behavior)
+          const cl  = dataArray.filter((p: any) => p.status === 'cleared');
+          const pen = dataArray.filter((p: any) => p.status === 'pending_approval');
+          const rej = dataArray.filter((p: any) => p.status === 'rejected');
+          setStats({
+            cleared: cl.length, pending: pen.length, rejected: rej.length,
+            total: dataArray.length,
+            totalAmount:   dataArray.reduce((s: number, p: any) => s + (p.amount || 0), 0),
+            clearedAmount: cl.reduce((s: number, p: any) => s + (p.amount || 0), 0),
+          });
+        }
       }
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -421,18 +431,73 @@ const Payments = () => {
         </div>
 
         {/* Filters */}
-        <div style={{ marginBottom: 18, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input className="finp" type="date" style={{ flex: '1 1 120px', minWidth: 120 }} value={filters.date} onChange={e => setFilters({ ...filters, date: e.target.value })} />
-          <input className="finp" placeholder="Agent name..." style={{ flex: '1 1 130px', minWidth: 130 }} value={filters.agent} onChange={e => setFilters({ ...filters, agent: e.target.value })} />
-          <input className="finp" placeholder="Account / Customer..." style={{ flex: '2 1 150px', minWidth: 150 }} value={filters.account} onChange={e => setFilters({ ...filters, account: e.target.value })} />
-          <select className="finp" style={{ flex: '1 1 120px', minWidth: 120 }} value={filters.mode} onChange={e => setFilters({ ...filters, mode: e.target.value })}>
-            <option value="">All Modes</option>
-            {masterModes.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <button className="btn" style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)', flexShrink: 0 }}
-            onClick={() => setFilters({ date: '', agent: '', account: '', mode: '' })}>Clear</button>
-          <div style={{ fontSize: 11, color: 'var(--txt3)', marginLeft: 'auto', flexShrink: 0 }}>{totalRecords} records</div>
-        </div>
+        {(() => {
+          const hasFilter = filters.dateFrom || filters.dateTo || filters.agent || filters.account || filters.mode;
+          return (
+            <div style={{ marginBottom: 18 }}>
+              {/* Filter Row */}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+
+                {/* Date From */}
+                <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 130px', minWidth: 130 }}>
+                  <label style={{ fontSize: 9, color: 'var(--txt3)', marginBottom: 3, letterSpacing: 0.5 }}>FROM DATE</label>
+                  <input className="finp" type="date" value={filters.dateFrom}
+                    onChange={e => setFilters({ ...filters, dateFrom: e.target.value })} />
+                </div>
+
+                {/* Date To */}
+                <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 130px', minWidth: 130 }}>
+                  <label style={{ fontSize: 9, color: 'var(--txt3)', marginBottom: 3, letterSpacing: 0.5 }}>TO DATE</label>
+                  <input className="finp" type="date" value={filters.dateTo}
+                    onChange={e => setFilters({ ...filters, dateTo: e.target.value })} />
+                </div>
+
+                {/* Agent */}
+                <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 130px', minWidth: 130 }}>
+                  <label style={{ fontSize: 9, color: 'var(--txt3)', marginBottom: 3, letterSpacing: 0.5 }}>AGENT</label>
+                  <input className="finp" placeholder="Agent name..." value={filters.agent}
+                    onChange={e => setFilters({ ...filters, agent: e.target.value })} />
+                </div>
+
+                {/* Account / Customer */}
+                <div style={{ display: 'flex', flexDirection: 'column', flex: '2 1 160px', minWidth: 160 }}>
+                  <label style={{ fontSize: 9, color: 'var(--txt3)', marginBottom: 3, letterSpacing: 0.5 }}>ACCOUNT / CUSTOMER</label>
+                  <input className="finp" placeholder="Account # or Name..." value={filters.account}
+                    onChange={e => setFilters({ ...filters, account: e.target.value })} />
+                </div>
+
+                {/* Mode */}
+                <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 120px', minWidth: 120 }}>
+                  <label style={{ fontSize: 9, color: 'var(--txt3)', marginBottom: 3, letterSpacing: 0.5 }}>PAYMENT MODE</label>
+                  <select className="finp" value={filters.mode}
+                    onChange={e => setFilters({ ...filters, mode: e.target.value })}>
+                    <option value="">All Modes</option>
+                    {masterModes.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 4, flexShrink: 0 }}>
+                  <label style={{ fontSize: 9, color: 'transparent', marginBottom: 3 }}>_</label>
+                  <button className="btn"
+                    style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)', opacity: hasFilter ? 1 : 0.4, cursor: hasFilter ? 'pointer' : 'default' }}
+                    onClick={() => setFilters({ dateFrom: '', dateTo: '', agent: '', account: '', mode: '' })}
+                    disabled={!hasFilter}>
+                    Clear
+                  </button>
+                </div>
+
+                {/* Records count + active filter badge */}
+                <div style={{ marginLeft: 'auto', textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{totalRecords} records</div>
+                  {hasFilter && (
+                    <div style={{ fontSize: 9, color: 'var(--acc2)', fontWeight: 700, marginTop: 2 }}>● Filters active — amounts reflect filtered data</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Table */}
         <div className="card" style={{ padding: 0, overflow: 'hidden', background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 14 }}>

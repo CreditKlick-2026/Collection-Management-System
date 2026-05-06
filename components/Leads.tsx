@@ -832,12 +832,22 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
     upgradeReason: '',
     status: ''
   });
+  const [dupWarning, setDupWarning] = useState<{ type: string; message: string } | null>(null);
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false);
 
-  const handleSubmit = async () => {
+  // Reset duplicate warning when ref changes
+  const handleRefChange = (val: string) => {
+    setForm({ ...form, ref: val });
+    setDupWarning(null);
+    setConfirmDuplicate(false);
+  };
+
+  const handleSubmit = async (force = false) => {
     if (!form.amount || !form.date || !form.mode) { toast('Please fill all required fields (Amount, Mode, Date)'); return; }
     setLoading(true);
+    setDupWarning(null);
     try {
-      // 1. Create Payment
+      // 1. Create Payment (with duplicate check)
       const payRes = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -849,12 +859,36 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
           date: form.date,
           remarks: form.remarks,
           agentId: user?.id,
-          // New Upgrade Fields
           upgradeFlag: form.upgradeFlag,
           upgradeType: form.upgradeType,
-          upgradeReason: form.upgradeReason
+          upgradeReason: form.upgradeReason,
+          confirmDuplicate: force // tells backend to bypass soft duplicate check
         })
       });
+
+      // Handle duplicate responses
+      if (payRes.status === 409) {
+        const dupData = await payRes.json();
+        if (dupData.type === 'ref_duplicate') {
+          // Hard block — cannot proceed
+          setDupWarning({ type: 'hard', message: dupData.message });
+          setLoading(false);
+          return;
+        } else if (dupData.type === 'soft_duplicate') {
+          // Soft warning — agent can confirm and proceed
+          setDupWarning({ type: 'soft', message: dupData.message });
+          setConfirmDuplicate(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (!payRes.ok) {
+        const errData = await payRes.json();
+        toast(errData.message || 'Error recording payment');
+        setLoading(false);
+        return;
+      }
 
       // 1.5 Update Lead Status if changed
       if (form.status && form.status !== lead.status) {
@@ -883,11 +917,9 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         });
       }
 
-      if (payRes.ok) {
-        toast('Payment recorded successfully ✓');
-        closeModal();
-        onDone();
-      }
+      toast('Payment recorded successfully ✓');
+      closeModal();
+      onDone();
     } catch (e) {
       toast('Error recording payment');
     } finally {
@@ -926,7 +958,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div className="ff">
           <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REFERENCE NO.</label>
-          <input className="finp" value={form.ref} onChange={e => setForm({ ...form, ref: e.target.value })} placeholder="UTR / Ref number" />
+          <input className="finp" value={form.ref} onChange={e => handleRefChange(e.target.value)} placeholder="UTR / Ref number" />
         </div>
         <div className="ff">
           <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPDATE STATUS</label>
@@ -1002,36 +1034,76 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         </div>
       )}
 
-      <div className="ff" style={{ marginBottom: 15 }}>
+      <div className="ff" style={{ marginBottom: dupWarning ? 8 : 15 }}>
         <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REMARKS / NOTES</label>
         <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} placeholder="Payment notes..." />
       </div>
 
-      {/* Validation Logic */}
+      {/* ── Duplicate Warning Banner ───────────────────────────── */}
+      {dupWarning && (
+        <div style={{
+          marginBottom: 12,
+          padding: '12px 14px',
+          borderRadius: 8,
+          border: dupWarning.type === 'hard' ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(245,166,35,0.4)',
+          background: dupWarning.type === 'hard' ? 'rgba(239,68,68,0.08)' : 'rgba(245,166,35,0.08)',
+          color: dupWarning.type === 'hard' ? '#ef4444' : 'var(--amb)',
+          fontSize: 12,
+          lineHeight: 1.5
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: dupWarning.type === 'soft' ? 8 : 0 }}>
+            {dupWarning.message}
+          </div>
+          {dupWarning.type === 'soft' && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <button
+                className="btn"
+                style={{ flex: 1, padding: '7px', background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.4)', color: 'var(--amb)', fontSize: 11, fontWeight: 700 }}
+                onClick={() => handleSubmit(true)}
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : '⚠️ Yes, Submit Anyway'}
+              </button>
+              <button
+                className="btn"
+                style={{ flex: 1, padding: '7px', background: 'var(--bg3)', border: '1px solid var(--bdr)', color: 'var(--txt2)', fontSize: 11 }}
+                onClick={() => { setDupWarning(null); setConfirmDuplicate(false); }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Validation Logic + Submit */}
       {(() => {
         const isFormValid = !!(form.amount && form.ref && form.status && form.remarks);
+        const isHardBlocked = dupWarning?.type === 'hard';
         return (
-          <button
-            className="btn pr"
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: !isFormValid ? 'var(--bg3)' : 'rgba(34,197,94,0.1)',
-              color: !isFormValid ? 'var(--txt3)' : 'var(--grn)',
-              border: !isFormValid ? '1px solid var(--bdr)' : '1px solid rgba(34,197,94,0.2)',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              cursor: !isFormValid ? 'not-allowed' : 'pointer',
-              opacity: !isFormValid ? 0.7 : 1
-            }}
-            onClick={handleSubmit}
-            disabled={loading || !isFormValid}
-          >
-            {loading ? 'Processing...' : <><span style={{ fontSize: 16 }}>💳</span> Submit for Approval</>}
-          </button>
+          !dupWarning?.type || dupWarning.type === 'hard' ? (
+            <button
+              className="btn pr"
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: (!isFormValid || isHardBlocked) ? 'var(--bg3)' : 'rgba(34,197,94,0.1)',
+                color: (!isFormValid || isHardBlocked) ? 'var(--txt3)' : 'var(--grn)',
+                border: (!isFormValid || isHardBlocked) ? '1px solid var(--bdr)' : '1px solid rgba(34,197,94,0.2)',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                cursor: (!isFormValid || isHardBlocked) ? 'not-allowed' : 'pointer',
+                opacity: (!isFormValid || isHardBlocked) ? 0.7 : 1
+              }}
+              onClick={() => handleSubmit(false)}
+              disabled={loading || !isFormValid || isHardBlocked}
+            >
+              {loading ? 'Processing...' : isHardBlocked ? '🚫 Blocked — Duplicate Reference' : <><span style={{ fontSize: 16 }}>💳</span> Submit for Approval</>}
+            </button>
+          ) : null
         );
       })()}
     </div>
