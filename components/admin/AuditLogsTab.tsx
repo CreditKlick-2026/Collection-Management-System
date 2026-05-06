@@ -6,10 +6,10 @@ interface AuditLogsTabProps {
 
 const AuditLogsTab: React.FC<AuditLogsTabProps> = ({ auditLogs }) => {
   return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="tbl">
-          <thead>
+    <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--bdr)' }}>
+      <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 350px)' }}>
+        <table className="tbl" style={{ minWidth: 800 }}>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg2)', boxShadow: '0 1px 0 var(--bdr)' }}>
             <tr>
               <th>Timestamp</th>
               <th>User</th>
@@ -43,8 +43,10 @@ const AuditLogsTab: React.FC<AuditLogsTabProps> = ({ auditLogs }) => {
                   <div style={{ fontSize: 12 }}>{log.entityType}</div>
                   <div style={{ fontSize: 10, color: 'var(--txt3)' }}>ID: {log.entityId}</div>
                 </td>
-                <td style={{ fontSize: 11, color: 'var(--txt2)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {JSON.stringify(log.details)}
+                <td style={{ fontSize: 11, color: 'var(--txt2)', maxWidth: 400 }}>
+                  <div style={{ overflowX: 'auto', whiteSpace: 'nowrap', paddingBottom: 4, scrollbarWidth: 'thin' }}>
+                    {JSON.stringify(log.details)}
+                  </div>
                 </td>
               </tr>
             ))}

@@ -19,7 +19,6 @@ import BulkUploadTab from './admin/BulkUploadTab';
 import PortfoliosTab from './admin/PortfoliosTab';
 import ColumnsTab from './admin/ColumnsTab';
 import MasterListsTab from './admin/MasterListsTab';
-import AuditLogsTab from './admin/AuditLogsTab';
 import RolesTab from './admin/RolesTab';
 import ReportsTab from './admin/ReportsTab';
 import EditUserModal from './admin/EditUserModal';
@@ -284,9 +283,6 @@ const Admin = () => {
   const [isAddingPortfolio, setIsAddingPortfolio] = useState(false);
   const [newPortfolio, setNewPortfolio] = useState({ name: '', bank: '' });
 
-  // Audit Log State
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-
   // Master Lists State
   const [masterLists, setMasterLists] = useState<any[]>([]);
   const [newListItem, setNewListItem] = useState({ type: '', value: '' });
@@ -352,12 +348,6 @@ const Admin = () => {
           safeFetch('/api/admin/bulk-upload/fields').then(data => {
             if (data) setUploadFields({ staticFields: data.staticFields || [], customFields: data.customFields || [] });
           })
-        );
-      }
-
-      if (activeTab === 'audit') {
-        parallelFetches.push(
-          safeFetch(`/api/admin/audit-logs?requesterId=${user?.id}`).then(data => setAuditLogs(Array.isArray(data) ? data : []))
         );
       }
 
@@ -842,7 +832,6 @@ const Admin = () => {
     { id: 'lists', label: 'Master Lists', icon: <ListOrdered size={16} /> },
     { id: 'role', label: 'Role Access', icon: <Lock size={16} /> },
     { id: 'report', label: 'Report Access', icon: <BarChart3 size={16} /> },
-    { id: 'audit', label: 'Audit Logs', icon: <History size={16} /> },
     { id: 'system', label: 'System', icon: <Settings size={16} /> },
   ];
 
@@ -996,11 +985,6 @@ const Admin = () => {
         {activeTab === 'report' && (
           <ReportsTab toast={toast} />
         )}
-
-        {activeTab === 'audit' && (
-          <AuditLogsTab auditLogs={auditLogs} />
-        )}
-
         {activeTab === 'system' && (
           <SystemTab 
             setFlushAction={setFlushAction}
