@@ -53,30 +53,48 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    
-    // Clean data for Prisma
-    const { confirmPassword, ...prismaData } = data;
-    
-    if (prismaData.managerId) {
-      prismaData.managerId = parseInt(prismaData.managerId);
+
+    // Validate required fields
+    if (!data.name) return NextResponse.json({ message: 'Name is required' }, { status: 400 });
+    if (!data.empId) return NextResponse.json({ message: 'Employee ID is required' }, { status: 400 });
+    if (!data.username) return NextResponse.json({ message: 'Username is required' }, { status: 400 });
+    if (!data.password) return NextResponse.json({ message: 'Password is required' }, { status: 400 });
+    if (!data.role) return NextResponse.json({ message: 'Role is required' }, { status: 400 });
+
+    // Build only valid Prisma User fields
+    const createData: any = {
+      name: data.name.trim(),
+      username: data.username.trim(),
+      empId: data.empId.trim(),
+      role: data.role,
+      email: data.email?.trim() || null,
+      contact: data.contact?.trim() || null,
+      active: data.active !== undefined ? data.active : true,
+      dob: data.dob || null,
+      doj: data.doj || null,
+      address: data.address || null,
+      // Initials auto-generated from name
+      initials: data.name.trim().split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 3),
+      // Hash password
+      password: crypto.createHash('sha256').update(data.password).digest('hex'),
+    };
+
+    // Manager assignment
+    if (data.managerId) {
+      createData.managerId = parseInt(String(data.managerId));
     }
 
-    // Hash password
-    if (prismaData.password) {
-      prismaData.password = crypto.createHash('sha256').update(prismaData.password).digest('hex');
-    }
-
-    // Initials
-    if (prismaData.name) {
-      prismaData.initials = prismaData.name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
-    }
-
-    const user = await prisma.user.create({ 
-      data: prismaData 
-    });
+    const user = await prisma.user.create({ data: createData });
     return NextResponse.json(user);
-  } catch (error) {
+  } catch (error: any) {
     console.error("CREATE USER ERROR:", error);
-    return NextResponse.json({ message: 'Error creating user' }, { status: 500 });
+    // Handle unique constraint violations
+    if (error.code === 'P2002') {
+      const field = error.meta?.target?.[0];
+      if (field === 'username') return NextResponse.json({ message: 'Username already exists. Please choose a different username.' }, { status: 409 });
+      if (field === 'empId') return NextResponse.json({ message: 'Employee ID already exists.' }, { status: 409 });
+    }
+    return NextResponse.json({ message: 'Error creating user: ' + error.message }, { status: 500 });
   }
 }
+

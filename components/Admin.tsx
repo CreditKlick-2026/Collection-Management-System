@@ -511,7 +511,8 @@ const Admin = () => {
       fetchData();
       toast(isEditing ? 'User updated!' : 'User created!');
     } else {
-      toast('Failed to save user');
+      const err = await res.json();
+      toast(err.message || 'Failed to save user');
     }
   };
 

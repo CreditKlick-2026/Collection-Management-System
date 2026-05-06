@@ -2,6 +2,148 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 
+/* ── Quick Approve Modal (Upgrade Status + Direct Approval) ── */
+const QuickApproveModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
+  const { toast, closeModal, user } = useApp();
+  const isEligible = item.customer?.eligible_upgrade === 'Y' || item.customer?.eligible_for_update === 'Y';
+  const [uFlag, setUFlag] = useState(item.upgradeFlag || '');
+  const [uType, setUType] = useState(item.upgradeType || '');
+  const [uReason, setUReason] = useState(item.upgradeReason || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleApprove = async () => {
+    if (isEligible && !uFlag) {
+      toast('Please select an Upgrade Flag before approving'); return;
+    }
+    if (isEligible && uFlag === 'Upgraded' && !uType) {
+      toast('Please select an Upgrade Type'); return;
+    }
+    if (isEligible && uFlag === 'Pending For Upgrade' && !uReason) {
+      toast('Please select a Reason'); return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/payments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: item.id,
+          status: 'cleared',
+          flag: 'approved',
+          flagBy: user?.id,
+          upgradeFlag: uFlag || undefined,
+          upgradeType: uType || undefined,
+          upgradeReason: uReason || undefined,
+        })
+      });
+      if (res.ok) {
+        toast('Payment Approved ✓');
+        closeModal();
+        onDone();
+      } else {
+        const err = await res.json();
+        toast(err.message || 'Approval failed');
+      }
+    } catch (e) { toast('Network error'); }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ padding: '20px 24px 24px' }}>
+      {/* Customer Summary */}
+      <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 9, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Customer</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{item.customer?.name}</div>
+          <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'monospace' }}>{item.customer?.account_no}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Amount</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--grn)' }}>₹{item.amount?.toLocaleString('en-IN')}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Upgrade Eligible</div>
+          {isEligible ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '3px 10px', borderRadius: 10, fontSize: 10, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 700 }}>
+              ✓ Eligible
+            </span>
+          ) : (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(226,75,74,0.08)', color: 'var(--red)', padding: '3px 10px', borderRadius: 10, fontSize: 10, border: '1px solid rgba(226,75,74,0.2)', fontWeight: 700 }}>
+              ✕ Not Eligible
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Upgrade Status — only if eligible */}
+      {isEligible && (
+        <div style={{ background: 'rgba(46,204,138,0.04)', border: '1px solid rgba(46,204,138,0.2)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--grn)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>Upgrade Status</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="ff" style={{ margin: 0 }}>
+              <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG *</label>
+              <select
+                className="finp"
+                style={{ fontSize: 12, padding: '6px 10px', height: 'auto', borderRadius: 6, border: !uFlag ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(46,204,138,0.3)' }}
+                value={uFlag}
+                onChange={e => { setUFlag(e.target.value); setUType(''); setUReason(''); }}
+              >
+                <option value="">— Select Flag —</option>
+                <option value="Upgraded">Upgraded</option>
+                <option value="Pending For Upgrade">Pending For Upgrade</option>
+              </select>
+            </div>
+
+            {uFlag === 'Upgraded' && (
+              <div className="ff" style={{ margin: 0 }}>
+                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE *</label>
+                <select className="finp" style={{ fontSize: 12, padding: '6px 10px', height: 'auto', borderRadius: 6, border: !uType ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(46,204,138,0.3)' }} value={uType} onChange={e => setUType(e.target.value)}>
+                  <option value="">— Select Type —</option>
+                  <option value="System">System</option>
+                  <option value="Payment Received">Payment Received</option>
+                  <option value="Money Collection">Money Collection</option>
+                  <option value="Reversal">Reversal</option>
+                </select>
+              </div>
+            )}
+
+            {uFlag === 'Pending For Upgrade' && (
+              <div className="ff" style={{ margin: 0 }}>
+                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON *</label>
+                <select className="finp" style={{ fontSize: 12, padding: '6px 10px', height: 'auto', borderRadius: 6, border: !uReason ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(46,204,138,0.3)' }} value={uReason} onChange={e => setUReason(e.target.value)}>
+                  <option value="">— Select Reason —</option>
+                  <option value="Multi Card Payment Due">Multi Card Payment Due</option>
+                  <option value="ONE Card Write Off">ONE Card Write Off</option>
+                  <option value="Multi Card Write Off">Multi Card Write Off</option>
+                  <option value="Card Settlement">Card Settlement</option>
+                  <option value="Card Settlement (J5/J6)">Card Settlement (J5/J6)</option>
+                  <option value="Intrest Payment Due">Intrest Payment Due</option>
+                  <option value="Customer Refused to Pay">Customer Refused to Pay</option>
+                  <option value="Customer Not Contactable">Customer Not Contactable</option>
+                </select>
+              </div>
+            )}
+
+            {!uFlag && (
+              <div style={{ gridColumn: 'span 2', fontSize: 10, color: 'var(--amb)', background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 6, padding: '7px 10px' }}>
+                ⚠ Select Upgrade Flag to proceed with approval.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn gn" style={{ flex: 4, padding: '10px', fontSize: 13, fontWeight: 700 }} onClick={handleApprove} disabled={saving}>
+          {saving ? 'Approving...' : '✓ Confirm Approval'}
+        </button>
+        <button className="btn" style={{ flex: 1, padding: '10px' }} onClick={closeModal}>Cancel</button>
+      </div>
+    </div>
+  );
+};
+
 /* ── Flag Modal ──────────────────────────────────────── */
 /* ── Review Payment Modal (Advanced) ──────────────────── */
 const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void }) => {
@@ -112,65 +254,82 @@ const ReviewPaymentModal = ({ item, onDone }: { item: any, onDone: () => void })
       </div>
 
       {/* Upgrade Tracking Section */}
-      <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: '12px', marginBottom: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>Upgrade Status</div>
+      {/* Upgrade Status Section */}
+      <div style={{ background: 'var(--bg3)', border: `1px solid ${isEligible ? 'rgba(46,204,138,0.25)' : 'var(--bdr)'}`, borderRadius: 10, padding: '12px', marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isEligible ? 12 : 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Upgrade Status</div>
           {isEligible ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 10, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
-              <span style={{ fontSize: 11 }}>✓</span> Eligible for Upgrade
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 10px', borderRadius: 12, fontSize: 10, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 700 }}>
+              <span>✓</span> Eligible for Upgrade
             </span>
           ) : (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(226,75,74,0.1)', color: 'var(--red)', padding: '2px 8px', borderRadius: 12, fontSize: 10, border: '1px solid rgba(226,75,74,0.3)', fontWeight: 600 }}>
-              <span style={{ fontSize: 11 }}>✕</span> Not Eligible for Upgrade
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(226,75,74,0.08)', color: 'var(--red)', padding: '2px 10px', borderRadius: 12, fontSize: 10, border: '1px solid rgba(226,75,74,0.2)', fontWeight: 700 }}>
+              <span>✕</span> Not Eligible for Upgrade
             </span>
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div className="ff" style={{ margin: 0 }}>
-            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG</label>
-            <select 
-              className="finp" 
-              style={{ fontSize: 11, padding: '4px 8px', height: 'auto', borderRadius: 6 }}
-              value={uFlag} 
-              onChange={e => { setUFlag(e.target.value); setUType(''); setUReason(''); }}
-            >
-              <option value="">— Select —</option>
-              <option value="Upgraded">Upgraded</option>
-              <option value="Pending For Upgrade">Pending For Upgrade</option>
-            </select>
+        {isEligible ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {/* Upgrade Flag */}
+            <div className="ff" style={{ margin: 0 }}>
+              <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG *</label>
+              <select
+                className="finp"
+                style={{ fontSize: 11, padding: '4px 8px', height: 'auto', borderRadius: 6, border: !uFlag ? '1px solid rgba(245,158,11,0.5)' : undefined }}
+                value={uFlag}
+                onChange={e => { setUFlag(e.target.value); setUType(''); setUReason(''); }}
+              >
+                <option value="">— Select Flag —</option>
+                <option value="Upgraded">Upgraded</option>
+                <option value="Pending For Upgrade">Pending For Upgrade</option>
+              </select>
+            </div>
+
+            {/* Upgrade Type — only when "Upgraded" */}
+            {uFlag === 'Upgraded' && (
+              <div className="ff" style={{ margin: 0 }}>
+                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE *</label>
+                <select className="finp" style={{ fontSize: 11, padding: '4px 8px', height: 'auto', borderRadius: 6, border: !uType ? '1px solid rgba(245,158,11,0.5)' : undefined }} value={uType} onChange={e => setUType(e.target.value)}>
+                  <option value="">— Select Type —</option>
+                  <option value="System">System</option>
+                  <option value="Payment Received">Payment Received</option>
+                  <option value="Money Collection">Money Collection</option>
+                  <option value="Reversal">Reversal</option>
+                </select>
+              </div>
+            )}
+
+            {/* Reason — only when "Pending For Upgrade" */}
+            {uFlag === 'Pending For Upgrade' && (
+              <div className="ff" style={{ margin: 0 }}>
+                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON *</label>
+                <select className="finp" style={{ fontSize: 11, padding: '4px 8px', height: 'auto', borderRadius: 6, border: !uReason ? '1px solid rgba(245,158,11,0.5)' : undefined }} value={uReason} onChange={e => setUReason(e.target.value)}>
+                  <option value="">— Select Reason —</option>
+                  <option value="Multi Card Payment Due">Multi Card Payment Due</option>
+                  <option value="ONE Card Write Off">ONE Card Write Off</option>
+                  <option value="Multi Card Write Off">Multi Card Write Off</option>
+                  <option value="Card Settlement">Card Settlement</option>
+                  <option value="Card Settlement (J5/J6)">Card Settlement (J5/J6)</option>
+                  <option value="Intrest Payment Due">Intrest Payment Due</option>
+                  <option value="Customer Refused to Pay">Customer Refused to Pay</option>
+                  <option value="Customer Not Contactable">Customer Not Contactable</option>
+                </select>
+              </div>
+            )}
+
+            {/* Hint when no flag is selected yet */}
+            {!uFlag && (
+              <div style={{ gridColumn: 'span 2', fontSize: 10, color: 'var(--amb)', background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 6, padding: '6px 10px' }}>
+                ⚠ Please select an Upgrade Flag before approving this payment.
+              </div>
+            )}
           </div>
-
-          {uFlag === 'Upgraded' && (
-            <div className="ff" style={{ margin: 0 }}>
-              <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE</label>
-              <select className="finp" style={{ fontSize: 11, padding: '4px 8px', height: 'auto', borderRadius: 6 }} value={uType} onChange={e => setUType(e.target.value)}>
-                <option value="">— Select —</option>
-                <option value="System">System</option>
-                <option value="Payment Received">Payment Received</option>
-                <option value="Money Collection">Money Collection</option>
-                <option value="Reversal">Reversal</option>
-              </select>
-            </div>
-          )}
-
-          {uFlag === 'Pending For Upgrade' && (
-            <div className="ff" style={{ margin: 0 }}>
-              <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON</label>
-              <select className="finp" style={{ fontSize: 11, padding: '4px 8px', height: 'auto', borderRadius: 6 }} value={uReason} onChange={e => setUReason(e.target.value)}>
-                <option value="">— Select Reason —</option>
-                <option value="Multi Card Payment Due">Multi Card Payment Due</option>
-                <option value="ONE Card Write Off">ONE Card Write Off</option>
-                <option value="Multi Card Write Off">Multi Card Write Off</option>
-                <option value="Card Settlement">Card Settlement</option>
-                <option value="Card Settlement (J5/J6)">Card Settlement (J5/J6)</option>
-                <option value="Intrest Payment Due">Intrest Payment Due</option>
-                <option value="Customer Refused to Pay">Customer Refused to Pay</option>
-                <option value="Customer Not Contactable">Customer Not Contactable</option>
-              </select>
-            </div>
-          )}
-        </div>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 6 }}>
+            This customer is <b>not eligible for upgrade</b>. Upgrade tracking is disabled for this payment.
+          </div>
+        )}
       </div>
 
 
@@ -629,7 +788,8 @@ const Approvals = () => {
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Account Details</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Amount</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Payment Date</th>
-                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Type</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Payment Mode</th>
+                    <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Upgrade Status</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'left' }}>Agent Info</th>
                     <th style={{ padding: '14px 20px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -638,51 +798,76 @@ const Approvals = () => {
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
-                        <td colSpan={7} style={{ padding: '15px 20px' }}><div className="skel" style={{ width: '100%', height: 20 }} /></td>
+                        <td colSpan={8} style={{ padding: '15px 20px' }}><div className="skel" style={{ width: '100%', height: 20 }} /></td>
                       </tr>
                     ))
                   ) : pending.length === 0 ? (
-                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: 60, color: 'var(--txt3)' }}>
+                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: 60, color: 'var(--txt3)' }}>
                       <div style={{ fontSize: 40, marginBottom: 15, opacity: 0.2 }}>✨</div>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>All caught up!</div>
                       <div style={{ fontSize: 12, opacity: 0.6 }}>No payments are pending for your approval.</div>
                     </td></tr>
-                  ) : pending.map(p => (
+                  ) : pending.map(p => {
+                    const isElig = p.customer?.eligible_upgrade === 'Y' || p.customer?.eligible_for_update === 'Y';
+                    return (
                     <tr key={p.id} className="tr-h" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}>
                       <td className="mn" style={{ padding: '16px 20px', fontSize: 12, color: 'var(--txt3)' }}>{p.date}</td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{p.customer?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'monospace' }}>{p.customer?.account_no}</div>
-                        <div style={{ marginTop: 3 }}><span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', border: '1px solid rgba(79,125,255,0.2)', textTransform: 'uppercase' }}>{p.mode}</span></div>
                       </td>
                       <td className="mn" style={{ padding: '16px 20px', color: 'var(--grn)', fontWeight: 800, fontSize: 15 }}>₹{p.amount?.toLocaleString('en-IN')}</td>
                       <td className="mn" style={{ padding: '16px 20px', color: 'var(--txt2)', fontSize: 13 }}>{p.date}</td>
                       <td style={{ padding: '16px 20px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                            background: p.type === 'PTP' ? 'rgba(245,166,35,0.1)' : p.type === 'Settlement' ? 'rgba(167,139,250,0.1)' : 'rgba(46,204,138,0.1)',
-                            color: p.type === 'PTP' ? 'var(--amb)' : p.type === 'Settlement' ? 'var(--pur)' : 'var(--grn)',
-                            border: `1px solid ${p.type === 'PTP' ? 'rgba(245,166,35,0.3)' : p.type === 'Settlement' ? 'rgba(167,139,250,0.3)' : 'rgba(46,204,138,0.25)'}`,
-                            width: 'fit-content'
-                          }}>
-                            {p.type === 'PTP' ? '⏳' : p.type === 'Settlement' ? '⚖️' : '💳'} {p.type || 'Payment'}
+                        {(() => {
+                          const modeColors: Record<string, { bg: string; color: string; border: string }> = {
+                            'NEFT': { bg: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', border: 'rgba(79,125,255,0.3)' },
+                            'CHEQUE': { bg: 'rgba(167,139,250,0.1)', color: 'var(--pur)', border: 'rgba(167,139,250,0.3)' },
+                            'CASH': { bg: 'rgba(46,204,138,0.1)', color: 'var(--grn)', border: 'rgba(46,204,138,0.3)' },
+                            'UPI': { bg: 'rgba(245,158,11,0.1)', color: 'var(--amb)', border: 'rgba(245,158,11,0.3)' },
+                            'RTGS': { bg: 'rgba(79,125,255,0.12)', color: 'var(--acc2)', border: 'rgba(79,125,255,0.35)' },
+                            'IMPS': { bg: 'rgba(46,204,138,0.12)', color: 'var(--grn)', border: 'rgba(46,204,138,0.35)' },
+                          };
+                          const m = modeColors[p.mode?.toUpperCase()] || { bg: 'rgba(150,150,150,0.1)', color: 'var(--txt3)', border: 'rgba(150,150,150,0.3)' };
+                          return (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: m.bg, color: m.color, border: `1px solid ${m.border}`, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>
+                              {p.mode || '—'}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      {/* Upgrade Status Column */}
+                      <td style={{ padding: '16px 20px' }}>
+                        {isElig ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '3px 10px', borderRadius: 12, fontSize: 9, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 700, whiteSpace: 'nowrap', width: 'fit-content' }}>
+                              ✓ Eligible
+                            </span>
+                            {p.upgradeFlag && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', padding: '2px 8px', borderRadius: 8, fontSize: 9, border: '1px solid rgba(79,125,255,0.2)', fontWeight: 600, width: 'fit-content' }}>
+                                🏷 {p.upgradeFlag}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(226,75,74,0.08)', color: 'var(--red)', padding: '3px 10px', borderRadius: 12, fontSize: 9, border: '1px solid rgba(226,75,74,0.2)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            ✕ Not Eligible
                           </span>
-                          <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: 'rgba(79,125,255,0.1)', color: 'var(--acc2)', border: '1px solid rgba(79,125,255,0.2)', textTransform: 'uppercase', width: 'fit-content' }}>{p.mode}</span>
-                        </div>
+                        )}
                       </td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>{p.agent?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.remarks || 'No remarks'}</div>
                       </td>
                       <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button className="btn sm gn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickApprove(p)}>Approve</button>
-                          <button className="btn sm dn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickReject(p.id)}>Reject</button>
-                          <button className="btn sm am" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => openModal(`Review Payment`, <ReviewPaymentModal item={p} onDone={() => fetchPending(page)} />, 950)}>Flag</button>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          <button className="btn sm gn" style={{ padding: '6px 14px', fontSize: 11, fontWeight: 700 }} onClick={() => openModal(`Review Payment — ${p.customer?.name}`, <ReviewPaymentModal item={p} onDone={() => fetchPending(page)} />, 950)}>✓ Approve</button>
+                          <button className="btn sm dn" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => quickReject(p.id)}>✕ Reject</button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

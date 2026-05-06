@@ -57,7 +57,9 @@ const DISPOSITION_LOGIC: Record<string, Record<string, any[]>> = {
     "Ringing No Response": [],
     "IVR Call": [],
     "Temporary Out of Service": [],
-    "Call Not Connected": []
+    "Call Not Connected": [],
+    "Call Disconnect": [],
+    "No Response After Call Answer": []
   }
 };
 
@@ -690,9 +692,7 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
   const [callDrop, setCallDrop] = useState('No');
   const [altNumber, setAltNumber] = useState('');
   const [remarks, setRemarks] = useState('');
-  const [upgradeFlag, setUpgradeFlag] = useState('');
-  const [upgradeType, setUpgradeType] = useState('');
-  const [upgradeReason, setUpgradeReason] = useState('');
+
 
   const dispositions = connectStatus && DISPOSITION_LOGIC[connectStatus] ? Object.keys(DISPOSITION_LOGIC[connectStatus]) : [];
   const subDispositions = connectStatus && disposition && DISPOSITION_LOGIC[connectStatus][disposition] ? DISPOSITION_LOGIC[connectStatus][disposition] : [];
@@ -720,9 +720,7 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
           callDrop,
           altNumber,
           remarks,
-          upgradeFlag,
-          upgradeType,
-          upgradeReason
+
         })
       });
       if (res.ok) {
@@ -785,12 +783,7 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
             <input className="finp" type="number" placeholder="0" value={amount} onChange={e => setAmount(e.target.value)} />
           </div>
         )}
-        {activeLogic.settlement && (
-          <div className="ff">
-            <label>SETTLEMENT AMOUNT (₹)</label>
-            <input className="finp" type="number" placeholder="0" value={settlement} onChange={e => setSettlement(e.target.value)} />
-          </div>
-        )}
+
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 15, marginBottom: 20 }}>
@@ -811,46 +804,7 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
         )}
       </div>
 
-      {lead?.eligible_upgrade === 'Y' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 20 }}>
-          <div className="ff">
-            <label>UPGRADE FLAG</label>
-            <select className="finp" value={upgradeFlag} onChange={e => { setUpgradeFlag(e.target.value); setUpgradeType(''); setUpgradeReason(''); }}>
-              <option value="">— Select —</option>
-              <option value="Upgraded">Upgraded</option>
-              <option value="Pending For Upgrade">Pending For Upgrade</option>
-            </select>
-          </div>
-          {upgradeFlag === 'Upgraded' && (
-            <div className="ff">
-              <label>UPGRADE TYPE</label>
-              <select className="finp" value={upgradeType} onChange={e => setUpgradeType(e.target.value)}>
-                <option value="">— Select —</option>
-                <option value="System">System</option>
-                <option value="Payment Received">Payment Received</option>
-                <option value="Money Collection">Money Collection</option>
-                <option value="Reversal">Reversal</option>
-              </select>
-            </div>
-          )}
-          {upgradeFlag === 'Pending For Upgrade' && (
-            <div className="ff">
-              <label>UPGRADE REASON</label>
-              <select className="finp" value={upgradeReason} onChange={e => setUpgradeReason(e.target.value)}>
-                <option value="">— Select —</option>
-                <option value="Multi Card Payment Due">Multi Card Payment Due</option>
-                <option value="ONE Card Write Off">ONE Card Write Off</option>
-                <option value="Multi Card Write Off">Multi Card Write Off</option>
-                <option value="Card Settlement">Card Settlement</option>
-                <option value="Card Settlement (J5/J6)">Card Settlement (J5/J6)</option>
-                <option value="Intrest Payment Due">Intrest Payment Due</option>
-                <option value="Customer Refused to Pay">Customer Refused to Pay</option>
-                <option value="Customer Not Contactable">Customer Not Contactable</option>
-              </select>
-            </div>
-          )}
-        </div>
-      )}
+
 
       <div className="ff" style={{ marginBottom: 25 }}>
         <label>REMARKS / CALL NOTES *</label>
@@ -1444,7 +1398,7 @@ const Leads = () => {
                     </button>
                     <button className={`btn sm ${!selectedLead ? 'dis' : ''}`} style={{ background: 'rgba(79,125,255,0.1)', border: '1px solid rgba(79,125,255,0.3)', color: 'var(--acc2)', padding: '6px 12px' }}
                       disabled={!selectedLead}
-                      onClick={() => selectedLead && openModal('Edit Lead Disposition', <EditLeadModal lead={selectedLead} onDone={fetchLeads} />)}
+                      onClick={() => selectedLead && openModal('Edit Lead Disposition', <EditLeadModal lead={selectedLead} onDone={fetchLeads} />, 860)}
                     >
                       ✎ VOC UPDATE
                     </button>

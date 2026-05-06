@@ -53,18 +53,39 @@ export async function DELETE(
     const { id: idStr } = await params;
     const id = parseInt(idStr);
 
-    // Check if user has any dependencies (e.g. leads assigned, or manager of others)
-    // For now, we try to delete, Prisma will throw if there's a constraint
-    await prisma.user.delete({
-      where: { id }
+    // Sequential cleanup — no transaction needed for admin-only delete
+    // 1. Unassign leads
+    await prisma.customer.updateMany({ where: { assignedAgentId: id }, data: { assignedAgentId: null } });
+
+    // 2. Detach subordinates
+    await prisma.user.updateMany({ where: { managerId: id }, data: { managerId: null } });
+
+    // 3. Delete audit logs (non-nullable FK)
+    await prisma.auditLog.deleteMany({ where: { userId: id } });
+
+    // 4. Delete payments/PTPs/disputes/settlements (non-nullable agentId, no cascade)
+    await prisma.payment.deleteMany({ where: { agentId: id } });
+    await prisma.pTP.deleteMany({ where: { agentId: id } });
+    await prisma.dispute.deleteMany({ where: { agentId: id } });
+    await prisma.settlement.deleteMany({ where: { agentId: id } });
+
+    // 5. Disconnect portfolio many-to-many
+    await prisma.user.update({
+      where: { id },
+      data: {
+        portfoliosManaged: { set: [] },
+        portfoliosAgent: { set: [] },
+      }
     });
+
+    // 6. Delete the user
+    await prisma.user.delete({ where: { id } });
 
     return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error: any) {
     console.error('Delete error:', error);
-    if (error.code === 'P2003') {
-      return NextResponse.json({ message: 'Cannot delete user: This user has assigned leads or is a manager. Please reassign their records first.' }, { status: 400 });
-    }
-    return NextResponse.json({ message: 'Error deleting user' }, { status: 500 });
+    return NextResponse.json({ message: 'Error deleting user: ' + error.message }, { status: 500 });
   }
 }
+
+
