@@ -1109,8 +1109,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 10,
-                cursor: (!isFormValid || isHardBlocked) ? 'not-allowed' : 'pointer',
-                opacity: (!isFormValid || isHardBlocked) ? 0.7 : 1
+                cursor: (!isFormValid || isHardBlocked) ? 'not-allowed' : 'pointer'
               }}
               onClick={() => handleSubmit(false)}
               disabled={loading || !isFormValid || isHardBlocked}
