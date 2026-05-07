@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { schedulePTPJob } from '@/lib/ptp-scheduler';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +78,7 @@ export async function GET(req: NextRequest) {
         where,
         _count: { _all: true },
         _sum:   { amount: true },
+        orderBy: { _count: { status: 'desc' } },
       }),
       // 4. Approved PTPs only (flag = 'approved') — for Approved Amount card
       prisma.pTP.aggregate({
@@ -167,6 +169,15 @@ export async function POST(req: NextRequest) {
         created: new Date().toISOString().split('T')[0]
       }
     });
+
+    // ── Schedule Redis delayed job to auto-check this PTP on its date ──
+    // This fires at exactly PTP date 12:00 AM IST, no daily cron needed
+    if (newPtp.status === 'pending' && data.date) {
+      schedulePTPJob(newPtp.id, data.date).catch(err =>
+        console.warn('[PTP] Could not schedule Redis job:', err.message)
+      );
+    }
+
     return NextResponse.json(newPtp);
   } catch (error: any) {
     console.error('POST /api/ptps error:', error);

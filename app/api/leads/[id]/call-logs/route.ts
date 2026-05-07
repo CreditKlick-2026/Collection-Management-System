@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import redis from '@/lib/redis';
+import { redisConnection as redis } from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,16 +22,18 @@ export async function GET(
 
     const cacheKey = `call-logs:${id}:page:${page}:limit:${limit}:status:${statusFilter || 'all'}:search:${searchStr || 'none'}`;
 
-    // Try Redis cache first
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return NextResponse.json(JSON.parse(cached), {
-          headers: { 'X-Cache': 'HIT' }
-        });
+    // Try Redis cache first (only if Redis is available)
+    if (redis) {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return NextResponse.json(JSON.parse(cached), {
+            headers: { 'X-Cache': 'HIT' }
+          });
+        }
+      } catch (redisErr) {
+        // Redis unavailable - fall through to DB
       }
-    } catch (redisErr) {
-      console.warn('[REDIS] Cache read failed:', redisErr);
     }
 
     const whereCondition = {
@@ -40,7 +42,7 @@ export async function GET(
       action: 'LEAD_DISPOSITION'
     };
 
-    // Fetch all logs for this customer (usually <1000, very fast)
+    // Fetch all logs for this customer
     let allLogs = await prisma.auditLog.findMany({
       where: whereCondition,
       include: {
@@ -87,11 +89,13 @@ export async function GET(
       stats: { rpcCount, ptpCount, ncCount }
     };
 
-    // Write to Redis cache
-    try {
-      await redis.setex(cacheKey, CACHE_TTL, JSON.stringify(responseData));
-    } catch (redisErr) {
-      console.warn('[REDIS] Cache write failed:', redisErr);
+    // Write to Redis cache (only if Redis is available)
+    if (redis) {
+      try {
+        await redis.setex(cacheKey, CACHE_TTL, JSON.stringify(responseData));
+      } catch (redisErr) {
+        // Redis unavailable - skip caching
+      }
     }
 
     return NextResponse.json(responseData, {
@@ -110,7 +114,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await redis.del(`call-logs:${id}`);
+    if (redis) {
+      await redis.del(`call-logs:${id}`);
+    }
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

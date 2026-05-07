@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/ptp-status",
-      "schedule": "0 0 * * *"
+      "schedule": "30 18 * * *"
     }
   ]
 }

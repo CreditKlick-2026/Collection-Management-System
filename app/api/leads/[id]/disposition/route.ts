@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
-import redis from '@/lib/redis';
+import { redisConnection as redis } from '@/lib/redis';
+import { schedulePTPJob } from '@/lib/ptp-scheduler';
 
 export async function POST(
   request: Request,
@@ -31,7 +32,7 @@ export async function POST(
     if (data.disposition === 'Promised to Pay' && data.amount && data.date) {
       const parsedAmount = parseFloat(data.amount);
       if (!isNaN(parsedAmount)) {
-        await prisma.pTP.create({
+        const newPtp = await prisma.pTP.create({
           data: {
             customerId: id,
             amount: parsedAmount,
@@ -44,26 +45,33 @@ export async function POST(
           }
         });
 
-        // PTP Notification for Today
-        try {
-          const today = new Date().toISOString().split('T')[0];
-          if (data.date === today) {
-            const customer = await prisma.customer.findUnique({ where: { id }, select: { name: true, account_no: true } });
-            const notification = {
-              id: Date.now(),
-              type: 'PTP',
-              title: 'New PTP Recorded',
-              message: `${customer?.name} promised ₹${parsedAmount} for today`,
-              time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-              account: customer?.account_no,
-              agentId: parsedUserId
-            };
-            const redisKey = `notifs:ptp:${today}`;
-            await redis.lpush(redisKey, JSON.stringify(notification));
-            await redis.expire(redisKey, 86400); // 24 hours
+        // ── Register delayed Redis job for this PTP ──
+        schedulePTPJob(newPtp.id, data.date).catch(err =>
+          console.warn('[Disposition] Could not schedule Redis PTP job:', err.message)
+        );
+
+        // PTP Notification for Today (only if Redis is available)
+        if (redis) {
+          try {
+            const today = new Date().toISOString().split('T')[0];
+            if (data.date === today) {
+              const customer = await prisma.customer.findUnique({ where: { id }, select: { name: true, account_no: true } });
+              const notification = {
+                id: Date.now(),
+                type: 'PTP',
+                title: 'New PTP Recorded',
+                message: `${customer?.name} promised ₹${parsedAmount} for today`,
+                time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+                account: customer?.account_no,
+                agentId: parsedUserId
+              };
+              const redisKey = `notifs:ptp:${today}`;
+              await redis.lpush(redisKey, JSON.stringify(notification));
+              await redis.expire(redisKey, 86400); // 24 hours
+            }
+          } catch (err) {
+            // Redis unavailable - skip notification
           }
-        } catch (err) {
-          console.error('Redis Notification Error:', err);
         }
       }
     }
@@ -80,12 +88,14 @@ export async function POST(
     }
 
     // Invalidate Redis cache so Call Logs modal shows fresh data
-    try {
-      const keys = await redis.keys(`call-logs:${id}*`);
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
-    } catch (_) {}
+    if (redis) {
+      try {
+        const keys = await redis.keys(`call-logs:${id}*`);
+        if (keys.length > 0) {
+          await redis.del(...keys);
+        }
+      } catch (_) {}
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

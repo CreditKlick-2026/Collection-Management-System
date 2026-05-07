@@ -91,6 +91,7 @@ export async function GET(request: Request) {
         where: baseWhere,
         _count: { _all: true },
         _sum: { amount: true },
+        orderBy: { _count: { status: 'desc' } },
       }),
     ]);
 

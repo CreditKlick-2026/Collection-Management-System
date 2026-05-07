@@ -301,6 +301,17 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'esc
   const [settlementSummary, setSettlementSummary] = useState({ total: { count: 0, amount: 0 }, raised: { count: 0, amount: 0 }, approved: { count: 0, amount: 0 }, rejected: { count: 0, amount: 0 } });
   const LIMIT = 25;
 
+  // ── Cron Status (Manager Only — Read Only, no manual trigger) ──
+  const [cronStatus, setCronStatus] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isManager) return;
+    fetch('/api/cron/status')
+      .then(r => r.json())
+      .then(d => d.success && setCronStatus(d))
+      .catch(() => {});
+  }, [isManager]);
+
   useEffect(() => {
     if (subTab === 'ptp' || subTab === 'escalated') fetchPtps();
     else fetchSettlements();
@@ -448,6 +459,37 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'esc
         return null;
       })()}
       <div className="page-body">
+
+        {/* Escalations tab: auto-sync status banner */}
+        {subTab === 'escalated' && isManager && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            background: 'rgba(46,202,138,0.06)', border: '1px solid rgba(46,202,138,0.2)',
+            borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12
+          }}>
+            <span>🤖</span>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontWeight: 700, color: 'var(--grn)' }}>Auto-Sync Active</span>
+              <span style={{ color: 'var(--txt3)', marginLeft: 8 }}>
+                Overdue PTPs are automatically marked Broken &amp; Escalated every midnight (12:00 AM IST) via background scheduler.
+              </span>
+            </div>
+            {cronStatus?.lastRun && (
+              <div style={{
+                display: 'flex', gap: 12, alignItems: 'center',
+                background: 'rgba(0,0,0,0.15)', borderRadius: 6, padding: '5px 10px', fontSize: 11
+              }}>
+                <span style={{ color: 'var(--txt3)' }}>Last Run:</span>
+                <span style={{ color: 'var(--grn)', fontWeight: 700 }}>{new Date(cronStatus.lastRun.ranAt).toLocaleString('en-IN')}</span>
+                <span style={{ color: 'var(--red)' }}>✕ {cronStatus.lastRun.autoBroken} broken</span>
+                <span style={{ color: 'var(--txt2)' }}>| Checked: {cronStatus.lastRun.totalChecked}</span>
+              </div>
+            )}
+            {!cronStatus?.lastRun && (
+              <span style={{ color: 'var(--txt3)', fontSize: 11, fontStyle: 'italic' }}>No sync run yet today</span>
+            )}
+          </div>
+        )}
 
         {/* Stats Cards - Only for PTP */}
         {subTab === 'ptp' && (() => {
