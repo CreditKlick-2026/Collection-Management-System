@@ -206,13 +206,14 @@ const EditPTPModal = ({ item, onDone, isReassign }: { item: any, onDone: () => v
           <input className="finp" value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} disabled={isAgent} />
         </div>
         <div className="ff">
-          <label>PTP STATUS *</label>
-          <select className="finp" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} disabled={!isAgent && !isReassign}>
-            <option value="pending">⏳ Pending</option>
+          <label>PTP STATUS 🔒</label>
+          <select className="finp" value={form.status} disabled title="Status is updated automatically via background payment checks.">
+            <option value="pending">⏳ Pending (Auto-Tracked)</option>
             <option value="kept">✓ Kept</option>
             <option value="paid">✓ Paid</option>
             <option value="broken">✕ Broken</option>
           </select>
+          <div style={{fontSize: 9, color: 'var(--txt3)', marginTop: 4}}>Managed automatically by system.</div>
         </div>
       </div>
 
@@ -277,9 +278,15 @@ const EditPTPModal = ({ item, onDone, isReassign }: { item: any, onDone: () => v
       </div>
 
       <div style={{ padding: '15px 20px 20px', borderTop: '1px solid var(--bdr)', flexShrink: 0, marginTop: 5 }}>
-        <button className="btn pr" style={{ width: '100%', padding: '12px', background: '#4f7dff' }} onClick={handleSubmit} disabled={loading}>
-          {loading ? 'Saving...' : '✓ Save PTP'}
-        </button>
+        {!isAgent ? (
+          <button className="btn pr" style={{ width: '100%', padding: '12px', background: '#4f7dff' }} onClick={handleSubmit} disabled={loading}>
+            {loading ? 'Saving...' : '✓ Save PTP'}
+          </button>
+        ) : (
+          <button className="btn" style={{ width: '100%', padding: '12px', background: 'var(--bg2)', border: '1px solid var(--bdr)', color: 'var(--txt)' }} onClick={closeModal}>
+            Close
+          </button>
+        )}
       </div>
     </div>
   );

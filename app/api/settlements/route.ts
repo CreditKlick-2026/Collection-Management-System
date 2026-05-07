@@ -66,13 +66,17 @@ export async function GET(request: Request) {
         by: ['status'],
         where,
         _count: { _all: true },
-        _sum: { amount: true }
+        _sum: { amount: true },
+        orderBy: { _count: { status: 'desc' } }
       })
     ]);
 
     const summaryMap: Record<string, { count: number; amount: number }> = {};
     for (const row of globalAgg) {
-      summaryMap[row.status] = { count: row._count._all, amount: row._sum.amount || 0 };
+      summaryMap[row.status] = { 
+        count: (row._count as any)?._all || 0, 
+        amount: row._sum?.amount || 0 
+      };
     }
     const summary = {
       total: {
