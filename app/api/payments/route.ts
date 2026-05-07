@@ -99,8 +99,8 @@ export async function GET(request: Request) {
     const summary: Record<string, { count: number; amount: number }> = {};
     for (const row of globalAgg) {
       summary[row.status] = {
-        count:  row._count._all,
-        amount: row._sum.amount || 0,
+        count:  (row._count as any)?._all || 0,
+        amount: row._sum?.amount || 0,
       };
     }
 
