@@ -103,21 +103,21 @@ export async function GET(req: NextRequest) {
     const summaryMap: Record<string, { count: number; amount: number }> = {};
     for (const row of globalAgg) {
       summaryMap[row.status] = {
-        count:  row._count._all,
-        amount: row._sum.amount || 0,
+        count:  (row._count as any)?._all || 0,
+        amount: row._sum?.amount || 0,
       };
     }
     const allStatuses = ['pending', 'paid', 'kept', 'broken'];
     const summary: Record<string, { count: number; amount: number }> = {};
     for (const s of allStatuses) summary[s] = summaryMap[s] || { count: 0, amount: 0 };
     summary.total = {
-      count:  originalAgg._count._all,
-      amount: originalAgg._sum.amount || 0,
+      count:  (originalAgg._count as any)?._all || 0,
+      amount: originalAgg._sum?.amount || 0,
     };
     // Approved flag aggregate
     summary.approved = {
-      count:  approvedAgg._count._all,
-      amount: approvedAgg._sum.amount || 0,
+      count:  (approvedAgg._count as any)?._all || 0,
+      amount: approvedAgg._sum?.amount || 0,
     };
 
     const formatted = ptps.map(p => ({
