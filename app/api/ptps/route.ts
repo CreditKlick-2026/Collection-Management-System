@@ -6,18 +6,19 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const date       = searchParams.get('date');
-  const dateFrom   = searchParams.get('dateFrom');
-  const dateTo     = searchParams.get('dateTo');
-  const agent      = searchParams.get('agent');
-  const account    = searchParams.get('account');
-  const status     = searchParams.get('status');
+  const date           = searchParams.get('date');
+  const dateFrom       = searchParams.get('dateFrom');
+  const dateTo         = searchParams.get('dateTo');
+  const agent          = searchParams.get('agent');
+  const account        = searchParams.get('account');
+  const status         = searchParams.get('status');
   const transferStatusFilter = searchParams.get('transferStatus');
-  const flag       = searchParams.get('flag');
-  const page       = Math.max(1, parseInt(searchParams.get('page')  || '1'));
-  const limit      = Math.min(100, parseInt(searchParams.get('limit') || '25'));
-  const skip       = (page - 1) * limit;
-  const requesterId = searchParams.get('requesterId');
+  const recoveryStatus = searchParams.get('recoveryStatus');
+  const flag           = searchParams.get('flag');
+  const page           = Math.max(1, parseInt(searchParams.get('page')  || '1'));
+  const limit          = Math.min(100, parseInt(searchParams.get('limit') || '25'));
+  const skip           = (page - 1) * limit;
+  const requesterId    = searchParams.get('requesterId');
 
   let agentFilter: any = agent ? { name: { contains: agent, mode: 'insensitive' } } : undefined;
   let agentIdFilter: any = undefined;
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
       date:    dateFilter,
       status:  status || undefined,
       transferStatus: transferStatusFilter || undefined,
+      recoveryStatus: recoveryStatus || undefined,
       flag:    flag === 'null' ? null : (flag || undefined),
       OR: account
         ? [
@@ -136,6 +138,9 @@ export async function GET(req: NextRequest) {
       rejection_reason: p.rejectionReason,
       voc:              p.voc,
       remarks:          p.remarks,
+      recovery_status:  p.recoveryStatus,
+      last_action_at:   p.lastActionAt,
+      recovery_remarks: p.recoveryRemarks,
     }));
 
     return NextResponse.json({ data: formatted, total, page, limit, totalPages: Math.ceil(total / limit), summary });
@@ -171,11 +176,34 @@ export async function POST(req: NextRequest) {
     });
 
     // ── Schedule Redis delayed job to auto-check this PTP on its date ──
-    // This fires at exactly PTP date 12:00 AM IST, no daily cron needed
     if (newPtp.status === 'pending' && data.date) {
       schedulePTPJob(newPtp.id, data.date).catch(err =>
         console.warn('[PTP] Could not schedule Redis job:', err.message)
       );
+    }
+
+    // ── Smart Recovery: Mark all OLD PTPs as recovered for this customer ──
+    try {
+      const targetCustomerId = Number(newPtp.customerId);
+      
+      const recoveryResult = await prisma.pTP.updateMany({
+        where: {
+          customerId: targetCustomerId,
+          id: { not: newPtp.id },
+          status: { notIn: ['paid', 'kept', 'PAID', 'KEPT'] },
+          NOT: {
+            recoveryStatus: { in: ['recovered', 'RECOVERED'] }
+          }
+        },
+        data: {
+          recoveryStatus: 'recovered',
+          recoveryRemarks: `Recovered by new PTP ID: ${newPtp.id}`,
+          lastActionAt: new Date()
+        }
+      });
+      console.log(`[PTP POST] Smart Recovery Success: Updated ${recoveryResult.count} records for Customer ${targetCustomerId}`);
+    } catch (e) {
+      console.error('[PTP POST] Smart recovery failed:', e);
     }
 
     return NextResponse.json(newPtp);
@@ -188,9 +216,18 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const data = await req.json();
-    const { id, amount, date, status, voc, remarks, flag, flag_comment, rejection_reason, transferStatus, newAgentId } = data;
+    const { id, amount, date, status, voc, remarks, flag, flag_comment, rejection_reason, transferStatus, newAgentId, recoveryStatus, recoveryRemarks } = data;
 
     if (!id) return NextResponse.json({ message: 'ID is required' }, { status: 400 });
+
+    // Automatically move to 'in_progress' if reassigned to a new agent and it was broken/pending
+    let autoRecoveryStatus = recoveryStatus;
+    if (newAgentId && !recoveryStatus) {
+      const current = await prisma.pTP.findUnique({ where: { id: Number(id) } });
+      if (current?.status?.toLowerCase() === 'broken' && (!current.recoveryStatus || current.recoveryStatus === 'pending')) {
+        autoRecoveryStatus = 'in_progress';
+      }
+    }
 
     const updated = await prisma.pTP.update({
       where: { id: Number(id) },
@@ -199,12 +236,15 @@ export async function PUT(req: NextRequest) {
         date: date || undefined,
         status: status || undefined,
         transferStatus: transferStatus || undefined,
-        agentId: newAgentId ? Number(newAgentId) : undefined,
+        agent: newAgentId ? { connect: { id: Number(newAgentId) } } : undefined,
         voc: voc || undefined,
         remarks: remarks || undefined,
         flag: flag || undefined,
         flagComment: flag_comment || undefined,
-        rejectionReason: rejection_reason || undefined
+        rejectionReason: rejection_reason || undefined,
+        recoveryStatus: autoRecoveryStatus || undefined,
+        recoveryRemarks: recoveryRemarks || (newAgentId ? `Reassigned to agent ID: ${newAgentId}` : undefined),
+        lastActionAt: (autoRecoveryStatus || recoveryRemarks || newAgentId) ? new Date() : undefined,
       }
     });
 

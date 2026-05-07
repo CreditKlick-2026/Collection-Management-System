@@ -2,7 +2,7 @@ import { Queue } from 'bullmq';
 import { redisConnection } from './redis';
 
 export const ptpQueue = new Queue('ptp-queue', {
-  connection: redisConnection,
+  connection: redisConnection as any,
 });
 
 export const initPtpCron = async () => {

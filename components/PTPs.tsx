@@ -184,7 +184,7 @@ const EditPTPModal = ({ item, onDone, isReassign }: { item: any, onDone: () => v
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <div style={{ maxHeight: '55vh', overflowY: 'auto', paddingRight: '8px', marginRight: '-8px', paddingLeft: 20, paddingRight: 20 }}>
+      <div style={{ maxHeight: '55vh', overflowY: 'auto', paddingLeft: 20, paddingRight: 20, marginRight: '-8px' }}>
         <div style={{ background: 'rgba(79,125,255,0.08)', border: '1px solid rgba(79,125,255,0.2)', padding: '12px 16px', borderRadius: 8, marginBottom: 20, color: 'var(--acc2)', fontSize: 13, marginTop: 5 }}>
           Account: <b>{item?.account_no || item?.account}</b> <span style={{ color: 'var(--txt3)' }}>·</span> <b>{item?.customer_name || item?.customer}</b>
         </div>
@@ -192,11 +192,11 @@ const EditPTPModal = ({ item, onDone, isReassign }: { item: any, onDone: () => v
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
         <div className="ff">
           <label>PTP AMOUNT (₹)</label>
-          <input className="finp" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} disabled={isAgent} />
+          <input className="finp" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} disabled={isAgent || item?.status === 'broken' || item?.status === 'paid'} />
         </div>
         <div className="ff">
           <label>PTP DATE</label>
-          <input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} disabled={isAgent} />
+          <input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} disabled={isAgent || item?.status === 'broken' || item?.status === 'paid'} />
         </div>
       </div>
 
@@ -222,7 +222,7 @@ const EditPTPModal = ({ item, onDone, isReassign }: { item: any, onDone: () => v
         <textarea className="finp" rows={3} style={{ resize: 'vertical' }} value={form.voc} onChange={e => setForm({ ...form, voc: e.target.value })} disabled={isAgent} />
       </div>
 
-      {!isAgent ? (
+      {(isReassign || (!isAgent && item?.status === 'pending')) ? (
         <div style={{ background: 'rgba(79,125,255,0.03)', border: '1px solid rgba(79,125,255,0.15)', padding: '20px', borderRadius: 8, marginTop: 15, marginBottom: 5 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, textTransform: 'uppercase' }}>
             {isReassign ? 'REASSIGN PTP & MANAGER REVIEW' : 'MANAGER REVIEW'}
@@ -238,43 +238,47 @@ const EditPTPModal = ({ item, onDone, isReassign }: { item: any, onDone: () => v
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
-            <div className="ff">
-              <label>FLAG / REVIEW STATUS</label>
-              <select className="finp" value={form.flag} onChange={e => setForm({ ...form, flag: e.target.value })}>
-                <option value="">— Select Status —</option>
-                <option value="approved">Approved</option>
-                <option value="flagged">Flagged</option>
-                <option value="rejected">Rejected</option>
-              </select>
+          {(!isAgent && item?.status === 'pending') && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
+              <div className="ff">
+                <label>FLAG / REVIEW STATUS</label>
+                <select className="finp" value={form.flag} onChange={e => setForm({ ...form, flag: e.target.value })}>
+                  <option value="">— Select Status —</option>
+                  <option value="approved">Approved</option>
+                  <option value="flagged">Flagged</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <div className="ff">
+                <label>MANAGER COMMENT</label>
+                <input className="finp" value={form.flag_comment} onChange={e => setForm({ ...form, flag_comment: e.target.value })} placeholder="e.g. Needs hard follow-up" />
+              </div>
             </div>
-            <div className="ff">
-              <label>MANAGER COMMENT</label>
-              <input className="finp" value={form.flag_comment} onChange={e => setForm({ ...form, flag_comment: e.target.value })} placeholder="e.g. Needs hard follow-up" />
-            </div>
-          </div>
+          )}
         </div>
-      ) : item?.flag ? (
-        <>
+      ) : null}
+
+      {(item?.status === 'broken' || item?.status === 'paid' || item?.flag) && !isReassign && (
+        <div style={{ padding: '0 5px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--acc2)', letterSpacing: 0.5, marginBottom: 15, marginTop: 25, textTransform: 'uppercase' }}>
-            MANAGER REVIEW FEEDBACK
+            {item?.status === 'pending' ? 'MANAGER REVIEW FEEDBACK' : `FINAL STATUS: ${item?.status.toUpperCase()}`}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 10 }}>
             <div className="ff">
-              <label>REVIEW STATUS</label>
-              <div style={{ padding: '10px 12px', background: 'var(--bg2)', borderRadius: 6, border: '1px solid var(--bdr)', color: item.flag === 'approved' ? 'var(--grn)' : item.flag === 'rejected' ? 'var(--red)' : 'var(--amb)', fontWeight: 600, textTransform: 'capitalize' }}>
-                {item.flag}
+              <label>REVIEW FLAG</label>
+              <div style={{ padding: '10px 12px', background: 'var(--bg2)', borderRadius: 6, border: '1px solid var(--bdr)', color: item?.flag === 'approved' ? 'var(--grn)' : item?.flag === 'rejected' ? 'var(--red)' : 'var(--amb)', fontWeight: 600, textTransform: 'capitalize' }}>
+                {item?.flag || 'Not Reviewed'}
               </div>
             </div>
             <div className="ff">
-              <label>MANAGER COMMENT</label>
-              <div style={{ padding: '10px 12px', background: 'var(--bg2)', borderRadius: 6, border: '1px solid var(--bdr)', color: 'var(--txt)' }}>
-                {item.flag_comment || item.rejection_reason || '—'}
+              <label>MANAGER FEEDBACK</label>
+              <div style={{ padding: '10px 12px', background: 'var(--bg2)', borderRadius: 6, border: '1px solid var(--bdr)', color: 'var(--txt)', minHeight: 40 }}>
+                {item?.flag_comment || item?.rejection_reason || '—'}
               </div>
             </div>
           </div>
-        </>
-      ) : null}
+        </div>
+      )}
       </div>
 
       <div style={{ padding: '15px 20px 20px', borderTop: '1px solid var(--bdr)', flexShrink: 0, marginTop: 5 }}>
@@ -300,7 +304,7 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'esc
   const [ptps, setPtps] = useState<any[]>([]);
   const [settlements, setSettlements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', agent: '', account: '' });
+  const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', agent: '', account: '', recoveryStatus: '' });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -334,7 +338,7 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'esc
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [filters.dateFrom, filters.dateTo, filters.agent, filters.account]);
+  }, [filters.dateFrom, filters.dateTo, filters.agent, filters.account, filters.recoveryStatus]);
 
   const fetchPtps = async (pg = page) => {
     setLoading(true);
@@ -347,7 +351,8 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'esc
         page:           String(pg),
         limit:          String(LIMIT),
         requesterId:    user?.id ? String(user.id) : '',
-        transferStatus: subTab === 'escalated' ? 'escalated' : ''
+        transferStatus: subTab === 'escalated' ? 'escalated' : '',
+        recoveryStatus: filters.recoveryStatus || ''
       }).toString();
       const res = await fetch(`/api/ptps?${q}`);
       if (res.ok) {
@@ -602,7 +607,7 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'esc
 
         {/* Filter Row */}
         {(() => {
-          const hasFilter = filters.dateFrom || filters.dateTo || filters.agent || filters.account;
+          const hasFilter = filters.dateFrom || filters.dateTo || filters.agent || filters.account || filters.recoveryStatus;
           return (
             <div style={{ marginBottom: 20, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -623,7 +628,7 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'esc
               </div>
               <button className="btn"
                 style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)', opacity: hasFilter ? 1 : 0.4 }}
-                onClick={() => setFilters({ dateFrom: '', dateTo: '', agent: '', account: '' })}
+                onClick={() => setFilters({ dateFrom: '', dateTo: '', agent: '', account: '', recoveryStatus: '' })}
                 disabled={!hasFilter}>Clear</button>
               <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
                 <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{totalRecords} records</div>
@@ -644,6 +649,7 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'esc
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Amount</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>PTP Date</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</th>
+                    <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Recovery</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>{subTab === 'escalated' ? 'Original Agent' : 'Agent'}</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px', color: 'var(--txt3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Sub Disposition</th>
                     <th style={{ background: 'transparent', border: 'none', padding: '12px 10px' }}></th>
@@ -674,44 +680,94 @@ const PTPs = ({ initialTab = 'ptp' }: { initialTab?: 'ptp' | 'settlement' | 'esc
                       </td>
                     </tr>
                   ) : ptps.map(p => (
-                    <tr key={p.id} style={{ borderBottom: '1px solid var(--faint)' }}>
-                      <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.created}</td>
+                    <tr key={p.id} style={{ 
+                      borderBottom: '1px solid var(--faint)',
+                      borderLeft: p.agentId !== p.originalAgentId ? '3px solid var(--blu)' : 'none'
+                    }}>
+                      <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>
+                        {p.created}
+                        {p.agentId !== p.originalAgentId && (
+                          <div style={{ fontSize: 9, color: 'var(--blu)', marginTop: 2, fontWeight: 700 }}>
+                            🔄 REASSIGNED
+                          </div>
+                        )}
+                      </td>
                       <td className="mn" style={{ padding: '12px 10px' }}>{p.account_no}</td>
                       <td className="nm" style={{ padding: '12px 10px', color: 'var(--txt)' }}>{p.customer_name}</td>
                       <td className="mn" style={{ padding: '12px 10px', color: 'var(--amb)', fontWeight: 700 }}>₹{p.ptp_amount?.toLocaleString('en-IN')}</td>
                       <td className="mn" style={{ color: 'var(--txt3)', padding: '12px 10px' }}>{p.ptp_date}</td>
                       <td style={{ padding: '12px 10px' }}>
-                        {p.flag === 'approved' ? (
-                          <span className="badge" style={{ background: 'rgba(46,204,138,0.1)', border: '1px solid rgba(46,204,138,0.3)', color: 'var(--grn)', borderRadius: 12 }}>
-                            <span style={{ fontSize: 8, marginRight: 5 }}>●</span> Approved
-                          </span>
-                        ) : p.flag === 'rejected' ? (
-                          <span className="badge" style={{ background: 'rgba(226,75,74,0.1)', border: '1px solid rgba(226,75,74,0.3)', color: 'var(--red)', borderRadius: 12 }}>
-                            <span style={{ fontSize: 8, marginRight: 5 }}>●</span> Rejected
-                          </span>
-                        ) : p.flag === 'flagged' ? (
-                          <span className="badge" style={{ background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.3)', color: 'var(--amb)', borderRadius: 12 }}>
-                            <span style={{ fontSize: 8, marginRight: 5 }}>⚑</span> Flagged
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            <span className="badge" style={{ 
+                              background: 'transparent', 
+                              border: `1px solid ${p.status === 'broken' ? 'rgba(226,75,74,0.3)' : (p.status === 'paid' || p.status === 'kept') ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, 
+                              color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', 
+                              borderRadius: 12 
+                            }}>
+                              <span style={{ fontSize: 8, marginRight: 5 }}>●</span> {p.status.toUpperCase()}
+                            </span>
+
+                             {p.flag && (
+                              <span className="badge" style={{ 
+                                background: p.flag === 'approved' ? 'rgba(46,204,138,0.1)' : p.flag === 'rejected' ? 'rgba(226,75,74,0.1)' : 'rgba(245,166,35,0.1)', 
+                                border: `1px solid ${p.flag === 'approved' ? 'rgba(46,204,138,0.3)' : p.flag === 'rejected' ? 'rgba(226,75,74,0.3)' : 'rgba(245,166,35,0.3)'}`, 
+                                color: p.flag === 'approved' ? 'var(--grn)' : p.flag === 'rejected' ? 'var(--red)' : 'var(--amb)', 
+                                borderRadius: 12 
+                              }}>
+                                {p.flag === 'approved' ? '✓ Approved' : p.flag === 'rejected' ? '✕ Rejected' : '⚑ Flagged'}
+                              </span>
+                            )}
+
+                            {p.agentId !== p.originalAgentId && (
+                              <span className="badge" style={{ 
+                                background: 'rgba(79,125,255,0.1)', 
+                                border: '1px solid rgba(79,125,255,0.3)',
+                                color: 'var(--blu)', 
+                                borderRadius: 12,
+                                fontSize: 9
+                              }}>
+                                🔄 TRANSFERRED
+                              </span>
+                            )}
+                          </div>
+                          {p.transfer_status === 'escalated' && (
+                            <div style={{ marginTop: 2 }}>
+                              <span className="badge" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--red)', fontSize: 9, fontWeight: 700 }}>🔥 ESCALATED</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 10px' }}>
+                        {p.status?.toLowerCase() === 'broken' ? (
+                          <span className="badge" style={{ 
+                            background: p.recovery_status === 'recovered' ? 'rgba(34,197,94,0.1)' : p.recovery_status === 'in_progress' ? 'rgba(79,125,255,0.1)' : 'rgba(239,68,68,0.1)', 
+                            color: p.recovery_status === 'recovered' ? 'var(--grn)' : p.recovery_status === 'in_progress' ? 'var(--blu)' : 'var(--red)', 
+                            fontSize: 9, 
+                            fontWeight: 700,
+                            borderRadius: 6,
+                            padding: '3px 6px'
+                          }}>
+                            {p.recovery_status === 'recovered' ? '✅ RECOVERED' : p.recovery_status === 'in_progress' ? '📞 IN-PROGRESS' : '⏳ PENDING'}
                           </span>
                         ) : (
-                          <span className="badge" style={{ background: 'transparent', border: `1px solid ${p.status === 'broken' ? 'rgba(226,75,74,0.3)' : (p.status === 'paid' || p.status === 'kept') ? 'rgba(46,204,138,0.3)' : 'rgba(245,166,35,0.3)'}`, color: p.status === 'broken' ? 'var(--red)' : (p.status === 'paid' || p.status === 'kept') ? 'var(--grn)' : 'var(--amb)', borderRadius: 12 }}>
-                            <span style={{ fontSize: 8, marginRight: 5 }}>●</span> {p.status}
-                          </span>
+                          <span style={{ color: 'var(--txt3)', fontSize: 11 }}>—</span>
                         )}
-                        {p.transfer_status === 'escalated' && (
-                          <div style={{ marginTop: 4 }}>
-                            <span className="badge" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--red)', fontSize: 9 }}>🔥 Escalated</span>
+                      </td>
+                      <td style={{ fontSize: 11, color: 'var(--txt)', padding: '12px 10px' }}>
+                        <div style={{ fontWeight: 600 }}>{p.agent_name}</div>
+                        {p.agentId !== p.originalAgentId && (
+                          <div style={{ fontSize: 9, color: 'var(--txt3)', marginTop: 2 }}>
+                            Original: <span style={{ color: 'var(--txt2)' }}>{p.original_agent || 'Unknown'}</span>
                           </div>
                         )}
                       </td>
-                      <td style={{ fontSize: 12, color: 'var(--txt2)', padding: '12px 10px' }}>
-                        {subTab === 'escalated' ? p.original_agent : p.agent_name}
-                      </td>
                       <td style={{ fontSize: 12, color: 'var(--txt3)', padding: '12px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.voc || '—'}</td>
                       <td style={{ padding: '12px 10px', textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        {p.status === 'broken' && !p.transfer_status && user?.role === 'agent' && (
+                        {p.status?.toLowerCase() === 'broken' && !p.transfer_status && user?.role === 'agent' && (
                            <button className="btn sm" style={{ background: 'var(--redbg)', color: 'var(--red)', border: '1px solid rgba(226,75,74,0.3)' }} onClick={() => (window as any)._handleEscalatePTP(p.id)}>Escalate</button>
                         )}
+
                         {subTab === 'escalated' && isManager && (
                            <button className="btn sm" style={{ background: 'var(--acc2)', color: '#fff' }} onClick={() => openModal(`Reassign PTP`, <EditPTPModal item={p} onDone={fetchPtps} isReassign={true} />)}>Reassign</button>
                         )}

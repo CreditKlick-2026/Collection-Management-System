@@ -38,15 +38,22 @@ export async function GET(request: Request) {
       orderBy: { name: 'asc' }
     });
 
-    // Format portfolios for the frontend
-    const formattedUsers = users.map(u => ({
-      ...u,
-      portfolios: [...u.portfoliosManaged, ...u.portfoliosAgent].map(p => p.name).join(', ')
-    }));
+    const formattedUsers = users.map(u => {
+      const pManaged = u.portfoliosManaged || [];
+      const pAgent = u.portfoliosAgent || [];
+      const allPortfolios = [...pManaged, ...pAgent].map(p => p.name).filter(Boolean);
+      const uniquePortfolios = Array.from(new Set(allPortfolios));
+      
+      return {
+        ...u,
+        portfolios: uniquePortfolios.join(', ') || 'None'
+      };
+    });
 
     return NextResponse.json(formattedUsers);
-  } catch (error) {
-    return NextResponse.json({ message: 'Error' }, { status: 500 });
+  } catch (error: any) {
+    console.error("GET USERS ERROR:", error);
+    return NextResponse.json({ message: 'Error: ' + error.message, stack: error.stack }, { status: 500 });
   }
 }
 

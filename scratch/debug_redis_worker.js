@@ -68,6 +68,8 @@ async function debugWorker() {
           data: { 
             status: 'broken', 
             transferStatus: 'escalated',
+            recoveryStatus: 'pending',
+            lastActionAt: new Date(),
             remarks: `${ptp.remarks}\n[Auto-Broken] No matching payment found on ${ptp.date}` 
           }
         });

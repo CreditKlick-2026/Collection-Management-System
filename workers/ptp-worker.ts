@@ -54,7 +54,7 @@ const worker = new Worker('ptp-queue', async (job) => {
     }
   }
 }, { 
-  connection: redisConnection,
+  connection: redisConnection as any,
   concurrency: 5 // Process 5 PTPs in parallel
 });
 

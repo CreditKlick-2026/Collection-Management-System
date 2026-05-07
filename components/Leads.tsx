@@ -929,120 +929,133 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
   return (
     <div style={{ padding: '0 20px 15px' }}>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 200, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', padding: '10px 14px', borderRadius: 8, color: 'var(--grn)', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Outstanding: ₹{Number(lead.outstanding || 0).toLocaleString('en-IN')}</span>
-        </div>
-        <div style={{ flex: 2, minWidth: 250, background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.15)', padding: '10px 14px', borderRadius: 8, color: 'var(--amb)', fontSize: 11.5, lineHeight: 1.4, display: 'flex', alignItems: 'center' }}>
-          ⌛ Payment will go to <b style={{ color: 'var(--amb)', marginLeft: 4 }}>Pending Approval queue</b> . Manager approval required.
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div className="ff">
-          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>AMOUNT (₹) *</label>
-          <input className="finp" type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0" />
-        </div>
-        <div className="ff">
-          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT MODE</label>
-          <select className="finp" value={form.mode} onChange={e => setForm({ ...form, mode: e.target.value })}>
-            {['NEFT', 'IMPS', 'UPI', 'Cash', 'Cheque', 'Payment Recieved'].map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-        </div>
-        <div className="ff">
-          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT DATE</label>
-          <input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div className="ff">
-          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REFERENCE NO.</label>
-          <input className="finp" value={form.ref} onChange={e => handleRefChange(e.target.value)} placeholder="UTR / Ref number" />
-        </div>
-        <div className="ff">
-          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPDATE STATUS</label>
-          <select
-            className="finp"
-            style={{ height: '36px', borderRadius: 10, border: '1px solid var(--pur)', background: 'var(--purbg)', color: 'var(--pur)', fontWeight: 700 }}
-            value={form.status}
-            onChange={e => setForm({ ...form, status: e.target.value })}
-          >
-            <option value="">— Select Status —</option>
-            {['Rollback', 'Rollforward', 'Normilization', 'STAB'].map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Upgrade Section - Only show if eligible */}
-      {(lead.eligible_upgrade === 'Y' || lead.eligible_for_update === 'Y') && (
-        <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: '12px', marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>Upgrade Status</div>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 10, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
-              <span style={{ fontSize: 11 }}>✓</span> Eligible for Upgrade
-            </span>
+      <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '5px', marginRight: '-5px' }} className="hide-scrollbar">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 15 }}>
+          <div style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)', padding: '10px 14px', borderRadius: 8, color: 'var(--grn)', fontSize: 12.5, fontWeight: 600 }}>
+            <div style={{ fontSize: 9, opacity: 0.7, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>Outstanding</div>
+            ₹{Number(lead.outstanding || 0).toLocaleString('en-IN')}
           </div>
+          <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', padding: '10px 14px', borderRadius: 8, color: 'var(--red)', fontSize: 12.5, fontWeight: 600 }}>
+            <div style={{ fontSize: 9, opacity: 0.7, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>Min Amount Due</div>
+            ₹{Number(lead.min_amt_due || 0).toLocaleString('en-IN')}
+          </div>
+          <div style={{ background: 'rgba(79,125,255,0.06)', border: '1px solid rgba(79,125,255,0.15)', padding: '10px 14px', borderRadius: 8, color: 'var(--blu)', fontSize: 12.5, fontWeight: 600 }}>
+            <div style={{ fontSize: 9, opacity: 0.7, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>Principle Outstanding</div>
+            ₹{Number(lead.principle_outstanding || 0).toLocaleString('en-IN')}
+          </div>
+        </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="ff">
-              <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG</label>
-              <select
-                className="finp"
-                value={form.upgradeFlag}
-                onChange={e => setForm({ ...form, upgradeFlag: e.target.value, upgradeType: '', upgradeReason: '' })}
-              >
-                <option value="">— Select —</option>
-                <option value="Upgraded">Upgraded</option>
-                <option value="Pending For Upgrade">Pending For Upgrade</option>
-              </select>
+        <div style={{ background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.15)', padding: '10px 14px', borderRadius: 8, color: 'var(--amb)', fontSize: 11, lineHeight: 1.4, display: 'flex', alignItems: 'center', marginBottom: 15 }}>
+          ⌛ Payment will go to <b style={{ color: 'var(--amb)', marginLeft: 4, marginRight: 4 }}>Pending Approval queue</b>. Manager approval required.
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div className="ff">
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>AMOUNT (₹) *</label>
+            <input className="finp" type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0" />
+          </div>
+          <div className="ff">
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT MODE</label>
+            <select className="finp" value={form.mode} onChange={e => setForm({ ...form, mode: e.target.value })}>
+              {['NEFT', 'IMPS', 'UPI', 'Cash', 'Cheque', 'Payment Recieved'].map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="ff">
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT DATE</label>
+            <input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div className="ff">
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REFERENCE NO.</label>
+            <input className="finp" value={form.ref} onChange={e => handleRefChange(e.target.value)} placeholder="UTR / Ref number" />
+          </div>
+          <div className="ff">
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPDATE STATUS</label>
+            <select
+              className="finp"
+              style={{ height: '36px', borderRadius: 10, border: '1px solid var(--pur)', background: 'var(--purbg)', color: 'var(--pur)', fontWeight: 700 }}
+              value={form.status}
+              onChange={e => setForm({ ...form, status: e.target.value })}
+            >
+              <option value="">— Select Status —</option>
+              {['Rollback', 'Rollforward', 'Normilization', 'STAB'].map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Upgrade Section - Only show if eligible */}
+        {(lead.eligible_upgrade === 'Y' || lead.eligible_for_update === 'Y') && (
+          <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: '12px', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>Upgrade Status</div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 10, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
+                <span style={{ fontSize: 11 }}>✓</span> Eligible for Upgrade
+              </span>
             </div>
 
-            {form.upgradeFlag === 'Upgraded' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="ff">
-                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE</label>
-                <select className="finp" value={form.upgradeType} onChange={e => setForm({ ...form, upgradeType: e.target.value })}>
+                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG</label>
+                <select
+                  className="finp"
+                  value={form.upgradeFlag}
+                  onChange={e => setForm({ ...form, upgradeFlag: e.target.value, upgradeType: '', upgradeReason: '' })}
+                >
                   <option value="">— Select —</option>
-                  <option value="System">System</option>
-                  <option value="Payment Received">Payment Received</option>
-                  <option value="Money Collection">Money Collection</option>
-                  <option value="Reversal">Reversal</option>
+                  <option value="Upgraded">Upgraded</option>
+                  <option value="Pending For Upgrade">Pending For Upgrade</option>
                 </select>
               </div>
-            )}
 
-            {form.upgradeFlag === 'Pending For Upgrade' && (
-              <div className="ff">
-                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON</label>
-                <select className="finp" value={form.upgradeReason} onChange={e => setForm({ ...form, upgradeReason: e.target.value })}>
-                  <option value="">— Select Reason —</option>
-                  <option value="Multi Card Payment Due">Multi Card Payment Due</option>
-                  <option value="ONE Card Write Off">ONE Card Write Off</option>
-                  <option value="Multi Card Write Off">Multi Card Write Off</option>
-                  <option value="Card Settlement">Card Settlement</option>
-                  <option value="Card Settlement (J5/J6)">Card Settlement (J5/J6)</option>
-                  <option value="Intrest Payment Due">Intrest Payment Due</option>
-                  <option value="Customer Refused to Pay">Customer Refused to Pay</option>
-                  <option value="Customer Not Contactable">Customer Not Contactable</option>
-                  <option value="Partial Payment">Partial Payment</option>
-                </select>
-              </div>
-            )}
+              {form.upgradeFlag === 'Upgraded' && (
+                <div className="ff">
+                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE</label>
+                  <select className="finp" value={form.upgradeType} onChange={e => setForm({ ...form, upgradeType: e.target.value })}>
+                    <option value="">— Select —</option>
+                    <option value="System">System</option>
+                    <option value="Payment Received">Payment Received</option>
+                    <option value="Money Collection">Money Collection</option>
+                    <option value="Reversal">Reversal</option>
+                  </select>
+                </div>
+              )}
+
+              {form.upgradeFlag === 'Pending For Upgrade' && (
+                <div className="ff">
+                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON</label>
+                  <select className="finp" value={form.upgradeReason} onChange={e => setForm({ ...form, upgradeReason: e.target.value })}>
+                    <option value="">— Select Reason —</option>
+                    <option value="Multi Card Payment Due">Multi Card Payment Due</option>
+                    <option value="ONE Card Write Off">ONE Card Write Off</option>
+                    <option value="Multi Card Write Off">Multi Card Write Off</option>
+                    <option value="Card Settlement">Card Settlement</option>
+                    <option value="Card Settlement (J5/J6)">Card Settlement (J5/J6)</option>
+                    <option value="Intrest Payment Due">Intrest Payment Due</option>
+                    <option value="Customer Refused to Pay">Customer Refused to Pay</option>
+                    <option value="Customer Not Contactable">Customer Not Contactable</option>
+                    <option value="Partial Payment">Partial Payment</option>
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="ff" style={{ marginBottom: dupWarning ? 8 : 15 }}>
-        <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REMARKS / NOTES</label>
-        <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} placeholder="Payment notes..." />
+        <div className="ff" style={{ marginBottom: 15 }}>
+          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REMARKS / NOTES</label>
+          <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} placeholder="Payment notes..." />
+        </div>
       </div>
 
       {/* ── Duplicate Warning Banner ───────────────────────────── */}
       {dupWarning && (
         <div style={{
-          marginBottom: 12,
+          marginTop: 10,
+          marginBottom: 10,
           padding: '12px 14px',
           borderRadius: 8,
           border: dupWarning.type === 'hard' ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(245,166,35,0.4)',
@@ -1076,9 +1089,9 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         </div>
       )}
 
-      {/* Validation Logic + Submit */}
+      {/* ── Submit Button ── */}
       {(() => {
-        const isFormValid = !!(form.amount && form.ref && form.status && form.remarks);
+        const isFormValid = !!(form.amount && form.date && form.mode && form.ref && form.status && form.remarks);
         const isHardBlocked = dupWarning?.type === 'hard';
         return (
           !dupWarning?.type || dupWarning.type === 'hard' ? (
@@ -1087,9 +1100,10 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
               style={{
                 width: '100%',
                 padding: '12px',
-                background: (!isFormValid || isHardBlocked) ? 'var(--bg3)' : 'rgba(34,197,94,0.1)',
-                color: (!isFormValid || isHardBlocked) ? 'var(--txt3)' : 'var(--grn)',
-                border: (!isFormValid || isHardBlocked) ? '1px solid var(--bdr)' : '1px solid rgba(34,197,94,0.2)',
+                marginTop: 10,
+                background: (!isFormValid || isHardBlocked) ? 'var(--bg3)' : 'var(--acc2)',
+                color: (!isFormValid || isHardBlocked) ? 'var(--txt3)' : '#fff',
+                opacity: (!isFormValid || isHardBlocked) ? 0.6 : 1,
                 fontWeight: 700,
                 display: 'flex',
                 alignItems: 'center',

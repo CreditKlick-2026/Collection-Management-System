@@ -140,7 +140,8 @@ export async function POST(request: Request) {
 
     // ─── DUPLICATE CHECK LAYER 1: Transaction Reference Number ───────────────
     // If a ref/UTR is provided, it MUST be unique across all non-rejected payments.
-    if (ref) {
+    // EXCEPTION: Allow duplicates if mode is 'Payment Recieved'
+    if (ref && paymentMode !== 'Payment Recieved' && paymentMode !== 'Payment Received') {
       const existingByRef = await prisma.payment.findFirst({
         where: {
           ref: ref,
@@ -174,7 +175,7 @@ export async function POST(request: Request) {
       }
     });
 
-    if (existingSoftDuplicate && !data.confirmDuplicate) {
+    if (existingSoftDuplicate && !data.confirmDuplicate && paymentMode !== 'Payment Recieved' && paymentMode !== 'Payment Received') {
       return NextResponse.json({
         duplicate: true,
         type: 'soft_duplicate',

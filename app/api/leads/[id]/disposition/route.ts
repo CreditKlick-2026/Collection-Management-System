@@ -50,6 +50,28 @@ export async function POST(
           console.warn('[Disposition] Could not schedule Redis PTP job:', err.message)
         );
 
+        // ── Smart Recovery: Mark old broken PTPs as recovered for this customer ──
+        try {
+          const recoveryResult = await prisma.pTP.updateMany({
+            where: {
+              customerId: newPtp.customerId,
+              id: { not: newPtp.id },
+              status: { notIn: ['paid', 'kept', 'PAID', 'KEPT'] },
+              NOT: {
+                recoveryStatus: { in: ['recovered', 'RECOVERED'] }
+              }
+            },
+            data: {
+              recoveryStatus: 'recovered',
+              recoveryRemarks: `Recovered by new PTP from Lead Disposition: ${newPtp.id}`,
+              lastActionAt: new Date()
+            }
+          });
+          console.log(`[Disposition] Smart Recovery: Updated ${recoveryResult.count} records for Customer ID ${id}`);
+        } catch (recoverError) {
+          console.error('[Disposition] Smart Recovery failed:', recoverError);
+        }
+
         // PTP Notification for Today (only if Redis is available)
         if (redis) {
           try {
@@ -73,6 +95,8 @@ export async function POST(
             // Redis unavailable - skip notification
           }
         }
+      } else if (data.disposition === 'Promised to Pay') {
+        console.warn('[Disposition] PTP requested but missing amount or date:', { amount: data.amount, date: data.date });
       }
     }
 
