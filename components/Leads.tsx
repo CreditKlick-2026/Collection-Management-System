@@ -703,7 +703,18 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
   useEffect(() => { setSubDisposition(''); }, [disposition]);
 
   const handleSubmit = async () => {
-    if (!connectStatus || !disposition) { toast('Please select Connect Status and Disposition'); return; }
+    const isSubReq = subDispositions.length > 0;
+    const isDateReq = !!activeLogic.date;
+    const isAmtReq = !!activeLogic.amount;
+
+    if (!connectStatus || !disposition || (isSubReq && !subDisposition) || (isDateReq && !date) || (isAmtReq && !amount) || !remarks) {
+      toast('Please fill all required fields');
+      return;
+    }
+    if (showAltNumber && !altNumber) {
+      toast('Please provide an alternate number');
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`/api/leads/${lead.id}/disposition`, {
@@ -762,7 +773,7 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
           </select>
         </div>
         <div className="ff">
-          <label>SUB DISPOSITION</label>
+          <label>SUB DISPOSITION {subDispositions.length > 0 ? '*' : ''}</label>
           <select className="finp" value={subDisposition} onChange={e => setSubDisposition(e.target.value)} disabled={!subDispositions.length}>
             <option value="">— Select —</option>
             {subDispositions.map((s: any) => <option key={s.name} value={s.name}>{s.name}</option>)}
@@ -773,13 +784,13 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 15, marginBottom: 15 }}>
         {activeLogic.date && (
           <div className="ff">
-            <label>ACTION DATE</label>
+            <label>ACTION DATE *</label>
             <input className="finp" type="date" value={date} onChange={e => setDate(e.target.value)} />
           </div>
         )}
         {activeLogic.amount && (
           <div className="ff">
-            <label>AMOUNT (₹)</label>
+            <label>AMOUNT (₹) *</label>
             <input className="finp" type="number" placeholder="0" value={amount} onChange={e => setAmount(e.target.value)} />
           </div>
         )}
@@ -798,7 +809,7 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
         )}
         {showAltNumber && (
           <div className="ff">
-            <label>ALTERNATE NUMBER</label>
+            <label>ALTERNATE NUMBER *</label>
             <input className="finp" placeholder="Enter alternate mobile..." value={altNumber} onChange={e => setAltNumber(e.target.value)} />
           </div>
         )}
@@ -811,7 +822,30 @@ const EditLeadModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
         <textarea className="finp" rows={3} style={{ resize: 'vertical' }} placeholder="Enter detailed interaction notes..." value={remarks} onChange={e => setRemarks(e.target.value)} />
       </div>
 
-      <button className="btn pr" style={{ width: '100%', padding: '12px', background: 'var(--acc)' }} onClick={handleSubmit} disabled={loading}>
+      <button 
+        className="btn pr" 
+        style={{ 
+          width: '100%', 
+          padding: '12px', 
+          background: (() => {
+            const isSubReq = subDispositions.length > 0;
+            const isDateReq = !!activeLogic.date;
+            const isAmtReq = !!activeLogic.amount;
+            const isValid = !!(connectStatus && disposition && (!isSubReq || subDisposition) && (!isDateReq || date) && (!isAmtReq || amount) && remarks && (!showAltNumber || altNumber));
+            return isValid ? 'var(--acc)' : 'var(--bg3)';
+          })(),
+          color: (() => {
+            const isSubReq = subDispositions.length > 0;
+            const isDateReq = !!activeLogic.date;
+            const isAmtReq = !!activeLogic.amount;
+            const isValid = !!(connectStatus && disposition && (!isSubReq || subDisposition) && (!isDateReq || date) && (!isAmtReq || amount) && remarks && (!showAltNumber || altNumber));
+            return isValid ? '#fff' : 'var(--txt3)';
+          })(),
+          cursor: 'pointer'
+        }} 
+        onClick={handleSubmit} 
+        disabled={loading}
+      >
         {loading ? 'Saving...' : '✓ Save Disposition'}
       </button>
     </div>
@@ -843,7 +877,26 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
   };
 
   const handleSubmit = async (force = false) => {
-    if (!form.amount || !form.date || !form.mode) { toast('Please fill all required fields (Amount, Mode, Date)'); return; }
+    // Basic fields
+    if (!form.amount || !form.date || !form.mode || !form.ref || !form.status || !form.remarks) {
+      toast('Please fill all required fields: Amount, Mode, Date, Ref No, Status, and Remarks');
+      return;
+    }
+    // Upgrade fields if eligible
+    if (lead.eligible_upgrade === 'Y' || lead.eligible_for_update === 'Y') {
+      if (!form.upgradeFlag) {
+        toast('Please select an Upgrade Flag');
+        return;
+      }
+      if (form.upgradeFlag === 'Upgraded' && !form.upgradeType) {
+        toast('Please select an Upgrade Type');
+        return;
+      }
+      if (form.upgradeFlag === 'Pending For Upgrade' && !form.upgradeReason) {
+        toast('Please select an Upgrade Reason');
+        return;
+      }
+    }
     setLoading(true);
     setDupWarning(null);
     try {
@@ -955,24 +1008,25 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
             <input className="finp" type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0" />
           </div>
           <div className="ff">
-            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT MODE</label>
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT MODE *</label>
             <select className="finp" value={form.mode} onChange={e => setForm({ ...form, mode: e.target.value })}>
+              <option value="">— Select —</option>
               {['NEFT', 'IMPS', 'UPI', 'Cash', 'Cheque', 'Payment Recieved'].map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
           <div className="ff">
-            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT DATE</label>
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>PAYMENT DATE *</label>
             <input className="finp" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div className="ff">
-            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REFERENCE NO.</label>
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REFERENCE NO. *</label>
             <input className="finp" value={form.ref} onChange={e => handleRefChange(e.target.value)} placeholder="UTR / Ref number" />
           </div>
           <div className="ff">
-            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPDATE STATUS</label>
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPDATE STATUS *</label>
             <select
               className="finp"
               style={{ height: '36px', borderRadius: 10, border: '1px solid var(--pur)', background: 'var(--purbg)', color: 'var(--pur)', fontWeight: 700 }}
@@ -999,7 +1053,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="ff">
-                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG</label>
+                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG *</label>
                 <select
                   className="finp"
                   value={form.upgradeFlag}
@@ -1013,7 +1067,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
               {form.upgradeFlag === 'Upgraded' && (
                 <div className="ff">
-                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE</label>
+                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE *</label>
                   <select className="finp" value={form.upgradeType} onChange={e => setForm({ ...form, upgradeType: e.target.value })}>
                     <option value="">— Select —</option>
                     <option value="System">System</option>
@@ -1026,7 +1080,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
               {form.upgradeFlag === 'Pending For Upgrade' && (
                 <div className="ff">
-                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON</label>
+                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON *</label>
                   <select className="finp" value={form.upgradeReason} onChange={e => setForm({ ...form, upgradeReason: e.target.value })}>
                     <option value="">— Select Reason —</option>
                     <option value="Multi Card Payment Due">Multi Card Payment Due</option>
@@ -1046,7 +1100,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         )}
 
         <div className="ff" style={{ marginBottom: 15 }}>
-          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REMARKS / NOTES</label>
+          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REMARKS / NOTES *</label>
           <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} placeholder="Payment notes..." />
         </div>
       </div>
@@ -1091,7 +1145,16 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
       {/* ── Submit Button ── */}
       {(() => {
-        const isFormValid = !!(form.amount && form.date && form.mode && form.ref && form.status && form.remarks);
+        const isUpgradeRequired = lead.eligible_upgrade === 'Y' || lead.eligible_for_update === 'Y';
+        const isUpgradeValid = !isUpgradeRequired || (
+          form.upgradeFlag && (
+            (form.upgradeFlag === 'Upgraded' && form.upgradeType) ||
+            (form.upgradeFlag === 'Pending For Upgrade' && form.upgradeReason) ||
+            (form.upgradeFlag && form.upgradeFlag !== 'Upgraded' && form.upgradeFlag !== 'Pending For Upgrade')
+          )
+        );
+
+        const isFormValid = !!(form.amount && form.date && form.mode && form.ref && form.status && form.remarks && isUpgradeValid);
         const isHardBlocked = dupWarning?.type === 'hard';
         return (
           !dupWarning?.type || dupWarning.type === 'hard' ? (
@@ -1249,22 +1312,23 @@ const Leads = () => {
     account_no: { order: 1, label: 'Account Number' },
     name: { order: 2, label: 'Customer Name' },
     mobile: { order: 3, label: 'Mobile Number' },
-    dpd: { order: 4, label: 'DPD' },
-    product: { order: 5, label: 'Product Type' },
-    bank: { order: 6, label: 'Bank / Lender' },
-    status: { order: 7, label: 'Status' },
-    portfolio: { order: 8, label: 'Portfolio' },
-    city: { order: 9, label: 'City' },
-    state: { order: 10, label: 'State' },
-    email: { order: 11, label: 'Email' },
-    address: { order: 13, label: 'Address' },
-    min_amt_due: { order: 14, label: 'Min Amount Due' },
-    principle_outstanding: { order: 15, label: 'Principle Outstanding' },
-    outstanding: { order: 16, label: 'Total Outstanding' },
+    address: { order: 4, label: 'Address' },
+    city: { order: 5, label: 'City' },
+    state: { order: 6, label: 'State' },
+    email: { order: 7, label: 'Email' },
+    bank: { order: 8, label: 'Bank / Lender' },
+    portfolio: { order: 9, label: 'Portfolio' },
+    dpd: { order: 10, label: 'DPD' },
+    bkt_2: { order: 11, label: 'Bucket' },
+    min_amt_due: { order: 12, label: 'Min Amount Due' },
+    principle_outstanding: { order: 13, label: 'Principle Outstanding' },
+    outstanding: { order: 14, label: 'Total Outstanding' },
+    product: { order: 15, label: 'Product Type' },
+    'credit card number': { order: 16, label: 'Credit Card Number' },
+    credit_card_number: { order: 16, label: 'Credit Card Number' },
     pan: { order: 17, label: 'PAN Number' },
-    bkt_2: { order: 18, label: 'Bucket' },
-    createdat: { order: 19, label: 'Allocation Date' },
-    assignedagent: { order: 20, label: 'Assigned Agent' },
+    createdat: { order: 18, label: 'Allocation Date' },
+    assignedagent: { order: 19, label: 'Assigned Agent' },
   };
 
   const applyOrder = (cols: any[]) =>
@@ -1341,6 +1405,8 @@ const Leads = () => {
       }
     };
 
+    const isFormValid = !!(reason && amount && Number(amount) > 0 && justification.trim());
+
     return (
       <div style={{ padding: '20px' }}>
         <div className="ff">
@@ -1361,7 +1427,21 @@ const Leads = () => {
           <textarea className="finp" rows={4} style={{ borderRadius: 4, resize: 'vertical' }} value={justification} onChange={e => setJustification(e.target.value)} placeholder="Provide detailed justification for this settlement request..." />
         </div>
 
-        <button className="btn pr" style={{ width: '100%', padding: '12px', fontSize: 13, borderRadius: 4 }} onClick={handleSubmit} disabled={loading}>
+        <button 
+          className="btn pr" 
+          style={{ 
+            width: '100%', 
+            padding: '12px', 
+            fontSize: 13, 
+            borderRadius: 4,
+            background: isFormValid ? 'var(--acc)' : 'var(--bg3)',
+            color: isFormValid ? '#fff' : 'var(--txt3)',
+            cursor: isFormValid ? 'pointer' : 'not-allowed',
+            opacity: isFormValid ? 1 : 0.7
+          }} 
+          onClick={handleSubmit} 
+          disabled={loading || !isFormValid}
+        >
           {loading ? 'Raising...' : 'Raise Request for Settlement'}
         </button>
       </div>
@@ -1446,9 +1526,14 @@ const Leads = () => {
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', overflow: 'hidden' }}>
-                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {(selectedLead.account_no || '').replace(/LN-|-/g, '')} - {selectedLead.product || 'Personal Loan'} - {selectedLead.bank || 'HDFC Bank'}
+                        <div style={{ fontSize: 11, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+                          <span>
+                            {(selectedLead.account_no || '').replace(/LN-|-/g, '')} - {selectedLead.product || 'Personal Loan'} - {(() => {
+                              const metaEntries = Object.entries(selectedLead.metadata || {});
+                              const cardEntry = metaEntries.find(([k]) => k.toLowerCase().includes('card') && !k.toLowerCase().includes('type'));
+                              const cn = cardEntry ? cardEntry[1] : '';
+                              return cn ? `**** ${String(cn).slice(-4)}` : (selectedLead.bank || '—');
+                            })()}
                           </span>
                         </div>
                       </div>
@@ -1544,7 +1629,13 @@ const Leads = () => {
                     const rawVal = selectedLead[item.key] ?? selectedLead[lowerKey]
                       ?? selectedLead.metadata?.[item.key] ?? selectedLead.metadata?.[lowerKey]
                       ?? selectedLead.metadata?.[item.label] ?? selectedLead.metadata?.[item.label?.toUpperCase()] ?? '—';
-                    const val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
+                    let val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
+
+                    // Masking logic for Credit Cards (Always show last 4 only)
+                    const isCardField = item.label?.toLowerCase().includes('card') || lowerKey?.includes('card');
+                    if (isCardField && typeof val === 'string' && val.length > 4) {
+                      val = '**** ' + val.slice(-4);
+                    }
 
                     const isMobile = lowerKey === 'mobile' || lowerKey === 'mobile_number' || lowerKey === 'mobile_no';
                     const allAlts = Array.from(new Set([
@@ -1601,7 +1692,11 @@ const Leads = () => {
                             </div>
                           )}
                         </div>
-                        <div className={`item-val ${item.type === 'amount' ? 'amt' : ''}`} title={String(val)}>
+                        <div 
+                          className={`item-val ${item.type === 'amount' ? 'amt' : ''}`} 
+                          title={String(val)}
+                          style={isCardField ? { fontSize: '12px', fontWeight: 'bold', color: 'var(--txt)' } : {}}
+                        >
                           {item.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` :
                             lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
                               lowerKey === 'createdat' ? String(val).split('T')[0] :
@@ -1773,7 +1868,9 @@ const Leads = () => {
                               col.type === 'badge' ? <span className="badge" style={{ background: 'var(--purbg)', color: 'var(--pur)', border: '1px solid var(--purbg)', borderRadius: 12, padding: '2px 8px' }}>{String(val)}</span> :
                                 lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
                                   lowerKey === 'createdat' ? String(val).split('T')[0] :
-                                    String(val)}
+                                    (lowerKey.includes('card') || col.label?.toLowerCase().includes('card')) && String(val).length > 4 ? 
+                                      '**** ' + String(val).slice(-4) : 
+                                      String(val)}
                           </td>
                         );
                       }) : (
