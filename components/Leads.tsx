@@ -1532,7 +1532,7 @@ const Leads = () => {
                               const metaEntries = Object.entries(selectedLead.metadata || {});
                               const cardEntry = metaEntries.find(([k]) => k.toLowerCase().includes('card') && !k.toLowerCase().includes('type'));
                               const cn = cardEntry ? cardEntry[1] : '';
-                              return cn ? `**** ${String(cn).slice(-4)}` : (selectedLead.bank || '—');
+                              return cn ? `XXXX ${String(cn).slice(-4)}` : (selectedLead.bank || '—');
                             })()}
                           </span>
                         </div>
@@ -1634,7 +1634,7 @@ const Leads = () => {
                     // Masking logic for Credit Cards (Always show last 4 only)
                     const isCardField = item.label?.toLowerCase().includes('card') || lowerKey?.includes('card');
                     if (isCardField && typeof val === 'string' && val.length > 4) {
-                      val = '**** ' + val.slice(-4);
+                      val = 'XXXX ' + val.slice(-4);
                     }
 
                     const isMobile = lowerKey === 'mobile' || lowerKey === 'mobile_number' || lowerKey === 'mobile_no';
@@ -1869,7 +1869,7 @@ const Leads = () => {
                                 lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
                                   lowerKey === 'createdat' ? String(val).split('T')[0] :
                                     (lowerKey.includes('card') || col.label?.toLowerCase().includes('card')) && String(val).length > 4 ? 
-                                      '**** ' + String(val).slice(-4) : 
+                                      'XXXX ' + String(val).slice(-4) : 
                                       String(val)}
                           </td>
                         );

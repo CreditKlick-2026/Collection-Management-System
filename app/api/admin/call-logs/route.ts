@@ -12,6 +12,7 @@ export async function GET(request: Request) {
 
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
+    const actionDate = searchParams.get('actionDate');
     const agentId = searchParams.get('agentId');
     const searchTerm = searchParams.get('search');
 
@@ -28,8 +29,31 @@ export async function GET(request: Request) {
     if (dateTo) {
       andConditions.push({ timestamp: { lte: new Date(`${dateTo}T23:59:59.999Z`) } });
     }
+    if (actionDate) {
+      andConditions.push({
+        details: {
+          path: ['date'],
+          equals: actionDate
+        }
+      });
+    }
     if (agentId && agentId !== 'all') {
       andConditions.push({ userId: Number(agentId) });
+    }
+
+    if (searchTerm) {
+      const matchingCustomers = await prisma.customer.findMany({
+        where: {
+          OR: [
+            { name: { contains: searchTerm, mode: 'insensitive' } },
+            { account_no: { contains: searchTerm, mode: 'insensitive' } },
+            { mobile: { contains: searchTerm } }
+          ]
+        },
+        select: { id: true }
+      });
+      const ids = matchingCustomers.map(c => String(c.id));
+      andConditions.push({ entityId: { in: ids } });
     }
 
     if (andConditions.length > 0) {
