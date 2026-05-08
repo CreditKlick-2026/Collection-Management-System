@@ -22,12 +22,14 @@ async function fetchPayments(from: string, to: string, agentIds: number[]) {
 }
 
 async function fetchPTPs(from: string, to: string, agentIds: number[]) {
-  // PTP model fields: id, customerId, amount, date (PTP date), status, agentId, voc, remarks, flag, flagComment, rejectionReason, created
+  // PTP model fields: id, customerId, amount, date (PTP date), created, status, agentId, voc, remarks, flag, flagComment, rejectionReason
   return prisma.pTP.findMany({
     where: {
-      // Filter by ptp date range (field: `date`) OR created date
-      date: { gte: from, lte: to },
-      agentId: { in: agentIds }
+      agentId: { in: agentIds },
+      OR: [
+        { date: { gte: from, lte: to } },
+        { created: { gte: from, lte: to } }
+      ]
     },
     include: {
       customer: { select: { name: true, account_no: true, mobile: true } },
@@ -47,9 +49,28 @@ async function fetchLeads(from: string, to: string, agentIds: number[]) {
       },
       assignedAgentId: { in: agentIds }
     },
-    include: {
+    select: {
+      id: true,
+      createdAt: true,
+      name: true,
+      account_no: true,
+      mobile: true,
+      alt_mobile: true,
+      address: true,
+      city: true,
+      state: true,
+      product: true,
+      bank: true,
+      min_amt_due: true,
+      principle_outstanding: true,
+      outstanding: true,
+      dpd: true,
+      bkt_2: true,
+      status: true,
+      eligible_upgrade: true,
       assignedAgent: { select: { name: true, empId: true } },
       portfolio:     { select: { name: true } },
+      metadata: true
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -162,29 +183,44 @@ function flattenPTPs(records: any[]) {
   }));
 }
 
-function flattenLeads(records: any[]) {
-  return records.map(l => ({
-    'Allocation Date':          l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
-    'Customer Name':            l.name             || '',
-    'Account No':               l.account_no       || '',
-    'Mobile':                   l.mobile           || '',
-    'Alt Mobile':               l.alt_mobile       || '',
-    'Address':                  l.address          || '',
-    'City':                     l.city             || '',
-    'State':                    l.state            || '',
-    'Product':                  l.product          || '',
-    'Bank':                     l.bank             || '',
-    'Min Amount Due (₹)':       l.min_amt_due      ?? '',
-    'Principal Outstanding (₹)': l.principle_outstanding ?? '',
-    'Total Outstanding (₹)':    l.outstanding      ?? '',
-    'DPD':                      l.dpd              || 0,
-    'BKT':                      l.bkt_2            || '',
-    'Status':                   l.status           || '',
-    'Portfolio':                l.portfolio?.name  || '',
-    'Assigned Agent':           l.assignedAgent?.name  || '',
-    'Agent EmpID':              l.assignedAgent?.empId || '',
-    'Eligible Upgrade':         l.eligible_upgrade || '',
-  }));
+function flattenLeads(records: any[], customColumns: any[]) {
+  return records.map(l => {
+    const row: any = {
+      'Allocation Date':          l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
+      'Customer Name':            l.name             || '',
+      'Account No':               l.account_no       || '',
+      'Mobile':                   l.mobile           || '',
+      'Alt Mobile':               l.alt_mobile       || '',
+      'Address':                  l.address          || '',
+      'City':                     l.city             || '',
+      'State':                    l.state            || '',
+      'Product':                  l.product          || '',
+      'Bank':                     l.bank             || '',
+      'Min Amount Due (₹)':       l.min_amt_due      ?? '',
+      'Principal Outstanding (₹)': l.principle_outstanding ?? '',
+      'Total Outstanding (₹)':    l.outstanding      ?? '',
+      'DPD':                      l.dpd              || 0,
+      'BKT':                      l.bkt_2            || '',
+      'Status':                   l.status           || '',
+      'Portfolio':                l.portfolio?.name  || '',
+      'Assigned Agent':           l.assignedAgent?.name  || '',
+      'Agent EmpID':              l.assignedAgent?.empId || '',
+      'Eligible Upgrade':         l.eligible_upgrade || '',
+    };
+
+    // Add dynamic custom columns from metadata
+    if (l.metadata && typeof l.metadata === 'object') {
+      customColumns.forEach(col => {
+        row[col.label] = (l.metadata as any)[col.key] || '';
+      });
+    } else {
+      customColumns.forEach(col => {
+        row[col.label] = '';
+      });
+    }
+
+    return row;
+  });
 }
 
 function flattenCallLogs(records: any[]) {
@@ -246,6 +282,25 @@ function flattenSettlements(records: any[]) {
   }));
 }
 
+function convertToCSV(data: any[]): string {
+  if (!data || data.length === 0) return '';
+  const headers = Object.keys(data[0]);
+  const csvRows = [] as string[];
+  // Header row
+  csvRows.push(headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(','));
+  // Data rows
+  data.forEach(row => {
+    const rowValues = headers.map(h => {
+      const val = (row as any)[h];
+      if (val === null || val === undefined) return '';
+      const escaped = String(val).replace(/"/g, '""');
+      return `"${escaped}"`;
+    });
+    csvRows.push(rowValues.join(','));
+  });
+  return csvRows.join('\n');
+}
+
 // ── GET handler ───────────────────────────────────────────────────────────
 
 export async function GET(request: Request) {
@@ -254,32 +309,81 @@ export async function GET(request: Request) {
   const from = searchParams.get('from') || new Date().toISOString().split('T')[0];
   const to   = searchParams.get('to')   || new Date().toISOString().split('T')[0];
   const managerId = searchParams.get('managerId');
+  const format = searchParams.get('format') || 'json'; // 'json' or 'csv'
+  const limit = searchParams.get('limit') ? Number(searchParams.get('limit')) : null;
 
   try {
     if (!managerId) {
-       return NextResponse.json({ message: 'Manager ID is required' }, { status: 400 });
+      return NextResponse.json({ message: 'Manager ID is required' }, { status: 400 });
     }
 
-    const agents = await prisma.user.findMany({
-      where: { managerId: Number(managerId) },
-      select: { id: true }
+    const user = await prisma.user.findUnique({
+      where: { id: Number(managerId) },
+      select: { role: true }
     });
-    const agentIds = agents.map(a => a.id);
+
+    let agentIds: number[] = [];
+    if (user?.role === 'admin') {
+      const allUsers = await prisma.user.findMany({ select: { id: true } });
+      agentIds = allUsers.map(u => u.id);
+    } else {
+      const agents = await prisma.user.findMany({
+        where: { 
+          OR: [
+            { managerId: Number(managerId) },
+            { id: Number(managerId) }
+          ]
+        },
+        select: { id: true }
+      });
+      agentIds = agents.map(a => a.id);
+    }
 
     let rows: any[] = [];
 
     switch (type) {
-      case 'payments':  rows = flattenPayments(await fetchPayments(from, to, agentIds));   break;
-      case 'ptps':      rows = flattenPTPs(await fetchPTPs(from, to, agentIds));           break;
-      case 'leads':     rows = flattenLeads(await fetchLeads(from, to, agentIds));         break;
-      case 'call_logs': rows = flattenCallLogs(await fetchCallLogs(from, to, agentIds));   break;
-      case 'disputes':  rows = flattenDisputes(await fetchDisputes(from, to, agentIds));   break;
-      case 'settlements': rows = flattenSettlements(await fetchSettlements(from, to, agentIds)); break;
+      case 'payments':
+        rows = flattenPayments(await fetchPayments(from, to, agentIds));
+        break;
+      case 'ptps':
+        rows = flattenPTPs(await fetchPTPs(from, to, agentIds));
+        break;
+      case 'leads': {
+        const customColumns = await prisma.leadColumn.findMany({
+          orderBy: { order: 'asc' },
+          select: { key: true, label: true }
+        });
+        rows = flattenLeads(await fetchLeads(from, to, agentIds), customColumns);
+        break;
+      }
+      case 'call_logs':
+        rows = flattenCallLogs(await fetchCallLogs(from, to, agentIds));
+        break;
+      case 'disputes':
+        rows = flattenDisputes(await fetchDisputes(from, to, agentIds));
+        break;
+      case 'settlements':
+        rows = flattenSettlements(await fetchSettlements(from, to, agentIds));
+        break;
       default:
         return NextResponse.json({ message: 'Invalid report type' }, { status: 400 });
     }
 
-    return NextResponse.json({ rows, count: rows.length, type, from, to });
+    if (format === 'csv') {
+      const csv = convertToCSV(rows);
+      const headers = new Headers({
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="${type}_report_${from}_to_${to}.csv"`,
+      });
+      return new NextResponse(csv, { status: 200, headers });
+    }
+
+    const totalCount = rows.length;
+    if (limit && rows.length > limit) {
+      rows = rows.slice(0, limit);
+    }
+
+    return NextResponse.json({ rows, count: totalCount, type, from, to, limited: !!limit });
   } catch (error) {
     console.error('Report fetch error:', error);
     return NextResponse.json({ message: 'Error generating report', error: String(error) }, { status: 500 });

@@ -67,12 +67,12 @@ const ReportsTab = () => {
     setLoading(true);
     setFetched(false);
     try {
-      const res = await fetch(`/api/manager/reports?type=${selectedType}&from=${from}&to=${to}&managerId=${user?.id}`);
+      const res = await fetch(`/api/manager/reports?type=${selectedType}&from=${from}&to=${to}&managerId=${user?.id}&limit=50`);
       if (res.ok) {
         const data = await res.json();
         setRows(data.rows || []);
         setFetched(true);
-        toast(`✓ ${data.count} records fetched`);
+        toast(`✓ Preview of ${data.rows.length} / ${data.count} records fetched`);
       } else {
         const err = await res.json();
         toast(err.message || 'Failed to fetch report');
@@ -82,15 +82,29 @@ const ReportsTab = () => {
   };
 
   const handleCSV = () => {
-    if (!rows.length) { toast('No data to export'); return; }
-    downloadCSV(rows, `${selectedType}_${from}_${to}.csv`);
-    toast('CSV downloaded ✓');
+    const url = `/api/manager/reports?type=${selectedType}&from=${from}&to=${to}&managerId=${user?.id}&format=csv`;
+    window.open(url, '_blank');
+    toast('CSV Download started ✓');
   };
 
-  const handleExcel = () => {
-    if (!rows.length) { toast('No data to export'); return; }
-    downloadExcel(rows, `${selectedType}_${from}_${to}.xlsx`);
-    toast('Excel downloaded ✓');
+  const handleExcel = async () => {
+    setLoading(true);
+    try {
+      // Fetch full data for Excel generation
+      const res = await fetch(`/api/manager/reports?type=${selectedType}&from=${from}&to=${to}&managerId=${user?.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rows && data.rows.length > 0) {
+          downloadExcel(data.rows, `${selectedType}_${from}_${to}.xlsx`);
+          toast('Excel downloaded ✓');
+        } else {
+          toast('No data to export');
+        }
+      }
+    } catch (e) {
+      toast('Failed to generate Excel');
+    }
+    setLoading(false);
   };
 
   const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
@@ -227,7 +241,7 @@ const ReportsTab = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.slice(0, 100).map((row, i) => (
+                    {rows.map((row, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--faint)', background: i % 2 === 0 ? 'var(--bg2)' : 'var(--bg3)' }}>
                         {columns.map(col => (
                           <td key={col} style={{ padding: '9px 14px', fontSize: 11, color: 'var(--txt2)', whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -239,11 +253,9 @@ const ReportsTab = () => {
                   </tbody>
                 </table>
               </div>
-              {rows.length > 100 && (
-                <div style={{ padding: '10px 14px', fontSize: 11, color: 'var(--txt3)', borderTop: '1px solid var(--bdr)', background: 'var(--bg-top)' }}>
-                  ⚠ Preview shows first 100 rows. Full data is included in the downloaded file ({rows.length} total rows).
-                </div>
-              )}
+              <div style={{ padding: '10px 14px', fontSize: 11, color: 'var(--txt3)', borderTop: '1px solid var(--bdr)', background: 'var(--bg-top)' }}>
+                ℹ️ Preview shows up to 50 rows. Click Download to get the full report.
+              </div>
             </div>
           )}
         </div>
