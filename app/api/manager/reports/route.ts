@@ -39,16 +39,23 @@ async function fetchPTPs(from: string, to: string, agentIds: number[]) {
   });
 }
 
-async function fetchLeads(from: string, to: string, agentIds: number[]) {
-  // Customer model: createdAt (DateTime), no created_at
-  return prisma.customer.findMany({
-    where: {
-      createdAt: {
-        gte: new Date(from + 'T00:00:00Z'),
-        lte: new Date(to   + 'T23:59:59Z'),
-      },
-      assignedAgentId: { in: agentIds }
+async function fetchLeads(from: string, to: string, agentIds: number[], portfolioIds: number[], isAdmin: boolean) {
+  const where: any = {
+    createdAt: {
+      gte: new Date(from + 'T00:00:00Z'),
+      lte: new Date(to   + 'T23:59:59Z'),
     },
+  };
+
+  if (!isAdmin) {
+    where.OR = [
+      { assignedAgentId: { in: agentIds } },
+      { portfolioId:     { in: portfolioIds } }
+    ];
+  }
+
+  return prisma.customer.findMany({
+    where,
     select: {
       id: true,
       createdAt: true,
@@ -319,13 +326,20 @@ export async function GET(request: Request) {
 
     const user = await prisma.user.findUnique({
       where: { id: Number(managerId) },
-      select: { role: true }
+      include: {
+        portfoliosManaged: { select: { id: true } },
+        portfoliosAgent: { select: { id: true } }
+      }
     });
 
     let agentIds: number[] = [];
-    if (user?.role === 'admin') {
+    let portfolioIds: number[] = [];
+    const isAdmin = user?.role === 'admin';
+
+    if (isAdmin) {
       const allUsers = await prisma.user.findMany({ select: { id: true } });
       agentIds = allUsers.map(u => u.id);
+      // For admins, we don't strictly need portfolioIds if they see everything
     } else {
       const agents = await prisma.user.findMany({
         where: { 
@@ -337,6 +351,10 @@ export async function GET(request: Request) {
         select: { id: true }
       });
       agentIds = agents.map(a => a.id);
+      portfolioIds = [
+        ...(user?.portfoliosManaged.map(p => p.id) || []),
+        ...(user?.portfoliosAgent.map(p => p.id) || [])
+      ];
     }
 
     let rows: any[] = [];
@@ -353,7 +371,7 @@ export async function GET(request: Request) {
           orderBy: { order: 'asc' },
           select: { key: true, label: true }
         });
-        rows = flattenLeads(await fetchLeads(from, to, agentIds), customColumns);
+        rows = flattenLeads(await fetchLeads(from, to, agentIds, portfolioIds, isAdmin), customColumns);
         break;
       }
       case 'call_logs':
