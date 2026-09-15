@@ -22,6 +22,7 @@ export default function Home() {
   const [authData, setAuthData] = useState({ username: '', password: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [userType, setUserType] = useState("agent");
+  const [showBillingLogin, setShowBillingLogin] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -33,6 +34,13 @@ export default function Home() {
 
   const handleLogin = async () => {
     const res = await login(authData.username, authData.password, userType);
+    if (res.success) {
+      // Redirection will be handled by useEffect above
+    }
+  };
+
+  const handleBillingLogin = async () => {
+    const res = await login(authData.username, authData.password, 'billing');
     if (res.success) {
       // Redirection will be handled by useEffect above
     }
@@ -65,75 +73,135 @@ export default function Home() {
                 <img src="/cms_logo.png" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'contain' }} alt="CMS Logo" />
               </div>
               <p className="login-title">
-                Login to Dashboard
+                {showBillingLogin ? 'Billing Login' : 'Login to Dashboard'}
               </p>
             </div>
 
-            <form className="login-form" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
-              <div className="form-group">
-                <label className="user-type-label">Login As:</label>
-                <div style={{ marginTop: '4px' }}>
-                  <ButtonGroup variant="segmented" fullWidth>
-                    <Button 
-                      pressed={userType === 'agent'} 
-                      onClick={() => setUserType('agent')}
-                    >
-                      Agent
-                    </Button>
-                    <Button 
-                      pressed={userType === 'supervisor'} 
-                      onClick={() => setUserType('supervisor')}
-                    >
-                      Supervisor
-                    </Button>
-                    <Button 
-                      pressed={userType === 'admin'} 
-                      onClick={() => setUserType('admin')}
-                    >
-                      Admin
-                    </Button>
-                  </ButtonGroup>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="input-label">Username / Emp ID</label>
-                <input
-                  className="input-field"
-                  type="text"
-                  placeholder="Enter your username or emp ID"
-                  value={authData.username}
-                  onChange={e => setAuthData({ ...authData, username: e.target.value })}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="input-label">Password</label>
-                <div className="password-wrapper">
+            {showBillingLogin ? (
+              <form className="login-form" onSubmit={(e) => { e.preventDefault(); handleBillingLogin(); }}>
+                <div className="form-group">
+                  <label className="input-label">Billing Username / Email</label>
                   <input
                     className="input-field"
-                    type={showPwd ? "text" : "password"}
-                    placeholder="Password"
-                    value={authData.password}
-                    onChange={e => setAuthData({ ...authData, password: e.target.value })}
+                    type="text"
+                    placeholder="Enter your billing username"
+                    value={authData.username}
+                    onChange={e => setAuthData({ ...authData, username: e.target.value })}
                   />
-                  <button
-                    type="button"
-                    className="eye-btn"
-                    onClick={() => setShowPwd(!showPwd)}
-                  >
-                    {showPwd ? '👁' : '👁‍🗨'}
-                  </button>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                className="submit-btn"
-              >
-                Login
-              </button>
-            </form>
+                <div className="form-group">
+                  <label className="input-label">Password</label>
+                  <div className="password-wrapper">
+                    <input
+                      className="input-field"
+                      type={showPwd ? "text" : "password"}
+                      placeholder="Password"
+                      value={authData.password}
+                      onChange={e => setAuthData({ ...authData, password: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      className="eye-btn"
+                      onClick={() => setShowPwd(!showPwd)}
+                    >
+                      {showPwd ? '👁' : '👁‍🗨'}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right', marginBottom: '15px' }}>
+                  <a
+                    href="#"
+                    className="billing-toggle-link"
+                    onClick={(e) => { e.preventDefault(); setShowBillingLogin(false); }}
+                  >
+                    Back to Dashboard Login
+                  </a>
+                </div>
+                <button
+                  type="submit"
+                  className="submit-btn"
+                >
+                  Login to Billing
+                </button>
+              </form>
+            ) : (
+              <form className="login-form" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+                <div className="form-group">
+                  <label className="user-type-label">Login As:</label>
+                  <div style={{ marginTop: '4px' }}>
+                    <ButtonGroup variant="segmented" fullWidth>
+                      <Button
+                        pressed={userType === 'agent'}
+                        onClick={() => setUserType('agent')}
+                      >
+                        Agent
+                      </Button>
+                      <Button
+                        pressed={userType === 'supervisor'}
+                        onClick={() => setUserType('supervisor')}
+                      >
+                        Supervisor
+                      </Button>
+                      <Button
+                        pressed={userType === 'admin'}
+                        onClick={() => setUserType('admin')}
+                      >
+                        Admin
+                      </Button>
+                    </ButtonGroup>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="input-label">Username / Emp ID</label>
+                  <input
+                    className="input-field"
+                    type="text"
+                    placeholder="Enter your username or emp ID"
+                    value={authData.username}
+                    onChange={e => setAuthData({ ...authData, username: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="input-label">Password</label>
+                  <div className="password-wrapper">
+                    <input
+                      className="input-field"
+                      type={showPwd ? "text" : "password"}
+                      placeholder="Password"
+                      value={authData.password}
+                      onChange={e => setAuthData({ ...authData, password: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      className="eye-btn"
+                      onClick={() => setShowPwd(!showPwd)}
+                    >
+                      {showPwd ? '👁' : '👁‍🗨'}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right', marginBottom: '15px' }}>
+                  <a
+                    href="#"
+                    className="billing-toggle-link text-center"
+                    onClick={(e) => { e.preventDefault(); setShowBillingLogin(true); }}
+                  >
+                    Billing
+                  </a>
+                </div>
+                <button
+                  type="submit"
+                  className="submit-btn"
+                >
+                  Login
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </div>

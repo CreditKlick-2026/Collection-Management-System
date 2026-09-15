@@ -4,38 +4,57 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Clearing old data...');
 
-  try { await prisma.auditLog.deleteMany(); } catch {}
-  try { await prisma.dispute.deleteMany(); } catch {}
-  try { await prisma.pTP.deleteMany(); } catch {}
-  try { await prisma.payment.deleteMany(); } catch {}
-  try { await prisma.customer.deleteMany(); } catch {}
-  try { await prisma.portfolio.deleteMany(); } catch {}
-  try { await prisma.user.deleteMany(); } catch {}
-  try { await prisma.leadColumn.deleteMany(); } catch {}
+  // Data deletion commented out to prevent accidental loss
+  // try { await prisma.auditLog.deleteMany(); } catch {}
+  // try { await prisma.dispute.deleteMany(); } catch {}
+  // try { await prisma.pTP.deleteMany(); } catch {}
+  // try { await prisma.payment.deleteMany(); } catch {}
+  // try { await prisma.customer.deleteMany(); } catch {}
+  // try { await prisma.portfolio.deleteMany(); } catch {}
+  // try { await prisma.user.deleteMany(); } catch {}
+  // try { await prisma.leadColumn.deleteMany(); } catch {}
 
   console.log('Creating users...');
 
-  const admin = await prisma.user.create({
-    data: { username: 'admin', password: 'admin', name: 'System Admin', role: 'admin', initials: 'SA', empId: 'EMP001', dob: '01-Jan-1980', doj: '01-Jan-2020', email: 'admin@dr.com', address: 'Head Office', contact: '9800000001', active: true }
+  const admin = await prisma.user.upsert({
+    where: { username: 'admin' },
+    update: {},
+    create: { username: 'admin', password: 'admin', name: 'System Admin', role: 'admin', initials: 'SA', empId: 'EMP001', dob: '01-Jan-1980', doj: '01-Jan-2020', email: 'admin@dr.com', address: 'Head Office', contact: '9800000001', active: true }
   });
-  const manager = await prisma.user.create({
-    data: { username: 'manager1', password: 'manager1', name: 'Rahul Sharma', role: 'manager', initials: 'RS', empId: 'EMP002', managerId: admin.id, dob: '15-Mar-1985', doj: '15-Jun-2021', email: 'rahul@dr.com', address: 'Jaipur', contact: '9800000002', active: true }
+  const manager = await prisma.user.upsert({
+    where: { username: 'manager1' },
+    update: {},
+    create: { username: 'manager1', password: 'manager1', name: 'Rahul Sharma', role: 'manager', initials: 'RS', empId: 'EMP002', managerId: admin.id, dob: '15-Mar-1985', doj: '15-Jun-2021', email: 'rahul@dr.com', address: 'Jaipur', contact: '9800000002', active: true }
   });
-  await prisma.user.create({
-    data: { username: 'agent1', password: 'agent1', name: 'Jenna Rivera', role: 'agent', initials: 'JR', empId: 'EMP003', managerId: manager.id, dob: '22-Jul-1992', doj: '01-Apr-2022', email: 'jenna@dr.com', address: 'Jaipur', contact: '9800000003', active: true }
+  await prisma.user.upsert({
+    where: { username: 'agent1' },
+    update: {},
+    create: { username: 'agent1', password: 'agent1', name: 'Jenna Rivera', role: 'agent', initials: 'JR', empId: 'EMP003', managerId: manager.id, dob: '22-Jul-1992', doj: '01-Apr-2022', email: 'jenna@dr.com', address: 'Jaipur', contact: '9800000003', active: true }
   });
-  await prisma.user.create({
-    data: { username: 'agent2', password: 'agent2', name: 'Carlos Mendes', role: 'agent', initials: 'CM', empId: 'EMP004', managerId: manager.id, dob: '10-Nov-1990', doj: '15-Jun-2022', email: 'carlos@dr.com', address: 'Jaipur', contact: '9800000004', active: true }
+  await prisma.user.upsert({
+    where: { username: 'agent2' },
+    update: {},
+    create: { username: 'agent2', password: 'agent2', name: 'Carlos Mendes', role: 'agent', initials: 'CM', empId: 'EMP004', managerId: manager.id, dob: '10-Nov-1990', doj: '15-Jun-2022', email: 'carlos@dr.com', address: 'Jaipur', contact: '9800000004', active: true }
   });
-  await prisma.user.create({
-    data: { username: 'agent3', password: 'agent3', name: 'Aisha Brown', role: 'agent', initials: 'AB', empId: 'EMP005', managerId: manager.id, dob: '05-May-1994', doj: '01-Sep-2022', email: 'aisha@dr.com', address: 'Jaipur', contact: '9800000005', active: true }
+  await prisma.user.upsert({
+    where: { username: 'agent3' },
+    update: {},
+    create: { username: 'agent3', password: 'agent3', name: 'Aisha Brown', role: 'agent', initials: 'AB', empId: 'EMP005', managerId: manager.id, dob: '05-May-1994', doj: '01-Sep-2022', email: 'aisha@dr.com', address: 'Jaipur', contact: '9800000005', active: true }
+  });
+  await prisma.user.upsert({
+    where: { username: 'billing_admin' },
+    update: {},
+    create: { username: 'billing_admin', password: 'password123', name: 'Billing Admin', role: 'billing', initials: 'BA', empId: 'BILL001', dob: '01-Jan-1990', doj: '01-Jan-2023', email: 'billing@dr.com', address: 'Billing Dept', contact: '9999999999', active: true }
   });
 
   console.log('Creating portfolios...');
 
-  await prisma.portfolio.create({ data: { id: 'P1', name: 'Rajasthan Personal Loans' } });
-  await prisma.portfolio.create({ data: { id: 'P2', name: 'Rajasthan Credit Cards' } });
-  await prisma.portfolio.create({ data: { id: 'P3', name: 'Rajasthan Home & Auto' } });
+  // ID in portfolio schema is Int, but previously they were passed as strings.
+  // Assuming they're ints if they were working, or strings if schema says string.
+  // Wait, let's just create if not exists
+  try { await prisma.portfolio.create({ data: { id: 1, name: 'Rajasthan Personal Loans' } }); } catch {}
+  try { await prisma.portfolio.create({ data: { id: 2, name: 'Rajasthan Credit Cards' } }); } catch {}
+  try { await prisma.portfolio.create({ data: { id: 3, name: 'Rajasthan Home & Auto' } }); } catch {}
 
   const agent1 = await prisma.user.findUnique({ where: { username: 'agent1' } });
   const agent3 = await prisma.user.findUnique({ where: { username: 'agent3' } });

@@ -1595,7 +1595,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   gap: 15px;
 }
 
@@ -1641,7 +1641,7 @@ body {
 }
 
 .cust-dash {
-  padding: 20px;
+  padding: 12px 18px;
 }
 
 .cust-dash-grid {

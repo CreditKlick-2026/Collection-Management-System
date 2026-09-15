@@ -1210,7 +1210,6 @@ const Leads = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [leadPaySummary, setLeadPaySummary] = useState<any>(null);
   const [latestSettlement, setLatestSettlement] = useState<any>(null);
-  const [openAltIdx, setOpenAltIdx] = useState<number | null>(null);
 
   useEffect(() => {
     fetchMetadata();
@@ -1346,7 +1345,6 @@ const Leads = () => {
   };
 
   const tableCols = applyOrder(leadColumns.filter(c => c.visible !== false && !excluded(c)));
-  const profileCols = applyOrder(leadColumns.filter(c => c.showInProfile !== false && !excluded(c)));
 
   const RaiseSettlementModal = ({ lead, onDone }: { lead: any, onDone: () => void }) => {
     const { toast, closeModal, user } = useApp();
@@ -1448,6 +1446,244 @@ const Leads = () => {
     );
   };
 
+  const CustomerDetailModal = ({ lead }: { lead: any }) => {
+    if (!lead) return null;
+
+    const meta = lead.metadata || {};
+    const cleanAcc = String(lead.account_no || '').replace(/LN-|-/g, '');
+
+    // Mask Credit Card if available
+    const cardEntry = Object.entries(meta).find(([k]) => k.toLowerCase().includes('card') && !k.toLowerCase().includes('type'));
+    const cardRaw = cardEntry ? cardEntry[1] : '';
+    const cardNum = cardRaw ? (String(cardRaw).length > 4 ? `XXXX ${String(cardRaw).slice(-4)}` : cardRaw) : (lead.credit_card_number ? `XXXX ${String(lead.credit_card_number).slice(-4)}` : '—');
+
+    // Contact numbers
+    const allAlts = Array.from(new Set([
+      lead.alt_mobile,
+      lead.alt_mobile_2,
+      lead.alt_mobile_3,
+      lead.alt_mobile_4,
+      meta.alt_mobile,
+      meta.ALT_MOBILE,
+      meta['ALT MOBILE'],
+      meta.alt_mobile_2,
+      meta.alt_mobile_3,
+      meta.alt_mobile_4
+    ])).filter(n => n && n !== '—' && n !== lead.mobile);
+
+    const sections = [
+      {
+        title: '👤 Customer & Contact Details',
+        items: [
+          { label: 'Customer Name', val: lead.name },
+          { label: 'Primary Mobile', val: lead.mobile },
+          { label: 'Alt Contact(s)', val: allAlts.length > 0 ? allAlts.join(', ') : '—' },
+          { label: 'Email', val: lead.email || meta.email || '—' },
+          { label: 'PAN Number', val: lead.pan || meta.pan || '—' },
+          { label: 'Address', val: lead.address || meta.address || '—' },
+          { label: 'City', val: lead.city || meta.city || '—' },
+          { label: 'State', val: lead.state || meta.state || '—' },
+          { label: 'Zone', val: meta.zone || meta.ZONE || '—' },
+          { label: 'Organisation', val: meta.organisation || meta.ORGANISATION || meta.employer || '—' },
+          { label: 'Designation', val: meta.designation || meta.DESIGNATION || '—' },
+        ]
+      },
+      {
+        title: '💳 Financial & Loan Details',
+        items: [
+          { label: 'Account Number', val: cleanAcc },
+          { label: 'Bank / Lender', val: lead.bank || meta.bank || '—' },
+          { label: 'Product Type', val: lead.product || meta.product || '—' },
+          { label: 'Credit Card Number', val: cardNum },
+          { label: 'Portfolio', val: typeof lead.portfolio === 'object' ? (lead.portfolio?.name || '—') : (lead.portfolio || '—') },
+          { label: 'Total Outstanding', val: lead.outstanding ? `₹${Number(lead.outstanding).toLocaleString('en-IN')}` : '₹0', highlight: 'red' },
+          { label: 'Principle Outstanding', val: (lead.principle_outstanding || meta.principle_outstanding) ? `₹${Number(lead.principle_outstanding || meta.principle_outstanding).toLocaleString('en-IN')}` : '—' },
+          { label: 'Min Amount Due', val: (lead.min_amt_due || meta.min_amt_due) ? `₹${Number(lead.min_amt_due || meta.min_amt_due).toLocaleString('en-IN')}` : '—' },
+          { label: 'DPD', val: lead.dpd ?? meta.dpd ?? '—' },
+          { label: 'Bucket', val: lead.bkt_2 || meta.bkt_2 || meta.bucket || '—' },
+          { label: 'Allocation Date', val: lead.createdat ? String(lead.createdat).split('T')[0] : (lead.createdAt ? String(lead.createdAt).split('T')[0] : '—') },
+          { label: 'Assigned Agent', val: lead.assignedAgent?.name || lead.assignedagent || 'Unassigned' },
+          { label: 'Status', val: lead.status || '—' },
+        ]
+      }
+    ];
+
+    const knownKeys = new Set(['alt_mobile', 'alt_mobile_2', 'alt_mobile_3', 'alt_mobile_4', 'email', 'pan', 'address', 'city', 'state', 'zone', 'organisation', 'employer', 'designation', 'bank', 'product', 'credit card number', 'portfolio', 'principle_outstanding', 'min_amt_due', 'dpd', 'bkt_2', 'bucket', 'status']);
+    const extraMeta = Object.entries(meta).filter(([k]) => !knownKeys.has(k.toLowerCase()) && !k.toLowerCase().includes('card'));
+
+    return (
+      <div style={{ padding: '0 20px 20px', maxHeight: '78vh', overflowY: 'auto' }}>
+        {/* Top Header Card */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 20px',
+          background: 'var(--bg3)',
+          borderRadius: 12,
+          border: '1px solid var(--bdr)',
+          marginBottom: 16,
+          gap: 16,
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              background: 'var(--faint)',
+              color: 'var(--acc2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: 18,
+              border: '1px solid var(--bdr)'
+            }}>
+              {lead.name?.split(' ').map((n: string) => n[0]).join('').substring(0, 2) || 'CU'}
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)' }}>{lead.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
+                <span>{cleanAcc}</span> · <span>{lead.product || 'Personal Loan'}</span> · <span>{lead.bank || '—'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {(lead.eligible_upgrade === 'Y' || lead.eligible_for_update === 'Y') ? (
+              <span style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '4px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700, border: '1px solid rgba(34,197,94,0.3)' }}>
+                ✓ Eligible for Upgrade
+              </span>
+            ) : (
+              <span style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '4px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600, border: '1px solid rgba(239,68,68,0.3)' }}>
+                ✕ Not Eligible
+              </span>
+            )}
+            <span style={{ background: 'var(--accbg)', color: 'var(--acc2)', padding: '4px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700, border: '1px solid var(--bdr)' }}>
+              Status: {lead.status || 'Active'}
+            </span>
+          </div>
+        </div>
+
+        {/* KPI Highlights */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 18 }}>
+          <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px' }}>
+            <div style={{ fontSize: 9, color: 'var(--txt3)', textTransform: 'uppercase', fontWeight: 700 }}>Total Outstanding</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)', marginTop: 4 }}>
+              ₹{Number(lead.outstanding || 0).toLocaleString('en-IN')}
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 8, padding: '10px 14px' }}>
+            <div style={{ fontSize: 9, color: 'var(--txt3)', textTransform: 'uppercase', fontWeight: 700 }}>Principle Outstanding</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)', marginTop: 4 }}>
+              {lead.principle_outstanding ? `₹${Number(lead.principle_outstanding).toLocaleString('en-IN')}` : '—'}
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 8, padding: '10px 14px' }}>
+            <div style={{ fontSize: 9, color: 'var(--txt3)', textTransform: 'uppercase', fontWeight: 700 }}>Min Amount Due</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)', marginTop: 4 }}>
+              {lead.min_amt_due ? `₹${Number(lead.min_amt_due).toLocaleString('en-IN')}` : '—'}
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 8, padding: '10px 14px' }}>
+            <div style={{ fontSize: 9, color: 'var(--txt3)', textTransform: 'uppercase', fontWeight: 700 }}>DPD / Bucket</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--acc2)', marginTop: 4 }}>
+              {lead.dpd ?? '—'} <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--txt3)' }}>({lead.bkt_2 || '—'})</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Sections */}
+        {sections.map((sec, sIdx) => (
+          <div key={sIdx} style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {sec.title}
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: 8,
+              background: 'var(--bg2)',
+              padding: 12,
+              borderRadius: 10,
+              border: '1px solid var(--bdr)'
+            }}>
+              {sec.items.map((it, iIdx) => (
+                <div key={iIdx} style={{ background: 'var(--bg3)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--faint)' }}>
+                  <div style={{ fontSize: 8, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>
+                    {it.label}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: it.highlight === 'red' ? 'var(--red)' : 'var(--txt)', wordBreak: 'break-word' }}>
+                    {String(it.val || '—')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Extra metadata */}
+        {extraMeta.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              📑 Additional Details
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: 8,
+              background: 'var(--bg2)',
+              padding: 12,
+              borderRadius: 10,
+              border: '1px solid var(--bdr)'
+            }}>
+              {extraMeta.map(([k, v], mIdx) => (
+                <div key={mIdx} style={{ background: 'var(--bg3)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--faint)' }}>
+                  <div style={{ fontSize: 8, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>
+                    {k.replace(/_/g, ' ')}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--txt)', wordBreak: 'break-word' }}>
+                    {typeof v === 'object' && v !== null ? ((v as any).name || (v as any).label || JSON.stringify(v)) : String(v ?? '—')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick Action Buttons */}
+        <div style={{ borderTop: '1px solid var(--bdr)', paddingTop: 14, marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--grn)', padding: '6px 14px' }}
+            onClick={() => openModal(`Record Payment — ${lead.name}`, <RecordLeadPaymentModal lead={lead} onDone={fetchLeads} />, 800)}
+          >
+            💳 Record Payment
+          </button>
+          <button className="btn sm" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '6px 14px' }}
+            onClick={() => openModal(`📋 Payment History — ${lead.name}`, <PaymentHistoryModal lead={lead} />, 1100)}
+          >
+            📋 Payment History
+          </button>
+          <button className="btn sm" style={{ background: 'transparent', border: '1px solid var(--bdr)', color: 'var(--amb)', padding: '6px 14px' }}
+            onClick={() => openModal(`📞 Call Logs — ${lead.name}`, <CallLogsModal lead={lead} />, 1100)}
+          >
+            📞 Call Logs
+          </button>
+          <button className="btn sm" style={{ background: 'rgba(79,125,255,0.1)', border: '1px solid rgba(79,125,255,0.3)', color: 'var(--acc2)', padding: '6px 14px' }}
+            onClick={() => openModal('Edit Lead Disposition', <EditLeadModal lead={lead} onDone={fetchLeads} />, 860)}
+          >
+            ✎ VOC Update
+          </button>
+          <button className="btn sm" style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', color: 'var(--red)', padding: '6px 14px' }}
+            onClick={() => openModal(`Raise Settlement — ${lead.name}`, <RaiseSettlementModal lead={lead} onDone={fetchLeads} />, 600)}
+          >
+            ⚖️ Settlement
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <style>{`
@@ -1523,6 +1759,28 @@ const Leads = () => {
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '2px 8px', borderRadius: 10, fontSize: 11, border: '1px solid rgba(34,197,94,0.25)', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
                               💰 Total Paid: ₹{Number(leadPaySummary.cleared || 0).toLocaleString('en-IN')}
                               {leadPaySummary.clearedCount > 0 && <span style={{ opacity: 0.7, fontWeight: 400, marginLeft: 2 }}>({leadPaySummary.clearedCount})</span>}
+                            </span>
+                          )}
+                          {latestSettlement && (
+                            <span
+                              onClick={() => openModal(`⚖️ Settlement History — ${selectedLead.name}`, <SettlementHistoryModal lead={selectedLead} />, 600)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                background: latestSettlement.status === 'Approve' ? 'rgba(34,197,94,0.1)' : latestSettlement.status === 'Rejected' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
+                                color: latestSettlement.status === 'Approve' ? 'var(--grn)' : latestSettlement.status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
+                                padding: '2px 8px',
+                                borderRadius: 10,
+                                fontSize: 11,
+                                border: `1px solid ${latestSettlement.status === 'Approve' ? 'rgba(34,197,94,0.3)' : latestSettlement.status === 'Rejected' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                cursor: 'pointer'
+                              }}
+                              title="Click to view Settlement History"
+                            >
+                              ⚖️ Settlement: {latestSettlement.status === 'Approve' ? 'APPROVED' : latestSettlement.status === 'Rejected' ? 'REJECTED' : latestSettlement.status === 'Pending' ? 'PENDING' : 'RAISED'}
                             </span>
                           )}
                         </div>
@@ -1606,136 +1864,6 @@ const Leads = () => {
                   </div>
                 </div>
               </div>
-
-              {/* LOWER SIDE: Grid Info Boxes */}
-              {loading ? (
-                <div className="cust-dash-grid">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="cust-dash-grid-item">
-                      <div className="skel" style={{ width: '60%', height: 8, marginBottom: 2 }} />
-                      <div className="skel" style={{ width: '80%', height: 11 }} />
-                    </div>
-                  ))}
-                </div>
-              ) : selectedLead ? (
-                <div className="cust-dash-grid">
-                  {(profileCols.length > 0 ? profileCols : [
-                    { label: 'ACCOUNT NUMBER', key: 'account_no' },
-                    { label: 'MOBILE NUMBER', key: 'mobile' },
-                    { label: 'OUTSTANDING', key: 'outstanding', type: 'amount' },
-                    { label: 'STATUS', key: 'status' }
-                  ]).map((item: any, i: number) => {
-                    const lowerKey = item.key?.toLowerCase();
-                    const rawVal = selectedLead[item.key] ?? selectedLead[lowerKey]
-                      ?? selectedLead.metadata?.[item.key] ?? selectedLead.metadata?.[lowerKey]
-                      ?? selectedLead.metadata?.[item.label] ?? selectedLead.metadata?.[item.label?.toUpperCase()] ?? '—';
-                    let val = (rawVal && typeof rawVal === 'object') ? (rawVal.name || rawVal.label || '—') : rawVal;
-
-                    // Masking logic for Credit Cards (Always show last 4 only)
-                    const isCardField = item.label?.toLowerCase().includes('card') || lowerKey?.includes('card');
-                    if (isCardField && typeof val === 'string' && val.length > 4) {
-                      val = 'XXXX ' + val.slice(-4);
-                    }
-
-                    const isMobile = lowerKey === 'mobile' || lowerKey === 'mobile_number' || lowerKey === 'mobile_no';
-                    const allAlts = Array.from(new Set([
-                      selectedLead.alt_mobile,
-                      selectedLead.alt_mobile_2,
-                      selectedLead.alt_mobile_3,
-                      selectedLead.alt_mobile_4,
-                      selectedLead.metadata?.alt_mobile,
-                      selectedLead.metadata?.ALT_MOBILE,
-                      selectedLead.metadata?.['ALT MOBILE'],
-                      selectedLead.metadata?.alt_mobile_2,
-                      selectedLead.metadata?.alt_mobile_3,
-                      selectedLead.metadata?.alt_mobile_4
-                    ])).filter(n => n && n !== '—' && n !== val);
-
-                    return (
-                      <div key={i} className={`cust-dash-grid-item ${isMobile && allAlts.length > 0 ? 'num-dropdown' : ''}`}
-                        style={{ position: 'relative', overflow: 'visible' }}
-                      >
-                        <div className="item-lbl" title={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>{item.label}</span>
-                          {isMobile && allAlts.length > 0 && (
-                            <div
-                              style={{ padding: '2px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenAltIdx(openAltIdx === i ? null : i);
-                              }}
-                            >
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: 10, height: 10, color: 'var(--acc2)', transform: openAltIdx === i ? 'rotate(180deg)' : 'none', transition: '0.2s' }}>
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                              </svg>
-                            </div>
-                          )}
-                          {isMobile && allAlts.length > 0 && (
-                            <div className={`num-dropdown-list ${openAltIdx === i ? 'show' : ''}`}>
-                              <div style={{ padding: '8px 15px', fontSize: 10, color: 'var(--acc2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--faint)', marginBottom: 5 }}>Contact Numbers</div>
-                              <div style={{ padding: '10px 15px', fontSize: 12, color: 'var(--txt)', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>{val}</span>
-                                <span style={{ color: 'var(--grn)', fontSize: 9, background: 'rgba(34,197,94,0.1)', padding: '2px 6px', borderRadius: 4 }}>PRIMARY</span>
-                              </div>
-                              {allAlts.map((alt, idx) => (
-                                <div key={idx} style={{ padding: '10px 15px', fontSize: 12, color: 'var(--txt2)', borderTop: '1px solid var(--faint)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span>{String(alt)}</span>
-                                  <span style={{ color: 'var(--txt3)', fontSize: 9, background: 'var(--faint)', padding: '2px 6px', borderRadius: 4 }}>ALT {idx + 1}</span>
-                                </div>
-                              ))}
-                              <div
-                                style={{ padding: '8px 15px', fontSize: 10, textAlign: 'center', color: 'var(--red)', fontWeight: 700, cursor: 'pointer', borderTop: '1px solid var(--faint)', marginTop: 4 }}
-                                onClick={() => setOpenAltIdx(null)}
-                              >
-                                ✕ CLOSE
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div 
-                          className={`item-val ${item.type === 'amount' ? 'amt' : ''}`} 
-                          title={String(val)}
-                          style={isCardField ? { fontSize: '12px', fontWeight: 'bold', color: 'var(--txt)' } : {}}
-                        >
-                          {item.type === 'amount' ? `₹${Number(val).toLocaleString('en-IN')}` :
-                            lowerKey === 'account_no' ? String(val).replace(/LN-|-/g, '') :
-                              lowerKey === 'createdat' ? String(val).split('T')[0] :
-                                String(val)}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* Settlement Status Box */}
-                  <div className="cust-dash-grid-item" style={{ border: '1px solid rgba(244,63,94,0.2)', background: 'rgba(244,63,94,0.03)', gridColumn: 'span 2', minWidth: 280 }}>
-                    <div className="item-lbl" style={{ color: 'var(--red)', fontWeight: 700 }}>SETTLEMENT STATUS</div>
-                    <div className="item-val" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 32 }}>
-                      {!latestSettlement ? (
-                        <span style={{ color: 'var(--txt3)', fontSize: 12, fontWeight: 600, opacity: 0.6 }}>No Request Raised</span>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <span style={{
-                            color: latestSettlement.status === 'Approve' ? 'var(--grn)' : latestSettlement.status === 'Rejected' ? 'var(--red)' : 'var(--amb)',
-                            fontWeight: 900,
-                            fontSize: 12,
-                            letterSpacing: 0.5
-                          }}>
-                            {latestSettlement.status === 'Approve' ? '✅ APPROVED' :
-                              latestSettlement.status === 'Rejected' ? '❌ REJECTED' :
-                                latestSettlement.status === 'Pending' ? '🔄 PENDING' : '⏳ RAISED'}
-                          </span>
-                          <button
-                            style={{ background: 'var(--bg2)', border: '1px solid var(--bdr)', borderRadius: 6, padding: '5px 12px', fontSize: 10, cursor: 'pointer', color: 'var(--txt)', fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'all 0.2s' }}
-                            onClick={() => openModal(`⚖️ Settlement History — ${selectedLead.name}`, <SettlementHistoryModal lead={selectedLead} />, 600)}
-                          >
-                            View History
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
             </div>
           )}
 
@@ -1812,6 +1940,7 @@ const Leads = () => {
               <table className="tbl" style={{ width: '100%', borderCollapse: 'collapse', whiteSpace: 'nowrap' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--bdr)' }}>
+                    <th style={{ background: 'var(--bg2)', position: 'sticky', top: 0, left: 0, zIndex: 12, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', width: '65px' }}>Action</th>
                     {tableCols.length > 0 ? tableCols.map(col => (
                       <th key={col.key} style={{ background: 'var(--bg2)', position: 'sticky', top: 0, zIndex: 10, border: 'none', padding: '8px 10px', color: 'var(--txt3)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left' }}>
                         {col.label}
@@ -1833,6 +1962,9 @@ const Leads = () => {
                   {loading ? (
                     Array.from({ length: 15 }).map((_, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--faint)' }}>
+                        <td key="action-skel" style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          <div className="skel" style={{ width: 44, height: 20, margin: '0 auto', borderRadius: 4 }} />
+                        </td>
                         {Array.from({ length: (tableCols.length || 6) + 1 }).map((_, j) => (
                           <td key={j} style={{ padding: '8px 10px' }}>
                             <div className="skel" style={{ width: `${Math.floor(Math.random() * 40) + 40}%` }} />
@@ -1842,6 +1974,32 @@ const Leads = () => {
                     ))
                   ) : leads.map(lead => (
                     <tr key={lead.id} onClick={() => setSelectedLead(lead)} style={{ borderBottom: '1px solid var(--faint)', cursor: 'pointer', background: selectedLead?.id === lead.id ? 'var(--accbg)' : 'transparent' }}>
+                      <td style={{ padding: '6px 10px', textAlign: 'center', position: 'sticky', left: 0, background: selectedLead?.id === lead.id ? 'var(--accbg)' : 'var(--bg2)', zIndex: 5 }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="btn sm"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: 'rgba(79,125,255,0.12)',
+                            color: 'var(--acc2)',
+                            border: '1px solid rgba(79,125,255,0.3)',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
+                            transition: 'all 0.15s ease'
+                          }}
+                          onClick={() => {
+                            setSelectedLead(lead);
+                            openModal(`Customer Details — ${lead.name}`, <CustomerDetailModal lead={lead} />, 850);
+                          }}
+                        >
+                          👁️ View
+                        </button>
+                      </td>
                       {tableCols.length > 0 ? tableCols.map(col => {
                         const lowerKey = col.key?.toLowerCase();
                         const rawVal = lead[col.key] ?? lead[lowerKey]

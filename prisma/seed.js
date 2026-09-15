@@ -5,18 +5,19 @@ async function main() {
   console.log('Cleaning up database...');
   // Note: Prisma model names in the client are camelCase. 
   // PTP becomes pTP, User becomes user, etc.
-  try { await prisma.dispute.deleteMany(); } catch(e) { console.log('dispute table empty or missing'); }
-  try { await prisma.pTP.deleteMany(); } catch(e) { console.log('pTP table empty or missing'); }
-  try { await prisma.payment.deleteMany(); } catch(e) { console.log('payment table empty or missing'); }
-  try { await prisma.customer.deleteMany(); } catch(e) { console.log('customer table empty or missing'); }
-  try { await prisma.portfolio.deleteMany(); } catch(e) { console.log('portfolio table empty or missing'); }
-  try { await prisma.user.deleteMany(); } catch(e) { console.log('user table empty or missing'); }
+  // try { await prisma.dispute.deleteMany(); } catch(e) { console.log('dispute table empty or missing'); }
+  // try { await prisma.pTP.deleteMany(); } catch(e) { console.log('pTP table empty or missing'); }
+  // try { await prisma.payment.deleteMany(); } catch(e) { console.log('payment table empty or missing'); }
+  // try { await prisma.customer.deleteMany(); } catch(e) { console.log('customer table empty or missing'); }
+  // try { await prisma.portfolio.deleteMany(); } catch(e) { console.log('portfolio table empty or missing'); }
+  // try { await prisma.user.deleteMany(); } catch(e) { console.log('user table empty or missing'); }
 
   console.log('Seeding users...');
   const users = [
     {username:'admin',   password:'admin',   name:'System Admin', role:'admin',   initials:'SA',empId:'EMP001',managerId:null, dob:'01-Jan-1980',doj:'01-Jan-2020',email:'admin@dr.com',   address:'Head Office',contact:'9800000001',active:true},
     {username:'manager1',password:'manager1',name:'Rahul Sharma',  role:'manager', initials:'RS',empId:'EMP002',managerId:null, dob:'15-Mar-1985',doj:'15-Jun-2021',email:'rahul@dr.com',   address:'Jaipur',contact:'9800000002',active:true},
     {username:'agent1',  password:'agent1',  name:'Jenna Rivera',  role:'agent',   initials:'JR',empId:'EMP003',managerId:null, dob:'22-Jul-1992',doj:'01-Apr-2022',email:'jenna@dr.com',   address:'Jaipur',contact:'9800000003',active:true},
+    {username:'billing_admin',password:'password123',name:'Billing Admin', role:'billing', initials:'BA',empId:'BILL001',managerId:null, dob:'01-Jan-1990',doj:'01-Jan-2023',email:'billing@dr.com', address:'Billing Dept',contact:'9999999999',active:true},
   ];
 
   for (const u of users) {

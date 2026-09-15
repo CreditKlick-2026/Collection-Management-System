@@ -304,3 +304,16 @@
         padding: 1.5rem 1rem;
     }
 }
+
+.billing-toggle-link {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #2563eb;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.billing-toggle-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
