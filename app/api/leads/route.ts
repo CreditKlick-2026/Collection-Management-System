@@ -3,6 +3,28 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Convert Excel serial date numbers in metadata to readable DD-MM-YYYY format.
+ * Excel serial 45258 → "28-11-2023"
+ */
+function formatMetadataDates(lead: any) {
+  if (!lead.metadata || typeof lead.metadata !== 'object') return lead;
+  const meta = { ...lead.metadata };
+  for (const [key, value] of Object.entries(meta)) {
+    if (key.toLowerCase().includes('date') && /^\d{4,5}$/.test(String(value).trim())) {
+      const serial = Number(value);
+      if (serial >= 1 && serial <= 2958465) {
+        const excelEpoch = new Date(1899, 11, 30); // 30 Dec 1899
+        const d = new Date(excelEpoch.getTime() + serial * 86400000);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        meta[key] = `${dd}-${mm}-${d.getFullYear()}`;
+      }
+    }
+  }
+  return { ...lead, metadata: meta };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get('q') || '';
@@ -185,10 +207,10 @@ export async function GET(request: Request) {
         }),
         prisma.customer.count({ where })
       ]);
-      return NextResponse.json({ leads, total });
+      return NextResponse.json({ leads: leads.map(formatMetadataDates), total });
     } else {
       const leads = await prisma.customer.findMany(queryOptions);
-      return NextResponse.json(leads);
+      return NextResponse.json(leads.map(formatMetadataDates));
     }
   } catch (error) {
     console.error('Fetch leads error:', error);

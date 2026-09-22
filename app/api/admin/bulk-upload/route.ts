@@ -49,6 +49,20 @@ const CUSTOMER_FIELDS = new Set([
 
 function normalizeKey(k) { return k.toLowerCase().trim().replace(/\\s+/g, ' '); }
 
+// Convert Excel serial date number to DD-MM-YYYY string
+function excelSerialToDate(serial) {
+  const n = Number(serial);
+  if (isNaN(n) || n < 1 || n > 2958465) return null; // valid Excel date range
+  // Excel epoch: 1 Jan 1900, but Excel incorrectly treats 1900 as leap year (bug compatibility)
+  const excelEpoch = new Date(1899, 11, 30); // 30 Dec 1899
+  const msPerDay = 86400000;
+  const d = new Date(excelEpoch.getTime() + n * msPerDay);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return dd + '-' + mm + '-' + yyyy;
+}
+
 function mapRow(row, dynamicFieldMap) {
   const out  = {};
   const meta = {};
@@ -65,7 +79,15 @@ function mapRow(row, dynamicFieldMap) {
     } else if (dynamicFieldMap && dynamicFieldMap[nk]) {
       const { key, type } = dynamicFieldMap[nk];
       if (type === 'number') { const n = Number(v); if (!isNaN(n)) meta[key] = n; }
-      else { meta[key] = String(v).trim(); }
+      else {
+        // Auto-convert Excel serial dates for date-related fields
+        if (nk.includes('date') && /^\\d{4,5}$/.test(String(v).trim())) {
+          const converted = excelSerialToDate(v);
+          meta[key] = converted || String(v).trim();
+        } else {
+          meta[key] = String(v).trim();
+        }
+      }
     }
   }
   if (Object.keys(meta).length > 0) out['_meta'] = meta;
