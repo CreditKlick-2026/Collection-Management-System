@@ -859,7 +859,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
     amount: '',
     mode: 'NEFT',
     ref: '',
-    date: '',
+    date: new Date().toISOString().split('T')[0],
     remarks: '',
     upgradeFlag: '',
     upgradeType: '',
@@ -877,26 +877,25 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
   };
 
   const handleSubmit = async (force = false) => {
-    // Basic fields
-    if (!form.amount || !form.date || !form.mode || !form.ref || !form.status || !form.remarks) {
-      toast('Please fill all required fields: Amount, Mode, Date, Ref No, Status, and Remarks');
+    // Only amount is strictly required
+    if (!form.amount || parseFloat(form.amount) <= 0) {
+      toast('Please enter a valid Amount');
       return;
     }
-    // Upgrade fields if eligible
-    if (lead.eligible_upgrade === 'Y' || lead.eligible_for_update === 'Y') {
-      if (!form.upgradeFlag) {
-        toast('Please select an Upgrade Flag');
-        return;
-      }
-      if (form.upgradeFlag === 'Upgraded' && !form.upgradeType) {
-        toast('Please select an Upgrade Type');
-        return;
-      }
-      if (form.upgradeFlag === 'Pending For Upgrade' && !form.upgradeReason) {
-        toast('Please select an Upgrade Reason');
-        return;
-      }
+
+    // Optional upgrade fields validation only if flag selected
+    if (form.upgradeFlag === 'Upgraded' && !form.upgradeType) {
+      toast('Please select an Upgrade Type');
+      return;
     }
+    if (form.upgradeFlag === 'Pending For Upgrade' && !form.upgradeReason) {
+      toast('Please select an Upgrade Reason');
+      return;
+    }
+
+    const paymentDate = form.date || new Date().toISOString().split('T')[0];
+    const paymentMode = form.mode || 'NEFT';
+
     setLoading(true);
     setDupWarning(null);
     try {
@@ -907,14 +906,14 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         body: JSON.stringify({
           customerId: lead.id,
           amount: form.amount,
-          mode: form.mode,
-          ref: form.ref,
-          date: form.date,
-          remarks: form.remarks,
+          mode: paymentMode,
+          ref: form.ref || '',
+          date: paymentDate,
+          remarks: form.remarks || '',
           agentId: user?.id,
-          upgradeFlag: form.upgradeFlag,
-          upgradeType: form.upgradeType,
-          upgradeReason: form.upgradeReason,
+          upgradeFlag: form.upgradeFlag || null,
+          upgradeType: form.upgradeType || null,
+          upgradeReason: form.upgradeReason || null,
           confirmDuplicate: force // tells backend to bypass soft duplicate check
         })
       });
@@ -943,7 +942,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         return;
       }
 
-      // 1.5 Update Lead Status if changed
+      // 1.5 Update Lead Status if provided and changed
       if (form.status && form.status !== lead.status) {
         await fetch(`/api/leads/${lead.id}`, {
           method: 'PUT',
@@ -953,7 +952,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
       }
 
       // 2. If Upgraded, update lead via disposition API
-      if (lead.eligible_upgrade === 'Y' && form.upgradeFlag) {
+      if (form.upgradeFlag) {
         await fetch(`/api/leads/${lead.id}/disposition`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -962,7 +961,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
             connectStatus: 'Right Party Connect',
             disposition: 'Promised to Pay',
             subDisposition: 'Full Outstanding Amount',
-            remarks: `Payment Recorded: ${form.remarks}`,
+            remarks: form.remarks ? `Payment Recorded: ${form.remarks}` : 'Payment Recorded',
             upgradeFlag: form.upgradeFlag,
             upgradeType: form.upgradeType,
             upgradeReason: form.upgradeReason
@@ -1022,18 +1021,18 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div className="ff">
-            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REFERENCE NO. *</label>
-            <input className="finp" value={form.ref} onChange={e => handleRefChange(e.target.value)} placeholder="UTR / Ref number" />
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REFERENCE NO.</label>
+            <input className="finp" value={form.ref} onChange={e => handleRefChange(e.target.value)} placeholder="UTR / Ref number (optional)" />
           </div>
           <div className="ff">
-            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPDATE STATUS *</label>
+            <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPDATE STATUS</label>
             <select
               className="finp"
               style={{ height: '36px', borderRadius: 10, border: '1px solid var(--pur)', background: 'var(--purbg)', color: 'var(--pur)', fontWeight: 700 }}
               value={form.status}
               onChange={e => setForm({ ...form, status: e.target.value })}
             >
-              <option value="">— Select Status —</option>
+              <option value="">— Select Status (Optional) —</option>
               {['Rollback', 'Rollforward', 'Normilization', 'STAB'].map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -1045,7 +1044,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         {(lead.eligible_upgrade === 'Y' || lead.eligible_for_update === 'Y') && (
           <div style={{ background: 'var(--bg3)', border: '1px solid var(--bdr)', borderRadius: 10, padding: '12px', marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>Upgrade Status</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>Upgrade Status (Optional)</div>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(46,204,138,0.1)', color: 'var(--grn)', padding: '2px 8px', borderRadius: 12, fontSize: 10, border: '1px solid rgba(46,204,138,0.3)', fontWeight: 600 }}>
                 <span style={{ fontSize: 11 }}>✓</span> Eligible for Upgrade
               </span>
@@ -1053,13 +1052,13 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="ff">
-                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG *</label>
+                <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE FLAG</label>
                 <select
                   className="finp"
                   value={form.upgradeFlag}
                   onChange={e => setForm({ ...form, upgradeFlag: e.target.value, upgradeType: '', upgradeReason: '' })}
                 >
-                  <option value="">— Select —</option>
+                  <option value="">— Select (Optional) —</option>
                   <option value="Upgraded">Upgraded</option>
                   <option value="Pending For Upgrade">Pending For Upgrade</option>
                 </select>
@@ -1067,7 +1066,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
               {form.upgradeFlag === 'Upgraded' && (
                 <div className="ff">
-                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE *</label>
+                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>UPGRADE TYPE</label>
                   <select className="finp" value={form.upgradeType} onChange={e => setForm({ ...form, upgradeType: e.target.value })}>
                     <option value="">— Select —</option>
                     <option value="System">System</option>
@@ -1080,7 +1079,7 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
               {form.upgradeFlag === 'Pending For Upgrade' && (
                 <div className="ff">
-                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON *</label>
+                  <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REASON</label>
                   <select className="finp" value={form.upgradeReason} onChange={e => setForm({ ...form, upgradeReason: e.target.value })}>
                     <option value="">— Select Reason —</option>
                     <option value="Multi Card Payment Due">Multi Card Payment Due</option>
@@ -1100,8 +1099,8 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
         )}
 
         <div className="ff" style={{ marginBottom: 15 }}>
-          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REMARKS / NOTES *</label>
-          <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} placeholder="Payment notes..." />
+          <label style={{ fontSize: 9, letterSpacing: 0.5, color: 'var(--txt3)' }}>REMARKS / NOTES</label>
+          <textarea className="finp" rows={2} style={{ resize: 'vertical', minHeight: '60px' }} value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} placeholder="Payment notes (optional)..." />
         </div>
       </div>
 
@@ -1145,16 +1144,13 @@ const RecordLeadPaymentModal = ({ lead, onDone }: { lead: any, onDone: () => voi
 
       {/* ── Submit Button ── */}
       {(() => {
-        const isUpgradeRequired = lead.eligible_upgrade === 'Y' || lead.eligible_for_update === 'Y';
-        const isUpgradeValid = !isUpgradeRequired || (
-          form.upgradeFlag && (
-            (form.upgradeFlag === 'Upgraded' && form.upgradeType) ||
-            (form.upgradeFlag === 'Pending For Upgrade' && form.upgradeReason) ||
-            (form.upgradeFlag && form.upgradeFlag !== 'Upgraded' && form.upgradeFlag !== 'Pending For Upgrade')
-          )
+        const isUpgradeValid = !form.upgradeFlag || (
+          (form.upgradeFlag === 'Upgraded' && !!form.upgradeType) ||
+          (form.upgradeFlag === 'Pending For Upgrade' && !!form.upgradeReason) ||
+          (form.upgradeFlag !== 'Upgraded' && form.upgradeFlag !== 'Pending For Upgrade')
         );
 
-        const isFormValid = !!(form.amount && form.date && form.mode && form.ref && form.status && form.remarks && isUpgradeValid);
+        const isFormValid = !!(form.amount && parseFloat(form.amount) > 0 && isUpgradeValid);
         const isHardBlocked = dupWarning?.type === 'hard';
         return (
           !dupWarning?.type || dupWarning.type === 'hard' ? (
